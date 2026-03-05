@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>All RNR Devices</title>
+  <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+  <link rel="stylesheet" href="/css/dashboard-shell.css" />
+  <link rel="stylesheet" href="/css/theme.css?v=2025" />
+  <link href="css/phase0.css" rel="stylesheet">
+</head>
+<body class="app-shell">
+<aside class="app-sidebar">
+  <div class="sidebar-brand-global">
+    <img src="/img/ndabase-icon.png" class="sidebar-brand-icon" alt="Ndabase Logo Icon" />
+  </div>
+  
+  <!-- Profile Block -->
+  <div class="sidebar-profile" id="sidebarProfile">
+    <div class="profile-avatar">
+      <span class="avatar-initials" id="profileInitials">U</span>
+    </div>
+    <div class="profile-info">
+      <div class="profile-name" id="profileName">Loading...</div>
+      <div class="profile-role" id="profileRole">User</div>
+    </div>
+  </div>
+  
+  <nav class="sidebar-nav">
+    <span class="sidebar-section">RNR</span>
+    <a href="/phase0/rnr.html" class="sidebar-link"><i class="bi bi-arrow-up-circle"></i><span>Upload RNR</span></a>
+    <a href="/phase0/rnr-all.html" class="sidebar-link active"><i class="bi bi-laptop"></i><span>All RNR Devices</span></a>
+    <a href="/phase0/rnr-batches.html" class="sidebar-link"><i class="bi bi-collection"></i><span>RNR Batches</span></a>
+    <span class="sidebar-section">NEW</span>
+    <a href="/phase0/new.html" class="sidebar-link"><i class="bi bi-arrow-bar-up"></i><span>Upload NEW</span></a>
+    <a href="/phase0/new-all.html" class="sidebar-link"><i class="bi bi-phone"></i><span>All NEW Devices</span></a>
+    <a href="/phase0/new-batches.html" class="sidebar-link"><i class="bi bi-collection-play"></i><span>NEW Batches</span></a>
+    <a href="/phase0/new-readiness.html" class="sidebar-link"><i class="bi bi-clipboard-check"></i><span>School Readiness</span></a>
+    <a href="/phase0/readiness-reports.html" class="sidebar-link"><i class="bi bi-file-earmark-text"></i><span>Readiness Reports</span></a>
+    <span class="sidebar-section">SYSTEM</span>
+    <a href="/logout" class="sidebar-link danger"><i class="bi bi-box-arrow-right"></i><span>Logout</span></a>
+  </nav>
+</aside>
+
+<div class="app-main">
+<header class="app-header"><div><div class="welcome-line">Phase 0 · RNR</div><div class="welcome-date">All RNR Devices</div></div><div class="header-right"><button class="avatar-btn"><span class="avatar-initials">P0</span></button></div></header>
+<main class="app-content">
+<div class="container my-4">
+  <div id="alert" class="alert d-none"></div>
+
+  <div class="row g-3 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label">Search</label>
+      <input id="q" type="text" class="form-control" placeholder="Serial / IMEI / Brand / Model">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">From</label>
+      <input id="from" type="date" class="form-control">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">To</label>
+      <input id="to" type="date" class="form-control">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Page size</label>
+      <select id="pageSize" class="form-select">
+        <option>10</option><option selected>25</option><option>50</option><option>100</option>
+      </select>
+    </div>
+    <div class="col-md-1 d-grid">
+      <button id="refreshBtn" class="btn btn-primary">Search</button>
+    </div>
+  </div>
+
+  <div class="mt-3 d-flex justify-content-between align-items-center">
+    <div id="stats" class="text-muted small">—</div>
+    <a id="exportBtn" class="btn btn-outline-secondary" href="#">Export CSV</a>
+  </div>
+
+  <div class="card mt-2">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover table-sm mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>#</th><th>Serial</th><th>IMEI</th><th>Brand</th><th>Model</th><th class="text-end">Qty</th><th>Imported At</th><th>Batch File</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <nav class="d-flex justify-content-between align-items-center mt-3">
+    <div id="pagerText" class="text-muted small">—</div>
+    <ul id="pager" class="pagination mb-0"></ul>
+  </nav>
+</div>
+</main>
+
+  <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/phase0.api.js"></script>
+<script>
+const {API_BASE, fetchJson, rowsOrEmpty} = PHASE0;
+const rowsEl = document.getElementById('rows');
+const pagerEl = document.getElementById('pager');
+const pagerText = document.getElementById('pagerText');
+const alertEl = document.getElementById('alert');
+const statsEl = document.getElementById('stats');
+const exportBtn = document.getElementById('exportBtn');
+let page = 1;
+
+function say(msg, type='info'){ alertEl.className='alert alert-'+type; alertEl.textContent=msg; alertEl.classList.remove('d-none'); }
+function qs(obj){ return Object.entries(obj).filter(([_,v])=>v!==undefined&&v!==null&&v!=='').map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&'); }
+
+async function load(){
+  const pageSize = parseInt(document.getElementById('pageSize').value,10);
+  const q = document.getElementById('q').value.trim();
+  const from = document.getElementById('from').value;
+  const to = document.getElementById('to').value;
+  try {
+    const data = await fetchJson(`${API_BASE}/devices/rnr?${qs({ page, pageSize, q, from, to })}`);
+    // Stats (optional)
+    const stats = data.stats || null;
+    statsEl.textContent = stats
+      ? `Total: ${data.total} · Qty Sum: ${stats.qtySum} · Brands: ${stats.brands} · Models: ${stats.models}`
+      : `Total: ${data.total}`;
+    exportBtn.href = '#';
+
+    // Rows
+    rowsEl.innerHTML = '';
+    const rows = rowsOrEmpty(data);
+    const start = (data.page-1)*data.pageSize;
+    rows.forEach((r,i)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${start+i+1}</td>
+        <td>${r.serial ?? ''}</td>
+        <td>${r.imei ?? ''}</td>
+        <td>${r.brand ?? ''}</td>
+        <td>${r.model ?? ''}</td>
+        <td class="text-end">${r.qty ?? r.quantity ?? 1}</td>
+        <td>${r.importedAt ? new Date(r.importedAt).toLocaleString() : '-'}</td>
+        <td>${r.batchFile ?? ''}</td>`;
+      rowsEl.appendChild(tr);
+    });
+
+    // Pager
+    const pages = Math.max(1, Math.ceil(data.total / data.pageSize));
+    pagerEl.innerHTML = '';
+    pagerText.textContent = `Page ${data.page} of ${pages}`;
+    const make = (n, label=n) => {
+      const li = document.createElement('li');
+      li.className = 'page-item'+(n===page?' active':'');
+      const a = document.createElement('a'); a.className='page-link'; a.href='#'; a.textContent=label;
+      a.onclick = (e)=>{ e.preventDefault(); page=n; load(); };
+      li.appendChild(a); return li;
+    };
+    const prev = Math.max(1, page-1), next = Math.min(pages, page+1);
+    pagerEl.appendChild(make(prev, '«'));
+    for(let i=Math.max(1,page-2); i<=Math.min(pages,page+2); i++) pagerEl.appendChild(make(i));
+    pagerEl.appendChild(make(next, '»'));
+  } catch (err) {
+    say(err.message || 'Failed to load devices', 'danger');
+  }
+}
+
+// Events
+ document.getElementById('refreshBtn').onclick = ()=>{ page=1; load(); };
+ document.getElementById('pageSize').onchange = ()=>{ page=1; load(); };
+ document.getElementById('q').onkeyup = (e)=>{ if(e.key==='Enter'){ page=1; load(); }};
+
+// Init
+load();
+</script>
+<script>
+async function loadProfile() {
+  try {
+    const response = await fetch('/api/auth/current-user');
+    if (response.ok) {
+      const user = await response.json();
+      const initials = user.fullName ? user.fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'U';
+      document.getElementById('profileInitials').textContent = initials;
+      document.getElementById('profileName').textContent = user.fullName || 'User';
+      document.getElementById('profileRole').textContent = user.role || 'User';
+    }
+  } catch (error) {
+    console.error('Error loading profile:', error);
+  }
+}
+document.addEventListener('DOMContentLoaded', loadProfile);
+</script>
+</body>
+</html>

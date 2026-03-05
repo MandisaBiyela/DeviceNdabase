@@ -1,0 +1,250 @@
+using DeviceDesk.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace DeviceDesk.Services
+{
+    /// <summary>
+    /// Service to bridge Phase 0 (Orders) and Phase 1 (Receiving)
+    /// Handles order handover, status synchronization, and audit trail
+    /// </summary>
+    public class OrderIntegrationService
+    {
+        private readonly DeviceDeskDbContext _phase0Db;
+        private readonly ILogger<OrderIntegrationService> _logger;
+
+        public OrderIntegrationService(
+            DeviceDeskDbContext phase0Db,
+            ILogger<OrderIntegrationService> logger)
+        {
+            _phase0Db = phase0Db;
+            _logger = logger;
+        }
+
+        /// <summary>
+        /// Get all approved orders available for Phase 1 receiving
+        /// </summary>
+        public async Task<List<OrderHandoverDto>> GetApprovedOrdersForReceivingAsync(CancellationToken ct = default)
+        {
+            var orders = await _phase0Db.Orders
+                .Where(o => o.Status == 1) // 1 = Approved
+                .Select(o => new OrderHandoverDto
+                {
+                    OrderId = o.OrderId,
+                    OrderNumber = o.OrderNumber,
+                    InvoiceNumber = o.InvoiceNumber,
+                    SupplierName = o.SupplierName,
+                    OrderDate = o.OrderDate,
+                    DeliveryDate = o.DeliveryDate,
+                    TotalQuantity = _phase0Db.OrderLines
+                        .Where(ol => ol.OrderId == o.OrderId)
+                        .Sum(ol => ol.QuantityOrdered),
+                    ReceivedQuantity = _phase0Db.OrderLines
+                        .Where(ol => ol.OrderId == o.OrderId)
+                        .Sum(ol => ol.QuantityReceived ?? 0),
+                    Status = "Approved",
+                    IsFullyReceived = _phase0Db.OrderLines
+                        .Where(ol => ol.OrderId == o.OrderId)
+                        .All(ol => ol.QuantityReceived >= ol.QuantityOrdered)
+                })
+                .OrderByDescending(o => o.OrderDate)
+                .ToListAsync(ct);
+
+            _logger.LogInformation("[Order Integration] Found {Count} approved orders for receiving", orders.Count);
+            return orders;
+        }
+
+        /// <summary>
+        /// Get specific order details for receiving batch creation
+        /// </summary>
+        public async Task<OrderDetailsDto?> GetOrderDetailsAsync(Guid orderId, CancellationToken ct = default)
+        {
+            var order = await _phase0Db.Orders
+                .Where(o => o.OrderId == orderId)
+                .Select(o => new OrderDetailsDto
+                {
+                    OrderId = o.OrderId,
+                    OrderNumber = o.OrderNumber,
+                    InvoiceNumber = o.InvoiceNumber,
+                    SupplierName = o.SupplierName,
+                    OrderDate = o.OrderDate,
+                    DeliveryDate = o.DeliveryDate,
+                    Status = o.Status,
+                    Notes = o.Notes,
+                    OrderLines = _phase0Db.OrderLines
+                        .Where(ol => ol.OrderId == o.OrderId)
+                        .Select(ol => new OrderLineDto
+                        {
+                            OrderLineId = ol.OrderLineId,
+                            Brand = ol.Brand,
+                            Model = ol.Model,
+                            QuantityOrdered = ol.QuantityOrdered,
+                            QuantityReceived = ol.QuantityReceived ?? 0,
+                            Description = ol.Description
+                        })
+                        .ToList()
+                })
+                .FirstOrDefaultAsync(ct);
+
+            if (order != null)
+            {
+                _logger.LogInformation("[Order Integration] Retrieved order {OrderNumber} with {LineCount} lines",
+                    order.OrderNumber, order.OrderLines.Count);
+            }
+
+            return order;
+        }
+
+        /// <summary>
+        /// Update order status when receiving batch is created
+        /// </summary>
+        public async Task MarkOrderAsReceivingInProgressAsync(Guid orderId, string receivedBy, CancellationToken ct = default)
+        {
+            var order = await _phase0Db.Orders.FindAsync(new object[] { orderId }, ct);
+            if (order == null)
+            {
+                _logger.LogWarning("[Order Integration] Order {OrderId} not found for status update", orderId);
+                return;
+            }
+
+            // Status 2 = Receiving In Progress
+            order.Status = 2;
+            order.Notes = $"{order.Notes}\n[{DateTime.UtcNow:yyyy-MM-dd HH:mm}] Receiving started by {receivedBy}";
+
+            await _phase0Db.SaveChangesAsync(ct);
+
+            _logger.LogInformation("[Order Integration] Order {OrderNumber} marked as Receiving In Progress by {User}",
+                order.OrderNumber, receivedBy);
+        }
+
+        /// <summary>
+        /// Update order quantities when GRV is generated
+        /// </summary>
+        public async Task UpdateOrderReceivedQuantitiesAsync(
+            Guid orderId,
+            int totalReceived,
+            string grvNumber,
+            CancellationToken ct = default)
+        {
+            var order = await _phase0Db.Orders.FindAsync(new object[] { orderId }, ct);
+            if (order == null)
+            {
+                _logger.LogWarning("[Order Integration] Order {OrderId} not found for GRV update", orderId);
+                return;
+            }
+
+            var orderLines = await _phase0Db.OrderLines
+                .Where(ol => ol.OrderId == orderId)
+                .ToListAsync(ct);
+
+            var totalOrdered = orderLines.Sum(ol => ol.QuantityOrdered);
+
+            // Distribute received quantity proportionally across order lines
+            // Or mark all as received if quantities match
+            if (totalReceived == totalOrdered)
+            {
+                foreach (var line in orderLines)
+                {
+                    line.QuantityReceived = line.QuantityOrdered;
+                }
+            }
+            else
+            {
+                // Partial receipt - distribute proportionally
+                var ratio = (double)totalReceived / totalOrdered;
+                foreach (var line in orderLines)
+                {
+                    line.QuantityReceived = (int)(line.QuantityOrdered * ratio);
+                }
+            }
+
+            // Update order status
+            var isFullyReceived = orderLines.All(ol => ol.QuantityReceived >= ol.QuantityOrdered);
+            order.Status = isFullyReceived ? 3 : 2; // 3 = Received, 2 = Receiving In Progress
+            order.Notes = $"{order.Notes}\n[{DateTime.UtcNow:yyyy-MM-dd HH:mm}] GRV {grvNumber} generated - {totalReceived}/{totalOrdered} devices received";
+
+            await _phase0Db.SaveChangesAsync(ct);
+
+            _logger.LogInformation(
+                "[Order Integration] Order {OrderNumber} updated: {Received}/{Ordered} devices, Status={Status}, GRV={GRV}",
+                order.OrderNumber, totalReceived, totalOrdered, isFullyReceived ? "Received" : "Partial", grvNumber);
+        }
+
+        /// <summary>
+        /// Get order status for audit trail
+        /// </summary>
+        public async Task<OrderStatusDto?> GetOrderStatusAsync(Guid orderId, CancellationToken ct = default)
+        {
+            var order = await _phase0Db.Orders
+                .Where(o => o.OrderId == orderId)
+                .Select(o => new OrderStatusDto
+                {
+                    OrderId = o.OrderId,
+                    OrderNumber = o.OrderNumber,
+                    Status = o.Status,
+                    StatusText = o.Status == 0 ? "Draft" :
+                                 o.Status == 1 ? "Approved" :
+                                 o.Status == 2 ? "Receiving In Progress" :
+                                 o.Status == 3 ? "Received" : "Unknown",
+                    TotalOrdered = _phase0Db.OrderLines
+                        .Where(ol => ol.OrderId == o.OrderId)
+                        .Sum(ol => ol.QuantityOrdered),
+                    TotalReceived = _phase0Db.OrderLines
+                        .Where(ol => ol.OrderId == o.OrderId)
+                        .Sum(ol => ol.QuantityReceived ?? 0),
+                    LastUpdated = o.OrderDate
+                })
+                .FirstOrDefaultAsync(ct);
+
+            return order;
+        }
+    }
+
+    // DTOs for order handover
+    public class OrderHandoverDto
+    {
+        public Guid OrderId { get; set; }
+        public string OrderNumber { get; set; } = string.Empty;
+        public string? InvoiceNumber { get; set; }
+        public string SupplierName { get; set; } = string.Empty;
+        public DateTime OrderDate { get; set; }
+        public DateTime? DeliveryDate { get; set; }
+        public int TotalQuantity { get; set; }
+        public int ReceivedQuantity { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public bool IsFullyReceived { get; set; }
+    }
+
+    public class OrderDetailsDto
+    {
+        public Guid OrderId { get; set; }
+        public string OrderNumber { get; set; } = string.Empty;
+        public string? InvoiceNumber { get; set; }
+        public string SupplierName { get; set; } = string.Empty;
+        public DateTime OrderDate { get; set; }
+        public DateTime? DeliveryDate { get; set; }
+        public int Status { get; set; }
+        public string? Notes { get; set; }
+        public List<OrderLineDto> OrderLines { get; set; } = new();
+    }
+
+    public class OrderLineDto
+    {
+        public Guid OrderLineId { get; set; }
+        public string? Brand { get; set; }
+        public string? Model { get; set; }
+        public int QuantityOrdered { get; set; }
+        public int QuantityReceived { get; set; }
+        public string? Description { get; set; }
+    }
+
+    public class OrderStatusDto
+    {
+        public Guid OrderId { get; set; }
+        public string OrderNumber { get; set; } = string.Empty;
+        public int Status { get; set; }
+        public string StatusText { get; set; } = string.Empty;
+        public int TotalOrdered { get; set; }
+        public int TotalReceived { get; set; }
+        public DateTime LastUpdated { get; set; }
+    }
+}

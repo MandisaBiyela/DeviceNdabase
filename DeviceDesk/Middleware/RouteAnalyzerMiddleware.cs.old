@@ -1,0 +1,120 @@
+using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
+
+namespace DeviceDesk.Middleware
+{
+    /// <summary>
+    /// Middleware to analyze and display API routing information
+    /// Useful for debugging routing issues and understanding the API structure
+    /// </summary>
+    public class RouteAnalyzerMiddleware
+    {
+        private readonly RequestDelegate _next;
+        private readonly ILogger<RouteAnalyzerMiddleware> _logger;
+        private readonly IActionDescriptorCollectionProvider _actionDescriptorProvider;
+        private static bool _routesLogged = false;
+
+        public RouteAnalyzerMiddleware(
+            RequestDelegate next, 
+            ILogger<RouteAnalyzerMiddleware> logger,
+            IActionDescriptorCollectionProvider actionDescriptorProvider)
+        {
+            _next = next;
+            _logger = logger;
+            _actionDescriptorProvider = actionDescriptorProvider;
+        }
+
+        public async Task InvokeAsync(HttpContext context)
+        {
+            // Log all routes once at startup
+            if (!_routesLogged)
+            {
+                LogAllRoutes();
+                _routesLogged = true;
+            }
+
+            await _next(context);
+        }
+
+        private void LogAllRoutes()
+        {
+            _logger.LogInformation("═══════════════════════════════════════════════════════════");
+            _logger.LogInformation("                    API ROUTE MAP                          ");
+            _logger.LogInformation("═══════════════════════════════════════════════════════════");
+
+            var routes = _actionDescriptorProvider.ActionDescriptors.Items
+                .OfType<ControllerActionDescriptor>()
+                .Select(x => new
+                {
+                    Controller = x.ControllerName,
+                    Action = x.ActionName,
+                    Method = x.ActionConstraints?
+                        .OfType<Microsoft.AspNetCore.Mvc.Routing.HttpMethodActionConstraint>()
+                        .FirstOrDefault()?.HttpMethods.FirstOrDefault() ?? "ANY",
+                    Template = x.AttributeRouteInfo?.Template ?? "N/A",
+                    Phase = GetPhaseFromController(x.ControllerName)
+                })
+                .OrderBy(x => x.Phase)
+                .ThenBy(x => x.Template)
+                .ToList();
+
+            var groupedByPhase = routes.GroupBy(x => x.Phase);
+
+            foreach (var phaseGroup in groupedByPhase)
+            {
+                _logger.LogInformation("");
+                _logger.LogInformation("┌─ {Phase} ─────────────────────────────────────────────", phaseGroup.Key);
+                
+                foreach (var route in phaseGroup)
+                {
+                    var methodColor = route.Method switch
+                    {
+                        "GET" => "🔵",
+                        "POST" => "🟢",
+                        "PUT" => "🟡",
+                        "DELETE" => "🔴",
+                        "PATCH" => "🟠",
+                        _ => "⚪"
+                    };
+
+                    _logger.LogInformation(
+                        "│  {MethodEmoji} {Method,-6} /{Template}",
+                        methodColor,
+                        route.Method,
+                        route.Template
+                    );
+                }
+                
+                _logger.LogInformation("└────────────────────────────────────────────────────────");
+            }
+
+            _logger.LogInformation("");
+            _logger.LogInformation("Total Routes: {Count}", routes.Count);
+            _logger.LogInformation("═══════════════════════════════════════════════════════════");
+        }
+
+        private static string GetPhaseFromController(string controllerName)
+        {
+            var lower = controllerName.ToLower();
+            
+            if (lower.Contains("phase2") || lower.Contains("receipting") || 
+                lower.Contains("assessment") || lower.Contains("quality") || 
+                lower.Contains("disposal"))
+                return "PHASE 2";
+            
+            if (lower.Contains("phase1") || lower.Contains("receiving") || 
+                lower.Contains("scanning") || lower.Contains("grv") || 
+                lower.Contains("reconciliation"))
+                return "PHASE 1";
+            
+            if (lower.Contains("phase0") || lower.Contains("order") || 
+                lower.Contains("collection"))
+                return "PHASE 0";
+            
+            if (lower.Contains("auth"))
+                return "AUTH";
+            
+            return "OTHER";
+        }
+    }
+}

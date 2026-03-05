@@ -1,0 +1,48 @@
+{
+	"version": "26.0.9752",
+	"workloads": {
+		"maccatalyst": {
+			"description": ".NET SDK Workload for building MacCatalyst applications.",
+			"packs": [
+				"Microsoft.MacCatalyst.Sdk.net9.0_26.0",
+				"Microsoft.MacCatalyst.Sdk.net9.0_18.0",
+				"Microsoft.MacCatalyst.Ref.net9.0_26.0",
+				"Microsoft.MacCatalyst.Runtime.maccatalyst-x64.net9.0_26.0",
+				"Microsoft.MacCatalyst.Runtime.maccatalyst-arm64.net9.0_26.0",
+				"Microsoft.MacCatalyst.Templates.net9"
+			],
+			"extends": [
+				"microsoft-net-runtime-maccatalyst",
+			]
+		},
+	},
+	"packs": {
+		"Microsoft.MacCatalyst.Sdk.net9.0_26.0": {
+			"kind": "sdk",
+			"version": "26.0.9752",
+		},
+		"Microsoft.MacCatalyst.Sdk.net9.0_18.0": {
+			"kind": "sdk",
+			"version": "18.0.9617",
+		},
+		"Microsoft.MacCatalyst.Ref.net9.0_26.0": {
+			"kind": "framework",
+			"version": "26.0.9752"
+		},
+		"Microsoft.MacCatalyst.Runtime.maccatalyst-x64.net9.0_26.0": {
+			"kind": "framework",
+			"version": "26.0.9752"
+		},
+		"Microsoft.MacCatalyst.Runtime.maccatalyst-arm64.net9.0_26.0": {
+			"kind": "framework",
+			"version": "26.0.9752"
+		},
+		"Microsoft.MacCatalyst.Templates.net9": {
+			"kind": "template",
+			"version": "26.0.9752",
+			"alias-to": {
+				"any": "Microsoft.MacCatalyst.Templates",
+			}
+		}
+	}
+}

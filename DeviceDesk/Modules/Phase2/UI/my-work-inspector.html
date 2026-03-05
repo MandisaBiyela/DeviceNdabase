@@ -1,0 +1,38 @@
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="mb-0">
+    <i class="bi bi-clock-history"></i> My Work History
+  </h5>
+  <span class="text-muted small" id="insp_status">Idle</span>
+</div>
+
+<div class="d-flex gap-2 mb-3">
+  <div class="input-group" style="max-width:160px">
+    <span class="input-group-text">Days</span>
+    <input type="number" id="insp_days" class="form-control" min="1" value="30">
+  </div>
+  <button class="btn btn-primary btn-sm" id="insp_refreshBtn">Refresh</button>
+  <button class="btn btn-outline-secondary btn-sm" id="insp_prevBtn">Prev</button>
+  <button class="btn btn-outline-secondary btn-sm" id="insp_nextBtn">Next</button>
+  <div class="ms-auto small text-muted" id="insp_pagerInfo"></div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-sm table-striped">
+    <thead class="table-light">
+      <tr>
+        <th>Timestamp</th>
+        <th>Action</th>
+        <th>Serial</th>
+        <th>Stage</th>
+        <th>Notes</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="insp_rows"></tbody>
+  </table>
+</div>
+
+<script src="/js/helpers/time.js"></script>
+<!-- Shared Phase 2 utilities -->
+<script src="/phase2/js/phase2-utils.js"></script>
+<script src="/phase2/js/my-work-inspector.js?v=2" data-view-script="true"></script>

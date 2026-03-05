@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Scanning - Phase 1</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .status-pending { background-color: #ffc107; color: #000; }
+        .status-scanning { background-color: #0dcaf0; color: #000; }
+        .status-ready { background-color: #198754; color: #fff; }
+        .status-mismatch { background-color: #dc3545; color: #fff; }
+        .status-completed { background-color: #6c757d; color: #fff; }
+        
+        .progress-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .progress-number {
+            font-size: 3rem;
+            font-weight: bold;
+        }
+        
+        .scan-input-container {
+            background: #f8f9fa;
+            padding: 2rem;
+            border-radius: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .scanned-device {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.3s;
+        }
+        
+        .scanned-device:hover {
+            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+        }
+        
+        .scanned-device.duplicate {
+            border-color: #dc3545;
+            background: #f8d7da;
+        }
+        
+        .blind-copy-item {
+            background: #e7f3ff;
+            border-left: 4px solid #0d6efd;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/phase1/dashboard.html">
+                <i class="bi bi-box-seam"></i> DeviceDesk - Phase 1
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/phase1/dashboard.html">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/phase1/batch-scanning.html">
+                            <i class="bi bi-upc-scan"></i> Batch Scanning
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/phase1/receiving-create.html">Receiving</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <!-- Pending Batches View -->
+        <div id="pendingBatchesView">
+            <div class="row">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2><i class="bi bi-upc-scan"></i> Pending Batches</h2>
+                        <button class="btn btn-outline-primary" onclick="loadPendingBatches()">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+
+                    <div id="alertContainer"></div>
+
+                    <div class="row" id="pendingBatchesContainer">
+                        <div class="col-12 text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scanning View -->
+        <div id="scanningView" style="display: none;">
+            <div class="row">
+                <div class="col-12">
+                    <button class="btn btn-outline-secondary mb-3" onclick="backToPendingBatches()">
+                        <i class="bi bi-arrow-left"></i> Back to Pending Batches
+                    </button>
+
+                    <!-- Progress Card -->
+                    <div class="progress-card">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h3 id="batchNumberDisplay">-</h3>
+                                <p class="mb-0" id="supplierDisplay">-</p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <div class="progress-number" id="progressDisplay">0/0</div>
+                                <div class="progress mt-2" style="height: 10px;">
+                                    <div class="progress-bar bg-success" id="progressBar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Left: Blind Copy -->
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0"><i class="bi bi-list-check"></i> Expected Items (Blind Copy)</h5>
+                                </div>
+                                <div class="card-body" id="blindCopyContainer">
+                                    <!-- Blind copy items will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Scanning -->
+                        <div class="col-md-8">
+                            <!-- Scan Input -->
+                            <div class="scan-input-container">
+                                <h5><i class="bi bi-upc-scan"></i> Scan Device</h5>
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-text"><i class="bi bi-upc"></i></span>
+                                    <input type="text" class="form-control" id="serialInput" 
+                                           placeholder="Scan or type serial number..." autofocus>
+                                    <button class="btn btn-primary" id="scanBtn">
+                                        <i class="bi bi-plus-circle"></i> Add
+                                    </button>
+                                </div>
+                                <small class="text-muted">Press Enter or click Add to scan</small>
+                            </div>
+
+                            <!-- Scanned Devices List -->
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0"><i class="bi bi-check2-circle"></i> Scanned Devices</h5>
+                                    <span class="badge bg-info" id="scannedCount">0</span>
+                                </div>
+                                <div class="card-body" style="max-height: 500px; overflow-y: auto;" id="scannedDevicesContainer">
+                                    <p class="text-muted text-center">No devices scanned yet</p>
+                                </div>
+                            </div>
+
+                            <!-- Confirm Button -->
+                            <div class="d-grid gap-2 mt-3">
+                                <button class="btn btn-success btn-lg" id="confirmBatchBtn" style="display: none;">
+                                    <i class="bi bi-check-circle"></i> Confirm Batch & Generate GRV
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/phase1/js/batch-scanning.js"></script>
+</body>
+</html>
