@@ -1,0 +1,340 @@
+<div class="row g-3">
+    <!-- LEFT: MAIN AREA -->
+    <div class="col-lg-8">
+
+        <!-- Card: Devices Awaiting Pre-Assessment -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-warning fw-semibold">
+                Devices Awaiting Pre-Assessment
+            </div>
+            <div class="card-body">
+
+                <!-- Row: Count + Scan -->
+                <div class="d-flex flex-wrap align-items-center mb-3 gap-3">
+                    <div>
+                        <div class="small text-muted">Devices available from Store-Away</div>
+                        <div class="fs-4 fw-semibold">
+                            <span id="preAvailableCount">0</span>
+                        </div>
+                    </div>
+
+                    <div class="flex-grow-1">
+                        <form id="preScanForm" class="input-group">
+                            <input id="preScanInput"
+                                   class="form-control"
+                                   placeholder="Scan or enter serial / IMEI"
+                                   autocomplete="off" />
+                            <button class="btn btn-primary" type="submit">
+                                Start Pre-Assessment
+                            </button>
+                        </form>
+                        <div class="form-text">
+                            Scan a device from the Store-Away zone to begin its pre-assessment.
+                        </div>
+                    </div>
+                </div>
+
+                
+            </div>
+        </div>
+
+    </div>
+
+    <!-- RIGHT: PRE-ASSESSMENT GUIDE (unchanged) -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold">
+                Pre-Assessment Guide
+            </div>
+            <div class="card-body">
+                <p class="mb-2"><strong>Visual/Functional Check</strong></p>
+                <ul class="mb-3">
+                    <li>Check for physical damage</li>
+                    <li>Test power on/off</li>
+                    <li>Check screen/display</li>
+                    <li>Test basic functionality</li>
+                </ul>
+                <p class="mb-1">
+                    <strong>Pass:</strong> No obvious issues → Detailed Inspection / QA
+                </p>
+                <p class="mb-0">
+                    <strong>Fail:</strong> Issues found → Detailed Inspection for diagnosis
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CAPTURE PRE-ASSESSMENT RESULT -->
+<div class="modal fade" id="preAssessmentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    Pre-Assessment for
+                    <span id="preModalSerial" class="fw-semibold"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3 small text-muted">
+                    <span class="me-3">Zone: <span id="preModalZone"></span></span>
+                    <span class="me-3">Stage: <span id="preModalStage"></span></span>
+                    <span>Last updated: <span id="preModalUpdated"></span></span>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <h6 class="mb-2">Result</h6>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio"
+                                   name="preModalResult" id="preModalResultPass"
+                                   value="pass">
+                            <label class="form-check-label" for="preModalResultPass">
+                                Pass – no obvious issues
+                            </label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="radio"
+                                   name="preModalResult" id="preModalResultFail"
+                                   value="fail">
+                            <label class="form-check-label" for="preModalResultFail">
+                                Fail – issues found
+                            </label>
+                        </div>
+
+                        <h6 class="mb-2">Attention required</h6>
+                        <select id="preModalAttention" class="form-select">
+                            <option value="none">No issue (OK)</option>
+                            <option value="hardware">Hardware department</option>
+                            <option value="software">Software issue</option>
+                            <option value="quarantine">Quarantine</option>
+                        </select>
+                        <div class="form-text">
+                            Where should this device go after pre-assessment?
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <h6 class="mb-2">Notes</h6>
+                        <textarea id="preModalNotes" class="form-control" rows="5"
+                                  placeholder="Capture key findings, visible damage, symptoms, etc."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" type="button"
+                        data-bs-dismiss="modal">
+                    Cancel
+                </button>
+                <button class="btn btn-success" type="button" id="preModalSaveBtn">
+                    Save Pre-Assessment & Return to Store-Away
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * Local formatter just for this view.
+ * No dependency on any global helpers.
+ */
+function formatPreAssessmentTime(dateString) {
+    if (!dateString) return "—";
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return dateString;
+    return d.toLocaleString([], {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+    });
+}
+
+(function () {
+    let availableDevices = [];
+    let currentDevice = null;
+
+    initPreAssessment();
+
+    function initPreAssessment() {
+        const scanForm = document.getElementById('preScanForm');
+        const scanInput = document.getElementById('preScanInput');
+        const saveBtn = document.getElementById('preModalSaveBtn');
+
+        if (scanForm && scanInput) {
+            scanForm.addEventListener('submit', onScanSubmit);
+        }
+
+        if (saveBtn) {
+            saveBtn.addEventListener('click', onSavePreAssessment);
+        }
+
+        loadAvailableCount();
+    }
+
+    async function loadAvailableCount() {
+        const span = document.getElementById('preAvailableCount');
+        if (!span) return;
+
+        span.textContent = '…';
+
+        try {
+            // stage=0 -> Phase2Stage.Received
+            const res = await fetch('/api/phase2/devices?stage=0');
+            if (!res.ok) throw new Error('Failed to load devices');
+
+            const devices = await res.json();
+            // consider "available" those that have not yet been pre-assessed
+            availableDevices = devices.filter(d => d.preAssessmentPassed === null);
+            span.textContent = availableDevices.length.toString();
+        } catch (err) {
+            console.error(err);
+            span.textContent = '0';
+        }
+    }
+
+    async function onScanSubmit(e) {
+        e.preventDefault();
+        const input = document.getElementById('preScanInput');
+        if (!input) return;
+
+        const code = (input.value || '').trim();
+        if (!code) return;
+
+        try {
+            // Look up by serial - prefer exact match, but allow any stage
+            const res = await fetch('/api/phase2/devices?serial=' + encodeURIComponent(code));
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error('API error:', res.status, errorText);
+                throw new Error(`Device lookup failed: HTTP ${res.status}`);
+            }
+
+            const list = await res.json();
+            console.log('Pre-Assessment lookup response:', list);
+
+            if (!list || !list.length) {
+                alert('This device is not yet in Phase 2 (ICT Center / Store-Away). Please confirm it has been received into the ICT Center first.');
+                input.select();
+                return;
+            }
+
+            // Prefer exact match (case-insensitive), otherwise take first
+            const codeLower = code.toLowerCase().trim();
+            let device = list.find(d => {
+                const serial = (d.serial || d.Serial || '').toLowerCase().trim();
+                return serial === codeLower;
+            });
+
+            if (!device) device = list[0];
+
+            console.log('Pre-Assessment selected device:', device);
+
+            currentDevice = device;
+
+            populateModal(device);
+
+            input.value = '';
+            const modalEl = document.getElementById('preAssessmentModal');
+            if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+
+        } catch (err) {
+            console.error('Error in onScanSubmit:', err);
+            alert(err.message || 'Error looking up device.');
+        }
+    }
+
+    function populateModal(device) {
+        // Handle both camelCase and PascalCase property names from API
+        const serial = device.serial ?? device.Serial ?? '';
+        const zone = device.zone ?? device.Zone ?? '';
+        const stage = device.stage ?? device.Stage ?? '';
+        const updatedAt = device.updatedAt ?? device.UpdatedAt ?? null;
+        const preAssessmentNotes = device.preAssessmentNotes ?? device.PreAssessmentNotes ?? '';
+        const preAssessmentPassed =
+            (device.preAssessmentPassed !== undefined && device.preAssessmentPassed !== null)
+                ? device.preAssessmentPassed
+                : (device.PreAssessmentPassed !== undefined ? device.PreAssessmentPassed : null);
+
+        document.getElementById('preModalSerial').textContent = serial;
+        document.getElementById('preModalZone').textContent = String(zone);
+        document.getElementById('preModalStage').textContent = String(stage);
+
+        document.getElementById('preModalUpdated').textContent = formatPreAssessmentTime(updatedAt);
+
+        // reset fields
+        document.getElementById('preModalNotes').value = preAssessmentNotes;
+        document.getElementById('preModalAttention').value = 'none';
+        document
+            .querySelectorAll('input[name="preModalResult"]')
+            .forEach(r => { r.checked = false; });
+
+        if (preAssessmentPassed === true) {
+            document.getElementById('preModalResultPass').checked = true;
+        } else if (preAssessmentPassed === false) {
+            document.getElementById('preModalResultFail').checked = true;
+        }
+    }
+
+    async function onSavePreAssessment() {
+        if (!currentDevice) {
+            alert('No device selected.');
+            return;
+        }
+
+        const resultRadio = document.querySelector('input[name="preModalResult"]:checked');
+        if (!resultRadio) {
+            alert('Select Pass or Fail.');
+            return;
+        }
+
+        const passed = resultRadio.value === 'pass';
+        const notes = document.getElementById('preModalNotes').value || '';
+        const attentionKey = document.getElementById('preModalAttention').value || 'none';
+
+        const attentionMap = {
+            none: 0,
+            hardware: 1,
+            software: 2,
+            quarantine: 3
+        };
+
+        const payload = {
+            DeviceId: currentDevice.id || currentDevice.Id,
+            Passed: passed,
+            AttentionRequired: attentionMap[attentionKey] ?? 0,
+            Notes: notes
+        };
+
+        try {
+            const res = await fetch('/api/phase2/assessment/pre', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || 'Failed to save pre-assessment.');
+            }
+
+            const modalEl = document.getElementById('preAssessmentModal');
+            if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+
+            currentDevice = null;
+            await loadAvailableCount();
+
+            alert('Pre-assessment saved.');
+
+        } catch (err) {
+            console.error(err);
+            alert(err.message || 'Error saving pre-assessment.');
+        }
+    }
+
+})();
+</script>

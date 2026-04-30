@@ -8,6 +8,16 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
     <link rel="stylesheet" href="/css/dashboard-shell.css" />
     <link rel="stylesheet" href="/css/theme.css?v=2025" />
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <style>
+      .sidebar-profile.p2-loading .profile-avatar{ background:#3B82F6; color:#fff; }
+      .sidebar-profile .profile-name{ min-height:16px; display:flex; align-items:center; }
+      .p2-name-skeleton{
+        height:12px; width:82px; border-radius:999px; background:#4B5563;
+        animation:p2Pulse 1.2s ease-in-out infinite;
+      }
+      @keyframes p2Pulse { 0%,100%{opacity:.55;} 50%{opacity:1;} }
+    </style>
 </head>
  
 <body class="app-shell">
@@ -17,12 +27,13 @@
         </div>
         
         <!-- Profile Block -->
-        <div class="sidebar-profile" id="sidebarProfile">
+        <div class="sidebar-profile p2-loading" id="sidebarProfile">
             <div class="profile-avatar">
                 <span class="avatar-initials" id="profileInitials">U</span>
             </div>
             <div class="profile-info">
-                <div class="profile-name" id="profileName">Loading...</div>
+                <div class="profile-name" id="profileName"><em style="color:#D1D5DB;font-style:italic;font-size:13px;">Loading...</em></div>
+                <div id="profileNameSkeleton" class="p2-name-skeleton"></div>
                 <div class="profile-role" id="profileRole">User</div>
             </div>
         </div>
@@ -100,6 +111,9 @@
                 document.getElementById('profileInitials').textContent = initials;
                 document.getElementById('profileName').textContent = currentUser.fullName || 'User';
                 document.getElementById('profileRole').textContent = currentUser.role || 'User';
+                const pSk = document.getElementById('profileNameSkeleton');
+                if (pSk) pSk.style.display = 'none';
+                document.getElementById('sidebarProfile')?.classList.remove('p2-loading');
                 
                 // Load role-specific UI
                 loadRoleBasedUI();
@@ -117,21 +131,22 @@
             
             if (role === 'IctClerk') {
                 sidebar.innerHTML = `
-                    <h6 class="text-muted mb-3">CLERK MENU</h6>
-                    <div class="list-group list-group-flush">
-                        <a href="#" class="list-group-item list-group-item-action" onclick="loadReceiptingView(); return false;">
-                            <i class="bi bi-clipboard-check"></i> Receipting
-                        </a>
-                        <a href="#" class="list-group-item list-group-item-action" onclick="loadDevicesView(); return false;">
-                            <i class="bi bi-list-ul"></i> View Devices
-                        </a>
-                        <a href="#" class="list-group-item list-group-item-action" onclick="loadScanOutView(); return false;">
-                            <i class="bi bi-box-arrow-right"></i> Scan-Out to Dispatch
-                        </a>
-                        <a href="/phase2/users.html" class="list-group-item list-group-item-action">
-                            <i class="bi bi-people"></i> Manage Technicians
-                        </a>
-                    </div>
+                    <span class="sidebar-section">CLERK MENU</span>
+                    <a href="#" class="sidebar-link active" data-clerk-link="receipting" onclick="setActiveClerkNav('receipting'); loadReceiptingView(); return false;">
+                        <i data-lucide="clipboard-check"></i><span>To Receipting</span>
+                    </a>
+                    <a href="#" class="sidebar-link" data-clerk-link="devices" onclick="setActiveClerkNav('devices'); loadDevicesView(); return false;">
+                        <i data-lucide="monitor"></i><span>View Devices</span>
+                    </a>
+                    <a href="#" class="sidebar-link" data-clerk-link="scanout" onclick="setActiveClerkNav('scanout'); loadScanOutView(); return false;">
+                        <i data-lucide="scan-line"></i><span>Scan Out</span>
+                    </a>
+                    <a href="#" class="sidebar-link" data-clerk-link="dispatch" onclick="setActiveClerkNav('dispatch'); loadScanOutView(); return false;">
+                        <i data-lucide="truck"></i><span>Dispatch</span>
+                    </a>
+                    <a href="/phase2/users.html" class="sidebar-link" data-clerk-link="incidents">
+                        <i data-lucide="alert-triangle"></i><span>Manage Incidents</span>
+                    </a>
                 `;
                 loadReceiptingView();
             } else if (role === 'IctInspector') {
@@ -214,6 +229,13 @@
                     </div>
                 `;
             }
+            if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+        }
+
+        function setActiveClerkNav(key) {
+            document.querySelectorAll('[data-clerk-link]').forEach((link) => {
+                link.classList.toggle('active', link.getAttribute('data-clerk-link') === key);
+            });
         }
 
         async function logout() {
@@ -277,6 +299,7 @@
                 (document.getElementById('filterStage') || document.getElementById('devicesList'))) {
                 try { window.loadDevices(); } catch (e) { console.error('loadDevices init error:', e); }
             }
+            if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
         }
 
         // View loaders - implemented via HTML fragments that may contain scripts

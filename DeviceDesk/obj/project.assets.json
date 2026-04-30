@@ -5140,11 +5140,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Zwelethu Sec\\Desktop\\DeviceDesk (yoo) (14)\\DeviceDesk (yoo) (3)\\DeviceDesk\\DeviceDesk.netcore.csproj",
+      "projectUniqueName": "C:\\Users\\Zwelethu Sec\\Ndabase Device\\DeviceNdabase\\DeviceDesk\\DeviceDesk.netcore.csproj",
       "projectName": "DeviceDesk.netcore",
-      "projectPath": "C:\\Users\\Zwelethu Sec\\Desktop\\DeviceDesk (yoo) (14)\\DeviceDesk (yoo) (3)\\DeviceDesk\\DeviceDesk.netcore.csproj",
+      "projectPath": "C:\\Users\\Zwelethu Sec\\Ndabase Device\\DeviceNdabase\\DeviceDesk\\DeviceDesk.netcore.csproj",
       "packagesPath": "C:\\Users\\Zwelethu Sec\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Zwelethu Sec\\Desktop\\DeviceDesk (yoo) (14)\\DeviceDesk (yoo) (3)\\DeviceDesk\\obj\\",
+      "outputPath": "C:\\Users\\Zwelethu Sec\\Ndabase Device\\DeviceNdabase\\DeviceDesk\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Zwelethu Sec\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -5170,7 +5170,8 @@
         "enableAudit": "true",
         "auditLevel": "low",
         "auditMode": "direct"
-      }
+      },
+      "SdkAnalysisLevel": "10.0.100"
     },
     "frameworks": {
       "net8.0": {
@@ -5226,6 +5227,24 @@
         ],
         "assetTargetFallback": true,
         "warn": true,
+        "downloadDependencies": [
+          {
+            "name": "Microsoft.AspNetCore.App.Ref",
+            "version": "[8.0.26, 8.0.26]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Host.win-x64",
+            "version": "[8.0.26, 8.0.26]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Ref",
+            "version": "[8.0.26, 8.0.26]"
+          },
+          {
+            "name": "Microsoft.WindowsDesktop.App.Ref",
+            "version": "[8.0.26, 8.0.26]"
+          }
+        ],
         "frameworkReferences": {
           "Microsoft.AspNetCore.App": {
             "privateAssets": "none"
@@ -5234,7 +5253,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Users\\Zwelethu Sec\\Desktop\\DeviceDesk (yoo) (14)\\DeviceDesk (yoo) (3)\\DeviceDesk\\dotnet\\sdk\\8.0.415/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.107/PortableRuntimeIdentifierGraph.json"
       }
     }
   }
