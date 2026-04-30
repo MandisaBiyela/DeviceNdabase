@@ -1,33 +1,178 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>RNR Batches</title>
   <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
   <link rel="stylesheet" href="/css/dashboard-shell.css" />
   <link rel="stylesheet" href="/css/theme.css?v=2025" />
   <link rel="stylesheet" href="css/phase0.css" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script src="js/phase0.api.js"></script>
   <style>
-    .container{ max-width: 1000px; }
-    .toolbar{ display:flex; gap:8px; align-items:center; margin-bottom:12px; }
-    table td, table th{ vertical-align: middle; }
+    body.sr-batch-page{ background:#F9FAFB; font-family:"DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+    body.sr-batch-page .app-content{ background:#F9FAFB; }
+    body.sr-batch-page .app-header{
+      background: linear-gradient(90deg, #2563EB 0%, #1D4ED8 100%);
+      color:#fff;
+      border-bottom:none;
+      box-shadow:none;
+    }
+    body.sr-batch-page .welcome-line{ color:#fff; font-weight:800; }
+    body.sr-batch-page .welcome-date{ color:#93C5FD; font-weight:600; }
+    body.sr-batch-page .avatar-btn{
+      background:#fff;
+      border:none;
+      width:40px;height:40px;border-radius:999px;
+      color:#111827;
+      box-shadow: 0 1px 2px rgba(16,24,40,.08);
+    }
+    body.sr-batch-page .avatar-initials{ color:#111827; font-weight:800; }
+
+    .sidebar-profile.sr-profile-loading .profile-avatar{
+      background:#3B82F6;
+      color:#fff;
+    }
+    .sidebar-profile .profile-name{
+      min-height: 16px;
+      display:flex;
+      align-items:center;
+    }
+    .sr-profile-skeleton{
+      height:12px;
+      width:82px;
+      background:#4B5563;
+      border-radius:999px;
+      animation: srPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes srPulse { 0%,100%{opacity:.55;} 50%{opacity:1;} }
+
+    .sr-title{ font-size:28px; line-height:1.2; font-weight:800; color:#1F2937; margin: 0 0 12px; }
+    .sr-toolbar{ display:flex; gap:12px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+    .sr-refresh{
+      border:1px solid #D1D5DB;
+      border-radius:10px;
+      height:32px;
+      padding:0 12px;
+      background:#fff;
+      color:#4B5563;
+      font-size:13px;
+      display:inline-flex;
+      gap:6px;
+      align-items:center;
+      font-weight:600;
+    }
+    .sr-refresh:hover{ background:#F9FAFB; }
+    .sr-refresh-icon{ width:14px;height:14px; }
+    .sr-refresh-icon.spin-once{ animation: srSpin .6s linear; }
+    @keyframes srSpin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+    .sr-back-link{
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      color:#2563EB;
+      font-size:13px;
+      text-decoration:none;
+      font-weight:500;
+    }
+    .sr-back-link:hover{ text-decoration:underline; }
+    .sr-last-updated{ color:#9CA3AF; font-size:12px; }
+
+    .sr-table-wrap{ width:100%; }
+    .sr-table{ width:100%; border-collapse:collapse; table-layout:fixed; }
+    .sr-table thead th{
+      position:sticky; top:0; z-index:10;
+      background:#F9FAFB;
+      border-top:1px solid #E5E7EB;
+      border-bottom:1px solid #E5E7EB;
+      color:#6B7280;
+      font-size:12px;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      font-weight:600;
+      height:40px;
+      padding:0 10px;
+      text-align:left;
+    }
+    .sr-table tbody td{
+      height:48px;
+      border-bottom:1px solid #F3F4F6;
+      padding:0 10px;
+      vertical-align:middle;
+      color:#374151;
+      font-size:13px;
+    }
+    .sr-batch-row:hover{ background: rgba(37,99,235,.08); transition: background .1s ease; }
+    .sr-created-cell{ width:180px; color:#6B7280; font-size:12px; white-space:nowrap; }
+    .sr-file-wrap{ display:flex; align-items:center; gap:8px; min-width:0; }
+    .sr-file-icon{ width:14px; height:14px; color:#9CA3AF; flex:0 0 auto; }
+    .sr-file-name{ font-size:13px; color:#374151; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sr-items-pill{
+      display:inline-flex; align-items:center; justify-content:center;
+      min-width:28px; height:24px; padding:0 10px;
+      border-radius:999px; background:#F3F4F6; color:#4B5563;
+      font-size:12px; font-family:"DM Mono", ui-monospace, monospace;
+    }
+    .sr-actions-cell{ width:160px; }
+    .sr-action-link{
+      border:none; background:transparent; padding:0;
+      color:#2563EB; font-size:12px; text-decoration:none;
+      cursor:pointer;
+    }
+    .sr-action-link:hover{ text-decoration:underline; }
+    .sr-action-link.sr-delete{ color:#EF4444; }
+    .sr-confirm-text{ color:#6B7280; font-size:12px; margin-right:6px; }
+    .sr-action-link.sr-yes{ color:#DC2626; margin-right:8px; }
+
+    .sr-status-badge{
+      border-radius:999px; font-size:11px; font-weight:600; padding:2px 10px;
+      display:inline-flex; align-items:center; margin-left:8px;
+    }
+    .sr-status-processing{ background:#FFFBEB; color:#B45309; border:1px solid #FDE68A; }
+    .sr-status-complete{ background:#ECFDF5; color:#047857; border:1px solid #BBF7D0; }
+    .sr-status-failed{ background:#FEF2F2; color:#B91C1C; border:1px solid #FECACA; }
+    .sr-status-pending{ background:#F3F4F6; color:#4B5563; border:1px solid #E5E7EB; }
+
+    .sr-empty-cell{ min-height:300px; padding:0 !important; }
+    .sr-empty-state{
+      min-height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+      text-align:center; padding:20px;
+    }
+    .sr-empty-icon{ width:48px; height:48px; color:#D1D5DB; }
+    .sr-empty-title{ margin-top:12px; color:#6B7280; font-weight:600; }
+    .sr-empty-subtitle{ margin-top:4px; color:#9CA3AF; font-size:12px; }
+    .sr-btn{
+      height:34px; padding:0 14px; border-radius:10px; border:1px solid #D1D5DB;
+      background:#fff; color:#374151; font-size:13px; font-weight:600; text-decoration:none;
+      display:inline-flex; align-items:center; justify-content:center;
+    }
+    .sr-btn-outline-blue{ color:#2563EB; border-color:#93C5FD; }
+    .sr-btn-outline-blue:hover{ background:#EFF6FF; }
   </style>
 </head>
-<body class="app-shell">
+<body class="app-shell sr-batch-page"
+      data-phase="RNR"
+      data-api-path="rnr/batches"
+      data-view-path="/phase0/rnr-batch.html"
+      data-back-route="/phase0/rnr.html"
+      data-title="RNR Intake Batches"
+      data-back-label="Back to RNR Intake">
   <aside class="app-sidebar">
   <div class="sidebar-brand-global">
     <img src="/img/ndabase-icon.png" class="sidebar-brand-icon" alt="Ndabase Logo Icon" />
   </div>
   
   <!-- Profile Block -->
-  <div class="sidebar-profile" id="sidebarProfile">
+  <div class="sidebar-profile sr-profile-loading" id="sidebarProfile">
     <div class="profile-avatar">
       <span class="avatar-initials" id="profileInitials">U</span>
     </div>
     <div class="profile-info">
-      <div class="profile-name" id="profileName">Loading...</div>
+      <div class="profile-name" id="profileName"><em style="color:#D1D5DB;font-style:italic;font-size:13px;">Loading...</em></div>
+      <div id="profileNameSkeleton" class="sr-profile-skeleton"></div>
       <div class="profile-role" id="profileRole">User</div>
     </div>
   </div>
@@ -50,69 +195,43 @@
   <div class="app-main">
     <header class="app-header"><div><div class="welcome-line">Phase 0 · RNR</div><div class="welcome-date">RNR Batches</div></div><div class="header-right"><button class="avatar-btn"><span class="avatar-initials">P0</span></button></div></header>
     <main class="app-content">
-      <div class="container mt-3">
-        <h3>RNR Intake Batches</h3>
-        <div id="alert"></div>
-        <div class="toolbar">
-          <button id="refresh" class="btn btn-sm btn-primary">Refresh</button>
-          <a class="btn btn-sm btn-secondary" href="rnr.html">Back to RNR Intake</a>
+      <div class="container my-4">
+        <h2 id="pageTitle" class="sr-title">RNR Intake Batches</h2>
+        <div class="sr-toolbar">
+          <button id="refreshBtn" class="sr-refresh" type="button">
+            <i id="refreshIcon" data-lucide="refresh-cw" class="sr-refresh-icon"></i>
+            Refresh
+          </button>
+          <a id="backLink" class="sr-back-link" href="/phase0/rnr.html">
+            <i data-lucide="chevron-left" style="width:14px;height:14px;"></i>
+            Back to RNR Intake
+          </a>
+          <span id="lastUpdated" class="sr-last-updated">Last updated —</span>
         </div>
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>Created</th>
-              <th>Source File</th>
-              <th>Items</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="rows"></tbody>
-        </table>
+
+        <div class="sr-table-wrap">
+          <table class="sr-table">
+            <colgroup>
+              <col style="width:180px;" />
+              <col />
+              <col style="width:100px;" />
+              <col style="width:160px;" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Created</th>
+                <th>Source File</th>
+                <th class="text-center">Items</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
       </div>
     </main>
   </div>
-
-  <script>
-  (function(){
-    const { API_BASE, fetchJson, byId, localDateTime } = window.PHASE0;
-    async function load(){
-      try{
-        const data = await fetchJson(`${API_BASE}/rnr/batches?page=1&pageSize=50`);
-        const rows = (data && data.rows) || [];
-        const tbody = byId('rows');
-        tbody.innerHTML = rows.map(r => `
-          <tr>
-            <td>${localDateTime(r.createdAt)}</td>
-            <td>${r.sourceFileName || ''}</td>
-            <td>${r.items || 0}</td>
-            <td>
-              <a class="btn btn-sm btn-outline-primary" href="rnr-batch.html?batchId=${r.id}">Open</a>
-              <a class="btn btn-sm btn-outline-secondary" href="batch-items.html?id=${r.id}&print=1">Export CSV</a>
-            </td>
-          </tr>`).join('');
-      }catch(err){ PHASE0.toast(err.message); }
-    }
-    byId('refresh').addEventListener('click', load);
-    load();
-  })();
-  </script>
   <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-  async function loadProfile() {
-    try {
-      const response = await fetch('/api/auth/current-user');
-      if (response.ok) {
-        const user = await response.json();
-        const initials = user.fullName ? user.fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'U';
-        document.getElementById('profileInitials').textContent = initials;
-        document.getElementById('profileName').textContent = user.fullName || 'User';
-        document.getElementById('profileRole').textContent = user.role || 'User';
-      }
-    } catch (error) {
-      console.error('Error loading profile:', error);
-    }
-  }
-  document.addEventListener('DOMContentLoaded', loadProfile);
-  </script>
+  <script src="js/batch-list-page.js"></script>
 </body>
 </html>

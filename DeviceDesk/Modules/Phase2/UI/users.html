@@ -7,14 +7,19 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/dashboard-shell.css" />
     <link rel="stylesheet" href="/css/theme.css?v=2025" />
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     
     <style>
         body { background-color: #f8f9fa; }
-        .sidebar { min-height: calc(100vh - 56px); background-color: #fff; border-right: 1px solid #dee2e6; }
-        .content-area { padding: 2rem; }
+        .users-header .welcome-line { color:#fff !important; font-weight:700; }
+        .users-header .welcome-date { color:#bfdbfe !important; }
+        .users-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 1px 2px rgba(15,23,42,.06); }
+        .users-table thead th { font-size:12px; color:#6b7280; text-transform:uppercase; letter-spacing:.03em; border-bottom:2px solid #e5e7eb; }
+        .users-table td { vertical-align:middle; }
+        .toolbar-btn { border-radius:10px; height:34px; padding:0 12px; font-size:13px; }
     </style>
 </head>
-<body class="bg-light">
+<body class="app-shell">
 <aside class="app-sidebar">
     <div class="sidebar-brand-global">
         <img src="/img/ndabase-icon.png" class="sidebar-brand-icon" alt="Ndabase Logo Icon" />
@@ -40,62 +45,61 @@
     
     <nav class="sidebar-nav">
         <span class="sidebar-section">MENU</span>
-        <div id="sidebar">
-            <a href="/phase2/index.html" class="sidebar-link">
-                <i class="bi bi-clipboard-check"></i><span>Receipting</span>
-            </a>
-            <a href="/phase2/index.html" class="sidebar-link">
-                <i class="bi bi-list-ul"></i><span>View Devices</span>
-            </a>
-            <a href="/phase2/users.html" class="sidebar-link active">
-                <i class="bi bi-people"></i><span>Manage Technicians</span>
-            </a>
-        </div>
+        <a href="/phase2/index.html" class="sidebar-link"><i data-lucide="clipboard-check"></i><span>Receipting</span></a>
+        <a href="/phase2/index.html" class="sidebar-link"><i data-lucide="monitor"></i><span>View Devices</span></a>
+        <a href="/phase2/users.html" class="sidebar-link active"><i data-lucide="users"></i><span>Manage Technicians</span></a>
         <span class="sidebar-section">SYSTEM</span>
         <a href="#" id="logoutBtn" class="sidebar-link danger" onclick="logout(); return false;">
-            <i class="bi bi-box-arrow-right"></i><span>Logout</span>
+            <i data-lucide="log-out"></i><span>Logout</span>
         </a>
     </nav>
 </aside>
 
-        <!-- Main Content -->
-        <div class="col-md-10 content-area">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h3 class="mb-0">
-                    <i class="bi bi-tools"></i> ICT Technicians
-                </h3>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createTechnicianModal">
-                    <i class="bi bi-person-plus"></i> New Technician
-                </button>
-            </div>
+<div class="app-main">
+    <header class="app-header users-header">
+        <div>
+            <div class="welcome-line">Technician Management</div>
+            <div class="welcome-date">Phase 2 - ICT</div>
+        </div>
+        <div class="header-center"></div>
+        <div class="header-right">
+            <span class="text-white-50 me-3" id="userBadgeText"></span>
+            <button class="avatar-btn"><span class="avatar-initials">P2</span></button>
+        </div>
+    </header>
 
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-sm align-middle" id="techniciansTable">
-                            <thead>
-                                <tr>
-                                    <th>Employee #</th>
-                                    <th>Email</th>
-                                    <th>Full Name</th>
-                                    <th>Roles</th>
-                                    <th>Status</th>
-                                    <th style="width: 160px;">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- JS fills this -->
-                            </tbody>
-                        </table>
-                    </div>
-                    <div id="emptyState" class="text-center text-muted my-3" style="display:none;">
-                        No technicians found.
-                    </div>
+    <main class="app-content">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0"><i data-lucide="wrench" style="width:18px;height:18px"></i> ICT Technicians</h3>
+            <button class="btn btn-primary toolbar-btn" data-bs-toggle="modal" data-bs-target="#createTechnicianModal">
+                <i data-lucide="user-plus" style="width:14px;height:14px"></i> New Technician
+            </button>
+        </div>
+
+        <div class="users-card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle users-table" id="techniciansTable">
+                        <thead>
+                            <tr>
+                                <th>Employee #</th>
+                                <th>Email</th>
+                                <th>Full Name</th>
+                                <th>Roles</th>
+                                <th>Status</th>
+                                <th style="width: 180px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- JS fills this -->
+                        </tbody>
+                    </table>
                 </div>
+                <div id="emptyState" class="text-center text-muted my-3" style="display:none;">No technicians found.</div>
             </div>
         </div>
-    </div>
- </div>
+    </main>
+</div>
 
 <!-- Create Technician Modal -->
 <div class="modal fade" id="createTechnicianModal" tabindex="-1" aria-labelledby="createTechnicianModalLabel" aria-hidden="true">
@@ -154,12 +158,17 @@ async function loadProfile() {
       document.getElementById('profileInitials').textContent = initials;
       document.getElementById('profileName').textContent = user.fullName || 'User';
       document.getElementById('profileRole').textContent = user.role || 'User';
+      const badge = document.getElementById('userBadgeText');
+      if (badge) badge.textContent = `${user.fullName || 'User'} (${user.role || 'User'})`;
     }
   } catch (error) {
     console.error('Error loading profile:', error);
   }
 }
 document.addEventListener('DOMContentLoaded', loadProfile);
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+});
 </script>
 
 <!-- Technician Details Modal -->

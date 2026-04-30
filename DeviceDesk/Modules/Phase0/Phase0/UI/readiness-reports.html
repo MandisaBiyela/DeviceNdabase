@@ -8,9 +8,191 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
   <link rel="stylesheet" href="/css/dashboard-shell.css" />
   <link rel="stylesheet" href="/css/theme.css?v=2025" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <link href="css/phase0.css" rel="stylesheet">
+  <style>
+    body.sr-page { font-family: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+
+    /* Header: gradient + white P0 badge */
+    body.sr-reports .app-header{
+      background: linear-gradient(90deg, #2563EB 0%, #1D4ED8 100%) !important;
+      border-bottom: none !important;
+      box-shadow: none !important;
+      color: #fff !important;
+    }
+    body.sr-reports .welcome-line { color:#fff !important; font-weight:800 !important; }
+    body.sr-reports .welcome-date { color:#93C5FD !important; font-weight:600 !important; }
+    body.sr-reports .avatar-btn{
+      background:#fff !important;
+      border:none !important;
+      color:#111827 !important;
+      width:40px !important;
+      height:40px !important;
+      border-radius:999px !important;
+      box-shadow: 0 1px 2px rgba(16,24,40,.08) !important;
+    }
+    body.sr-reports .avatar-initials{ color:#111827 !important; font-weight:800 !important; }
+
+    /* Filter row */
+    .sr-filter-row{
+      display:flex;
+      gap:16px;
+      align-items:flex-end;
+      flex-wrap:wrap;
+    }
+    .sr-filter-label{
+      font-size:13px;
+      font-weight:600;
+      color:#6B7280;
+      margin-right:10px;
+      white-space:nowrap;
+    }
+    .sr-btn-search{
+      background:#2563EB;
+      color:#fff;
+      border:1px solid #2563EB;
+      border-radius:10px;
+      height:32px;
+      padding:0 16px;
+      font-size:13px;
+      font-weight:700;
+    }
+    .sr-btn-search:hover{ background:#1D4ED8; border-color:#1D4ED8; color:#fff; }
+
+    /* Results card + table */
+    .sr-results-card{
+      background:#fff;
+      border:1px solid #E5E7EB;
+      border-radius:16px;
+      box-shadow: 0 1px 2px rgba(16,24,40,.06);
+      overflow:hidden;
+      margin-top:16px;
+    }
+    .sr-results-table{
+      width:100%;
+      border-collapse:separate;
+    }
+    .sr-results-table thead th{
+      background:#F9FAFB;
+      border-bottom: 1px solid #E5E7EB;
+      font-size:12px;
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:.03em;
+      color:#6B7280;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .sr-results-table tbody td{
+      font-size:14px;
+      color:#374151;
+      border-bottom: 1px solid #EEF2F7;
+      padding-top:12px;
+      padding-bottom:12px;
+      vertical-align:middle;
+    }
+    .sr-results-table tbody tr:hover{ background: rgba(37,99,235,.08); }
+
+    .sr-col-index{
+      width:44px;
+      text-align:center;
+      color:#9CA3AF;
+      font-family: "DM Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    .sr-state-badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:700;
+      padding: 3px 10px;
+      border: 1px solid transparent;
+      white-space:nowrap;
+    }
+    .sr-state-draft{ background:#F3F4F6; color:#6B7280; }
+    .sr-state-submitted{ background:#DBEAFE; color:#2563EB; }
+    .sr-state-approved{ background:#DCFCE7; color:#16A34A; }
+    .sr-state-rejected{ background:#FEE2E2; color:#DC2626; }
+
+    .sr-num-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:42px;
+      padding: 4px 12px;
+      border-radius:999px;
+      background:#F3F4F6;
+      border: 1px solid #EEF2F7;
+      color:#374151;
+      font-size:13px;
+      font-weight:700;
+    }
+
+    /* Pagination */
+    .sr-pagination{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:16px;
+      margin-top:16px;
+      flex-wrap:wrap;
+    }
+    .sr-pagination-label{
+      font-size:13px;
+      color:#6B7280;
+      font-weight:600;
+    }
+    .sr-pagination-controls{
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .sr-page-pill{
+      width:32px;
+      height:32px;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border: 1px solid transparent;
+      background: transparent;
+      color:#2563EB;
+      font-weight:800;
+      font-size:13px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .sr-page-pill:hover{ background:#EFF6FF; }
+    .sr-page-pill-current{
+      background:#2563EB;
+      color:#fff;
+      cursor:default;
+      pointer-events:none;
+    }
+    .sr-page-pill-disabled{
+      color:#D1D5DB;
+      cursor:not-allowed;
+      pointer-events:none;
+      background: transparent;
+    }
+
+    /* Empty state */
+    .sr-empty-cell{
+      padding:44px 16px !important;
+      text-align:center;
+      color:#6B7280;
+    }
+    .sr-empty-icon{ width:48px; height:48px; margin-bottom:12px; color:#D1D5DB; }
+    .sr-empty-title{ font-size:14px; font-weight:700; margin-bottom:10px; color:#6B7280; }
+    .sr-empty-link{ color:#2563EB; font-weight:700; text-decoration:none; }
+    .sr-empty-link:hover{ text-decoration:underline; }
+  </style>
 </head>
-<body class="app-shell">
+<body class="app-shell sr-page sr-reports">
 <aside class="app-sidebar">
   <div class="sidebar-brand-global">
     <img src="/img/ndabase-icon.png" class="sidebar-brand-icon" alt="Ndabase Logo Icon" />
@@ -50,60 +232,66 @@
   <div class="container my-4">
     <div id="alert" class="alert d-none"></div>
 
-    <div class="row g-3 align-items-end">
-      <div class="col-md-3">
-        <label class="form-label">EMIS Code</label>
-        <input id="emis" type="text" class="form-control" placeholder="e.g. 700123">
+    <div class="sr-filter-row mb-3">
+      <div class="sr-filter-field">
+        <span class="sr-filter-label">EMIS Code</span>
+        <input id="emis" type="text" class="form-control" style="width:200px" placeholder="e.g. 700123">
       </div>
-      <div class="col-md-3">
-        <label class="form-label">State</label>
-        <select id="state" class="form-select">
+      <div class="sr-filter-field">
+        <span class="sr-filter-label">State</span>
+        <select id="state" class="form-select" style="width:140px">
           <option value="">All</option>
           <option value="0">Draft</option>
-          <option value="6">SchoolComplete</option>
           <option value="1">Submitted</option>
-          <option value="2">NeedsReview</option>
-          <option value="3">Reviewed</option>
-          <option value="4">Approved</option>
-          <option value="5">Rejected</option>
+          <option value="3">Approved</option>
+          <option value="4">Rejected</option>
         </select>
       </div>
-      <div class="col-md-2">
-        <label class="form-label">Page size</label>
-        <select id="pageSize" class="form-select"><option>10</option><option selected>25</option><option>50</option><option>100</option></select>
+      <div class="sr-filter-field">
+        <span class="sr-filter-label">Page size</span>
+        <select id="pageSize" class="form-select" style="width:80px">
+          <option>10</option>
+          <option selected>25</option>
+          <option>50</option>
+          <option>100</option>
+        </select>
       </div>
-      <div class="col-md-2 d-grid">
-        <button id="refreshBtn" class="btn btn-primary">Search</button>
-      </div>
-      <div class="col-md-5 text-end">
-        <a href="new-readiness.html" class="btn btn-outline-success">New Readiness Report</a>
-      </div>
-    </div>
-
-    <div class="mt-3 d-flex justify-content-between align-items-center">
-      <div id="stats" class="text-muted small">—</div>
-      <div></div>
-    </div>
-
-    <div class="card mt-2">
-      <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="table table-hover table-sm mb-0 align-middle">
-            <thead class="table-light">
-              <tr>
-                <th>#</th><th>School</th><th>EMIS</th><th>State</th><th>Created</th><th>Submitted</th><th class="text-end">Rooms</th><th class="text-end">Evidence</th><th></th>
-              </tr>
-            </thead>
-            <tbody id="rows"></tbody>
-          </table>
-        </div>
+      <div class="d-grid">
+        <button id="refreshBtn" class="sr-btn-search">Search</button>
       </div>
     </div>
 
-    <nav class="d-flex justify-content-between align-items-center mt-3">
-      <div id="pagerText" class="text-muted small">—</div>
-      <ul id="pager" class="pagination mb-0"></ul>
-    </nav>
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <a href="new-readiness.html" class="sr-empty-link">New Readiness Report</a>
+      </div>
+      <div id="stats" class="sr-pagination-label">Total: 0</div>
+    </div>
+
+    <div class="sr-results-card">
+      <div class="table-responsive">
+        <table class="sr-results-table">
+          <thead>
+            <tr>
+              <th style="width:64px">#</th>
+              <th>School</th>
+              <th style="width:140px">EMIS</th>
+              <th style="width:140px">State</th>
+              <th style="width:160px">Created</th>
+              <th style="width:160px">Submitted</th>
+              <th class="text-center" style="width:120px">Rooms</th>
+              <th class="text-center" style="width:140px">Evidence</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sr-pagination">
+      <div id="pagerText" class="sr-pagination-label">—</div>
+      <div id="pager" class="sr-pagination-controls"></div>
+    </div>
   </div>
 </main>
 
@@ -117,6 +305,7 @@ const pagerText = document.getElementById('pagerText');
 const alertEl = document.getElementById('alert');
 const statsEl = document.getElementById('stats');
 let page = 1;
+let currentRole = 'inspector';
 
 function say(msg, type='info'){ alertEl.className='alert alert-'+type; alertEl.textContent=msg; alertEl.classList.remove('d-none'); }
 function qs(obj){ return Object.entries(obj).filter(([_,v])=>v!==undefined&&v!==null&&v!=='').map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&'); }
@@ -124,36 +313,90 @@ function qs(obj){ return Object.entries(obj).filter(([_,v])=>v!==undefined&&v!==
 async function load(){
   const pageSize = parseInt(document.getElementById('pageSize').value,10);
   const emis = document.getElementById('emis').value.trim();
-  const state = document.getElementById('state').value;
+  const state = currentRole === 'tech team' ? '3' : document.getElementById('state').value;
   try{
     const data = await fetchJson(`${API_BASE}/readiness/reports?${qs({ page, pageSize, emis, state })}`);
-    statsEl.textContent = `Total: ${data.total}`;
-    rowsEl.innerHTML = '';
-    const rows = rowsOrEmpty(data);
-    const start = (data.page-1)*data.pageSize;
-    rows.forEach((r,i)=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${start+i+1}</td>
-        <td>${r.schoolName ?? ''}</td>
-        <td>${r.emisCode ?? ''}</td>
-        <td><span class="badge bg-secondary">${r.state}</span></td>
-        <td>${localDateTime(r.createdAt)}</td>
-        <td>${localDateTime(r.submittedAt)}</td>
-        <td class="text-end">${r.rooms ?? 0}</td>
-        <td class="text-end">${r.evidence ?? 0}</td>
-        <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="readiness-report.html?id=${r.id}">Open</a></td>`;
-      rowsEl.appendChild(tr);
-    });
 
-    const pages = Math.max(1, Math.ceil(data.total / data.pageSize));
+    const total = data.total ?? 0;
+    statsEl.textContent = `Total: ${total}`;
+
+    const rows = rowsOrEmpty(data);
+    const pages = Math.max(1, Math.ceil(total / data.pageSize));
+    const current = data.page ?? page;
+    pagerText.textContent = `Page ${current} of ${pages}`;
     pagerEl.innerHTML = '';
-    pagerText.textContent = `Page ${data.page} of ${pages}`;
-    const make = (n, label=n) => { const li = document.createElement('li'); li.className = 'page-item'+(n===page?' active':''); const a = document.createElement('a'); a.className='page-link'; a.href='#'; a.textContent=label; a.onclick=(e)=>{ e.preventDefault(); page=n; load(); }; li.appendChild(a); return li; };
-    const prev = Math.max(1, page-1), next = Math.min(pages, page+1);
-    pagerEl.appendChild(make(prev, '«'));
-    for(let i=Math.max(1,page-2); i<=Math.min(pages,page+2); i++) pagerEl.appendChild(make(i));
-    pagerEl.appendChild(make(next, '»'));
+
+    const stateBadge = (st) => {
+      const num = Number(st);
+      if (num === 0) return { label:'Draft', cls:'sr-state-draft' };
+      if (num === 1) return { label:'Submitted', cls:'sr-state-submitted' };
+      if (num === 3) return { label:'Approved', cls:'sr-state-approved' };
+      if (num === 4) return { label:'Rejected', cls:'sr-state-rejected' };
+      return { label:String(st ?? ''), cls:'sr-state-draft' };
+    };
+
+    const renderEmptyState = () => {
+      rowsEl.innerHTML = `
+        <tr>
+          <td colspan="8" class="sr-empty-cell">
+            <i data-lucide="clipboard-list" class="sr-empty-icon"></i>
+            <div class="sr-empty-title">No readiness reports yet</div>
+            <a class="sr-empty-link" href="new-readiness.html">Create your first report \u2192</a>
+          </td>
+        </tr>
+      `;
+      try{ if(window.lucide && typeof window.lucide.createIcons === 'function'){ window.lucide.createIcons(); } }catch{}
+    };
+
+    const mkPill = (n, label, { currentPage=false, disabled=false } = {}) => {
+      const el = document.createElement('div');
+      el.className = 'sr-page-pill';
+      if (currentPage) el.classList.add('sr-page-pill-current');
+      else if (disabled) el.classList.add('sr-page-pill-disabled');
+      el.textContent = label;
+      if (!currentPage && !disabled) {
+        el.onclick = () => { page = n; load(); };
+      }
+      return el;
+    };
+
+    // Pagination pills: prev, surrounding pages, next
+    const prevPage = Math.max(1, current - 1);
+    const nextPage = Math.min(pages, current + 1);
+    pagerEl.appendChild(mkPill(prevPage, '«', { disabled: current <= 1 }));
+
+    const startRange = Math.max(1, current - 2);
+    const endRange = Math.min(pages, current + 2);
+    for (let i = startRange; i <= endRange; i++) {
+      pagerEl.appendChild(mkPill(i, i, { currentPage: i === current }));
+    }
+
+    pagerEl.appendChild(mkPill(nextPage, '»', { disabled: current >= pages }));
+
+    if (total === 0) {
+      renderEmptyState();
+      return;
+    }
+
+    rowsEl.innerHTML = '';
+    const start = (current - 1) * data.pageSize;
+    rows.forEach((r, i) => {
+      const numIndex = start + i + 1;
+      const s = stateBadge(r.state);
+      const school = r.schoolName ?? '';
+      rowsEl.appendChild(Object.assign(document.createElement('tr'), {
+        innerHTML: `
+          <td class="sr-col-index">${numIndex}</td>
+          <td><a class="sr-empty-link" href="readiness-report.html?id=${r.id}">${school}</a></td>
+          <td>${r.emisCode ?? ''}</td>
+          <td><span class="sr-state-badge ${s.cls}">${s.label}</span></td>
+          <td>${localDateTime(r.createdAt) || '\u2014'}</td>
+          <td>${localDateTime(r.submittedAt) || '\u2014'}</td>
+          <td class="text-center"><span class="sr-num-pill">${r.rooms ?? 0}</span></td>
+          <td class="text-center"><span class="sr-num-pill">${r.evidence ?? 0}</span></td>
+        `
+      }));
+    });
   }catch(err){ say(err.message||'Failed to load reports', 'danger'); }
 }
 
@@ -173,6 +416,16 @@ async function loadProfile() {
       document.getElementById('profileInitials').textContent = initials;
       document.getElementById('profileName').textContent = user.fullName || 'User';
       document.getElementById('profileRole').textContent = user.role || 'User';
+      currentRole = String(user.role || 'inspector').toLowerCase();
+      if(currentRole === 'tech team'){
+        document.getElementById('state').value = '3';
+        document.getElementById('state').disabled = true;
+        const note = document.createElement('div');
+        note.className = 'small text-muted';
+        note.textContent = "You don't have permission to view non-approved schools.";
+        document.querySelector('.sr-filter-row')?.appendChild(note);
+      }
+      load();
     }
   } catch (error) {
     console.error('Error loading profile:', error);

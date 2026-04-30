@@ -46,6 +46,8 @@
       <div>
         <a id="backLink" href="readiness-reports.html" class="btn btn-outline-secondary btn-sm">All Reports</a>
         <a id="roomsStepBtn" href="#" class="btn btn-outline-primary btn-sm">Rooms Step</a>
+        <button id="approveBtn" class="btn btn-success btn-sm">Approve</button>
+        <button id="rejectBtn" class="btn btn-danger btn-sm">Reject</button>
         <a id="printBtn" href="#" class="btn btn-secondary btn-sm">Print</a>
       </div>
     </div>
@@ -144,6 +146,7 @@ const roomItemsRows = document.getElementById('roomItemsRows');
 const roomsStepBtn = document.getElementById('roomsStepBtn');
 if(roomsStepBtn && reportId){ roomsStepBtn.href = `readiness-rooms.html?reportId=${reportId}`; }
 let rooms = [];
+let currentRole = 'inspector';
 
 function say(msg, type='info'){ alertEl.className='alert alert-'+type; alertEl.textContent=msg; alertEl.classList.remove('d-none'); }
 function clearAlert(){ alertEl.classList.add('d-none'); }
@@ -299,8 +302,43 @@ document.getElementById('addItemBtn').onclick = addItem;
 roomFilter.onchange = loadEvidence;
 roomItemsRoom.onchange = renderRoomItems;
 document.getElementById('printBtn').onclick = ()=>window.print();
+document.getElementById('approveBtn').onclick = async ()=>{
+  if(currentRole !== 'admin'){ say("You don't have permission to approve reports.", 'warning'); return; }
+  await fetchJson(`${API_BASE}/readiness/reports/${reportId}`, {
+    method:'PATCH', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ state: 3 })
+  });
+  say('Report approved. Added to installation queue.', 'success');
+  await load();
+};
+document.getElementById('rejectBtn').onclick = async ()=>{
+  if(currentRole !== 'admin'){ say("You don't have permission to reject reports.", 'warning'); return; }
+  const reason = prompt('Enter rejection comment');
+  await fetchJson(`${API_BASE}/readiness/reports/${reportId}`, {
+    method:'PATCH', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ state: 4 })
+  });
+  say(`Report rejected${reason ? `: ${reason}` : ''}`, 'warning');
+  await load();
+};
 
-load();
+async function loadProfile() {
+  try {
+    const response = await fetch('/api/auth/current-user');
+    if (response.ok) {
+      const user = await response.json();
+      currentRole = String(user.role || 'inspector').toLowerCase();
+      if(currentRole !== 'admin'){
+        document.getElementById('approveBtn').disabled = true;
+        document.getElementById('rejectBtn').disabled = true;
+      }
+    }
+  } catch (error) {
+    console.error('Error loading profile:', error);
+  }
+}
+
+loadProfile().finally(load);
 </script>
 </body>
 </html>

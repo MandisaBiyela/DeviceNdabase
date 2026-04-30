@@ -1,303 +1,264 @@
 (() => {
-    const API_BASE = `${location.origin}/api/phase1/receiving`;
-    
-    let allBatches = [];
-    let filteredBatches = [];
-    let currentPage = 1;
-    let pageSize = 10;
+  const API_BASE = `${location.origin}/api/phase1/receiving`;
+  let allBatches = [];
+  let filteredBatches = [];
+  let currentPage = 1;
+  const pageSize = 25;
 
-    // Elements
-    const batchesTable = document.getElementById('batchesTable');
-    const sourceFilter = document.getElementById('sourceFilter');
-    const statusFilter = document.getElementById('statusFilter');
-    const dateFrom = document.getElementById('dateFrom');
-    const dateTo = document.getElementById('dateTo');
-    const filterBtn = document.getElementById('filterBtn');
-    const refreshBtn = document.getElementById('refreshBtn');
-    const exportBtn = document.getElementById('exportBtn');
-    
-    // Stats elements
-    const totalBatches = document.getElementById('totalBatches');
-    const totalInvoices = document.getElementById('totalInvoices');
-    const totalSlips = document.getElementById('totalSlips');
-    const totalDevices = document.getElementById('totalDevices');
+  const els = {
+    table: document.getElementById('batchesTable'),
+    sourceFilter: document.getElementById('sourceFilter'),
+    statusFilter: document.getElementById('statusFilter'),
+    dateFrom: document.getElementById('dateFrom'),
+    dateTo: document.getElementById('dateTo'),
+    filterBtn: document.getElementById('filterBtn'),
+    exportBtn: document.getElementById('exportBtn'),
+    pagination: document.getElementById('pagination'),
+    pagerSummary: document.getElementById('pagerSummary'),
+    totalBatches: document.getElementById('totalBatches'),
+    totalInvoices: document.getElementById('totalInvoices'),
+    totalSlips: document.getElementById('totalSlips'),
+    totalDevices: document.getElementById('totalDevices')
+  };
 
-    // Initialize
-    init();
+  init();
 
-    async function init() {
-        await loadAllData();
-        setupEventListeners();
-        applyFilters();
+  async function init() {
+    showSkeletonRows();
+    setupEvents();
+    await loadProfile();
+    await loadAllData();
+    applyFilters();
+    if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+  }
+
+  function setupEvents() {
+    els.filterBtn?.addEventListener('click', applyFilters);
+    els.sourceFilter?.addEventListener('change', applyFilters);
+    els.statusFilter?.addEventListener('change', applyFilters);
+    els.exportBtn?.addEventListener('click', exportFilteredCsv);
+  }
+
+  async function loadProfile() {
+    try {
+      const response = await fetch('/api/auth/current-user');
+      if (!response.ok) return;
+      const user = await response.json();
+      const initials = user.fullName ? user.fullName.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase() : 'U';
+      const i = document.getElementById('profileInitials');
+      const n = document.getElementById('profileName');
+      const r = document.getElementById('profileRole');
+      if (i) i.textContent = initials;
+      if (n) n.textContent = user.fullName || 'User';
+      if (r) r.textContent = user.role || 'User';
+    } catch (error) {
+      console.error('Error loading profile:', error);
     }
+  }
 
-    function setupEventListeners() {
-        filterBtn.addEventListener('click', applyFilters);
-        refreshBtn.addEventListener('click', () => {
-            loadAllData();
-            applyFilters();
-        });
-        exportBtn.addEventListener('click', exportData);
-        
-        // Auto-filter on select change
-        sourceFilter.addEventListener('change', applyFilters);
-        statusFilter.addEventListener('change', applyFilters);
+  async function loadAllData() {
+    try {
+      const response = await fetch(`${API_BASE}/list`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      allBatches = await response.json() || [];
+      updateStatsBanner();
+    } catch (error) {
+      console.error('Error loading data:', error);
+      allBatches = [];
+      updateStatsBanner();
+      showErrorRow('Failed to load batch data.');
     }
+  }
 
-    async function loadAllData() {
-        try {
-            // Fetch real data from API
-            const response = await fetch(`${API_BASE}/list`);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            allBatches = data || [];
-            
-            updateStatistics();
-        } catch (error) {
-            console.error('Error loading data:', error);
-            showError('Failed to load batch data. ' + error.message);
-            allBatches = [];
-            updateStatistics();
-        }
+  function updateStatsBanner() {
+    const invoices = allBatches.filter((b) => {
+      const t = String(b?.documentInfo?.type || '').toLowerCase();
+      return t.includes('invoice') || t.includes('new stock batch');
+    }).length;
+    const slips = allBatches.filter((b) => {
+      const t = String(b?.documentInfo?.type || '').toLowerCase();
+      return t.includes('slip');
+    }).length;
+    const devices = allBatches.reduce((sum, b) => sum + Number(b?.actualCount || 0), 0);
+    els.totalBatches.textContent = num(allBatches.length);
+    els.totalInvoices.textContent = num(invoices);
+    els.totalSlips.textContent = num(slips);
+    els.totalDevices.textContent = num(devices);
+  }
+
+  function mapUiStatus(rawStatus) {
+    const s = String(rawStatus || '').toLowerCase();
+    if (s.includes('cancel')) return 'Cancelled';
+    if (s.includes('fail')) return 'Failed';
+    if (s.includes('grvissued') || s.includes('completed')) return 'GRVIssued';
+    if (s.includes('draft')) return 'Pending';
+    return 'InProgress';
+  }
+
+  function applyFilters() {
+    filteredBatches = allBatches.filter((batch) => {
+      if (els.sourceFilter.value && String(batch.sourceType) !== String(els.sourceFilter.value)) return false;
+      const uiStatus = mapUiStatus(batch.status);
+      if (els.statusFilter.value && uiStatus !== els.statusFilter.value) return false;
+      const created = new Date(batch.createdAt);
+      if (els.dateFrom.value) {
+        const from = new Date(els.dateFrom.value);
+        if (created < from) return false;
+      }
+      if (els.dateTo.value) {
+        const to = new Date(els.dateTo.value);
+        to.setHours(23, 59, 59, 999);
+        if (created > to) return false;
+      }
+      return true;
+    });
+    currentPage = 1;
+    renderTable();
+    renderPagination();
+    renderPagerSummary();
+  }
+
+  function renderTable() {
+    const start = (currentPage - 1) * pageSize;
+    const rows = filteredBatches.slice(start, start + pageSize);
+    if (rows.length === 0) {
+      els.table.innerHTML = `<tr><td colspan="9" style="padding:28px 8px;text-align:center;color:#6b7280">No batches found matching your criteria.</td></tr>`;
+      return;
     }
+    els.table.innerHTML = rows.map((b) => rowTemplate(b)).join('');
+  }
 
-    function updateStatistics() {
-        const stats = {
-            totalBatches: allBatches.length,
-            totalInvoices: allBatches.filter(b => b.documentInfo.type === 'Invoice').length,
-            totalSlips: allBatches.filter(b => b.documentInfo.type === 'Collection Slip' || b.documentInfo.type === 'Emergency Slip').length,
-            totalDevices: allBatches.reduce((sum, b) => sum + (b.actualCount || 0), 0)
-        };
+  function rowTemplate(batch) {
+    const id = String(batch.batchId || '');
+    const shortId = `${id.slice(0, 8)}...${id.slice(-6)}`;
+    const sourceClass = Number(batch.sourceType) === 1 ? 'src-new' : (Number(batch.sourceType) === 2 ? 'src-rnr' : 'src-emergency');
+    const sourceLabel = Number(batch.sourceType) === 1 ? 'NewStock' : (Number(batch.sourceType) === 2 ? 'RnRNormal' : 'RnREmergency');
+    const uiStatus = mapUiStatus(batch.status);
+    const statusClass = uiStatus === 'GRVIssued' ? 'st-grv' : (uiStatus === 'InProgress' ? 'st-progress' : (uiStatus === 'Failed' ? 'st-failed' : 'st-pending'));
+    const actual = Number(batch.actualCount || 0);
+    const expected = Number(batch.deviceCount || 0);
+    const ratioClass = actual === 0 ? 'd-none' : (actual >= expected && expected > 0 ? 'd-complete' : 'd-partial');
+    const actionButtons = buildActions(batch, uiStatus);
+    const docType = batch.documentInfo?.type || 'Document';
+    const supplierSchool = batch.documentInfo?.supplier || batch.documentInfo?.school || batch.schoolSupplier || 'N/A';
+    return `
+      <tr>
+        <td>
+          <a href="/phase1/reconciliation.html?batchId=${encodeURIComponent(id)}" class="mono-id" title="${escapeHtml(id)}">${escapeHtml(shortId)}</a>
+          <div class="id-sub">by ${escapeHtml(batch.createdBy || 'unknown')}</div>
+        </td>
+        <td class="c-center"><span class="badge-source ${sourceClass}">${sourceLabel}</span></td>
+        <td>
+          <div class="doc-line-1">${escapeHtml(docType)}:</div>
+          <div class="doc-line-2">Supplier: ${escapeHtml(supplierSchool)}</div>
+          <div class="doc-line-3">Uploaded: ${fmt(batch.documentInfo?.uploadedAt || batch.createdAt)}</div>
+        </td>
+        <td><div style="font-size:14px;font-weight:600;color:#1f2937">${escapeHtml(batch.schoolSupplier || supplierSchool)}</div></td>
+        <td class="c-center"><span class="status-pill ${statusClass}">${uiStatus === 'InProgress' ? 'InProgress' : uiStatus}</span></td>
+        <td class="c-center">
+          <div class="devices-main ${ratioClass}">${num(actual)}/${num(expected)}</div>
+          <span class="devices-sub">scanned/expected</span>
+        </td>
+        <td><div class="dt-main">${fmt(batch.createdAt)}</div><div class="dt-sub">${ago(batch.createdAt)}</div></td>
+        <td><div class="dt-main">${fmt(batch.lastUpdated)}</div><div class="dt-sub">${ago(batch.lastUpdated)}</div></td>
+        <td class="c-right">${actionButtons}</td>
+      </tr>
+    `;
+  }
 
-        totalBatches.textContent = stats.totalBatches;
-        totalInvoices.textContent = stats.totalInvoices;
-        totalSlips.textContent = stats.totalSlips;
-        totalDevices.textContent = stats.totalDevices;
+  function buildActions(batch, uiStatus) {
+    const id = encodeURIComponent(batch.batchId || '');
+    const view = `<button class="act-btn act-view" onclick="window.location.href='/phase1/reconciliation.html?batchId=${id}'"><i data-lucide="eye" style="width:12px;height:12px"></i>View</button>`;
+    if (uiStatus === 'GRVIssued') return view;
+    if (uiStatus === 'Failed') {
+      return `${view}<button class="act-btn act-retry" onclick="window.location.href='/phase1/receiving-create.html?retryBatchId=${id}'"><i data-lucide="rotate-ccw" style="width:12px;height:12px"></i>Retry</button>`;
     }
+    return `${view}<button class="act-btn act-continue" onclick="window.continueBatch('${id}')"><i data-lucide="play" style="width:12px;height:12px"></i>Continue</button>`;
+  }
 
-    function applyFilters() {
-        filteredBatches = allBatches.filter(batch => {
-            // Source type filter
-            if (sourceFilter.value && batch.sourceType.toString() !== sourceFilter.value) {
-                return false;
-            }
+  function renderPagination() {
+    const totalPages = Math.max(1, Math.ceil(filteredBatches.length / pageSize));
+    const cur = currentPage;
+    const btn = (label, page, active = false, disabled = false) =>
+      `<button class="pager-pill ${active ? 'active' : ''}" ${disabled ? 'disabled' : ''} data-page="${page}">${label}</button>`;
+    let html = btn('‹', cur - 1, false, cur <= 1);
+    const start = Math.max(1, cur - 2);
+    const end = Math.min(totalPages, cur + 2);
+    for (let i = start; i <= end; i++) html += btn(String(i), i, i === cur, false);
+    html += btn('›', cur + 1, false, cur >= totalPages);
+    els.pagination.innerHTML = html;
+    els.pagination.querySelectorAll('[data-page]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const p = Number(b.getAttribute('data-page'));
+        if (!p || p < 1 || p > totalPages || p === currentPage) return;
+        currentPage = p;
+        renderTable();
+        renderPagination();
+        renderPagerSummary();
+        if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+      });
+    });
+  }
 
-            // Status filter
-            if (statusFilter.value && batch.status !== statusFilter.value) {
-                return false;
-            }
+  function renderPagerSummary() {
+    const total = filteredBatches.length;
+    const from = total ? ((currentPage - 1) * pageSize + 1) : 0;
+    const to = total ? Math.min(currentPage * pageSize, total) : 0;
+    els.pagerSummary.textContent = `Showing ${from}-${to} of ${total} batches`;
+  }
 
-            // Date range filter
-            if (dateFrom.value) {
-                const batchDate = new Date(batch.createdAt);
-                const fromDate = new Date(dateFrom.value);
-                if (batchDate < fromDate) return false;
-            }
+  function exportFilteredCsv() {
+    const lines = [['Batch ID', 'Source Type', 'Status', 'Document Type', 'Supplier/School', 'Devices', 'Created', 'Updated']];
+    filteredBatches.forEach((b) => {
+      lines.push([
+        b.batchId || '',
+        b.sourceTypeName || '',
+        mapUiStatus(b.status),
+        b.documentInfo?.type || '',
+        b.schoolSupplier || '',
+        `${b.actualCount || 0}/${b.deviceCount || 0}`,
+        fmt(b.createdAt),
+        fmt(b.lastUpdated)
+      ]);
+    });
+    const csv = lines.map((row) => row.map(csvEsc).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = `phase1_all_batches_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
-            if (dateTo.value) {
-                const batchDate = new Date(batch.createdAt);
-                const toDate = new Date(dateTo.value);
-                toDate.setHours(23, 59, 59, 999); // End of day
-                if (batchDate > toDate) return false;
-            }
+  function showSkeletonRows() {
+    const col = 9;
+    const row = () => `
+      <tr>${Array.from({ length: col }).map((_, i) => `<td><div class="skel" style="width:${[70,50,78,65,58,55,72,72,65][i]}%"></div></td>`).join('')}</tr>`;
+    els.table.innerHTML = Array.from({ length: 5 }).map(row).join('');
+  }
 
-            return true;
-        });
+  function showErrorRow(msg) {
+    els.table.innerHTML = `<tr><td colspan="9" style="padding:24px 8px;text-align:center;color:#b91c1c">${escapeHtml(msg)}</td></tr>`;
+  }
 
-        currentPage = 1;
-        displayBatches();
+  window.continueBatch = function continueBatch(id) {
+    const batch = allBatches.find((b) => String(b.batchId) === String(id));
+    if (!batch) return;
+    let url = '/phase1/receiving-create.html';
+    if (String(batch.status).toLowerCase().includes('scanning')) {
+      url = Number(batch.sourceType) === 3 ? `/phase1/emergency-scanning.html?batchId=${id}` : `/phase1/rnr-scanning.html?batchId=${id}`;
+    } else if (String(batch.status).toLowerCase().includes('verification') || String(batch.status).toLowerCase().includes('verified') || String(batch.status).toLowerCase().includes('variance')) {
+      url = Number(batch.sourceType) === 1 ? `/phase1/reconciliation.html?batchId=${id}` : `/phase1/rnr-verification.html?batchId=${id}`;
     }
+    window.location.href = url;
+  };
 
-    function displayBatches() {
-        const startIndex = (currentPage - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        const pageData = filteredBatches.slice(startIndex, endIndex);
-
-        if (pageData.length === 0) {
-            batchesTable.innerHTML = `
-                <tr>
-                    <td colspan="9" class="text-center py-5 text-muted">
-                        <i class="bi bi-inbox" style="font-size: 3rem;"></i>
-                        <p class="mt-3">No batches found matching your criteria</p>
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-
-        batchesTable.innerHTML = pageData.map(batch => `
-            <tr>
-                <td>
-                    <strong>${batch.batchId}</strong>
-                    <br><small class="text-muted">by ${batch.createdBy}</small>
-                </td>
-                <td>
-                    <span class="source-badge ${getSourceClass(batch.sourceType)}">
-                        ${batch.sourceTypeName}
-                    </span>
-                </td>
-                <td>
-                    <div>
-                        <strong>${batch.documentInfo.type}: ${batch.documentInfo.number}</strong>
-                        ${batch.documentInfo.supplier ? `<br><small class="text-muted">Supplier: ${batch.documentInfo.supplier}</small>` : ''}
-                        ${batch.documentInfo.school ? `<br><small class="text-muted">School: ${batch.documentInfo.school}</small>` : ''}
-                        ${batch.documentInfo.amount ? `<br><small class="text-success">${batch.documentInfo.amount}</small>` : ''}
-                        ${batch.documentInfo.loanUnit ? `<br><small class="text-warning">Loan: ${batch.documentInfo.loanUnit}</small>` : ''}
-                        <br><small class="text-muted">Uploaded: ${formatDateTime(batch.documentInfo.uploadedAt)}</small>
-                    </div>
-                </td>
-                <td>
-                    <strong>${batch.schoolSupplier}</strong>
-                    ${batch.documentInfo.emisCode ? `<br><small class="text-muted">EMIS: ${batch.documentInfo.emisCode}</small>` : ''}
-                </td>
-                <td>
-                    <span class="status-badge ${getStatusClass(batch.status)}">
-                        ${formatStatus(batch.status)}
-                    </span>
-                </td>
-                <td>
-                    <div class="text-center">
-                        <strong>${batch.actualCount}/${batch.deviceCount}</strong>
-                        <br><small class="text-muted">scanned/expected</small>
-                    </div>
-                </td>
-                <td>
-                    <div>
-                        ${formatDateTime(batch.createdAt)}
-                        <br><small class="text-muted">${formatTimeAgo(batch.createdAt)}</small>
-                    </div>
-                </td>
-                <td>
-                    <div>
-                        ${formatDateTime(batch.lastUpdated)}
-                        <br><small class="text-muted">${formatTimeAgo(batch.lastUpdated)}</small>
-                    </div>
-                </td>
-                <td>
-                    <div class="d-flex flex-column gap-1">
-                        <button class="btn btn-outline-primary btn-action" onclick="viewBatch('${batch.batchId}')" title="View Details">
-                            <i class="bi bi-eye"></i> View
-                        </button>
-                        ${batch.status !== 'Completed' ? `
-                            <button class="btn btn-outline-success btn-action" onclick="continueBatch('${batch.batchId}')" title="Continue Process">
-                                <i class="bi bi-play"></i> Continue
-                            </button>
-                        ` : ''}
-                        <button class="btn btn-outline-secondary btn-action" onclick="downloadDocs('${batch.batchId}')" title="Download Documents">
-                            <i class="bi bi-download"></i> Docs
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `).join('');
-
-        updatePaginationInfo();
-    }
-
-    function getSourceClass(sourceType) {
-        switch(sourceType) {
-            case 1: return 'source-new-stock';
-            case 2: return 'source-rnr-normal';
-            case 3: return 'source-rnr-emergency';
-            default: return 'source-new-stock';
-        }
-    }
-
-    function getStatusClass(status) {
-        switch(status) {
-            case 'Draft': return 'status-draft';
-            case 'ScanningInProgress': return 'status-scanning';
-            case 'PendingVerification': return 'status-verification';
-            case 'Completed': return 'status-completed';
-            default: return 'status-draft';
-        }
-    }
-
-    function formatStatus(status) {
-        switch(status) {
-            case 'ScanningInProgress': return 'Scanning';
-            case 'PendingVerification': return 'Verification';
-            default: return status;
-        }
-    }
-
-    function formatDateTime(dateString) {
-        return new Date(dateString).toLocaleString();
-    }
-
-    function formatTimeAgo(dateString) {
-        const now = new Date();
-        const date = new Date(dateString);
-        const diffMs = now - date;
-        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-        const diffDays = Math.floor(diffHours / 24);
-
-        if (diffDays > 0) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-        if (diffHours > 0) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-        return 'Just now';
-    }
-
-    function updatePaginationInfo() {
-        const startIndex = (currentPage - 1) * pageSize + 1;
-        const endIndex = Math.min(currentPage * pageSize, filteredBatches.length);
-        
-        document.getElementById('showingFrom').textContent = startIndex;
-        document.getElementById('showingTo').textContent = endIndex;
-        document.getElementById('totalRecords').textContent = filteredBatches.length;
-    }
-
-    function showError(message) {
-        batchesTable.innerHTML = `
-            <tr>
-                <td colspan="9" class="text-center py-5 text-danger">
-                    <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
-                    <p class="mt-3">${message}</p>
-                </td>
-            </tr>
-        `;
-    }
-
-    function exportData() {
-        // Mock export functionality
-        alert('Export functionality would generate CSV/Excel file with all batch data including:\n\n• Batch details\n• Document information\n• Timestamps\n• Device counts\n• Status history\n• User actions');
-    }
-
-    // Global functions for button actions
-    window.viewBatch = function(batchId) {
-        const batch = allBatches.find(b => b.batchId === batchId);
-        if (batch) {
-            alert(`Batch Details: ${batchId}\n\nSource: ${batch.sourceTypeName}\nDocument: ${batch.documentInfo.type} ${batch.documentInfo.number}\nStatus: ${batch.status}\nDevices: ${batch.actualCount}/${batch.deviceCount}\nNotes: ${batch.notes}`);
-        }
-    };
-
-    window.continueBatch = function(batchId) {
-        const batch = allBatches.find(b => b.batchId === batchId);
-        if (batch) {
-            // Redirect to appropriate workflow step based on status and source type
-            let redirectUrl = '/phase1/receiving-create.html';
-            
-            if (batch.status === 'ScanningInProgress') {
-                if (batch.sourceType === 3) {
-                    redirectUrl = `/phase1/emergency-scanning.html?batchId=${batchId}`;
-                } else {
-                    redirectUrl = `/phase1/rnr-scanning.html?batchId=${batchId}`;
-                }
-            } else if (batch.status === 'PendingVerification') {
-                if (batch.sourceType === 1) {
-                    redirectUrl = `/phase1/reconciliation.html?batchId=${batchId}`;
-                } else {
-                    redirectUrl = `/phase1/rnr-verification.html?batchId=${batchId}`;
-                }
-            }
-            
-            window.location.href = redirectUrl;
-        }
-    };
-
-    window.downloadDocs = function(batchId) {
-        alert(`Download documents for ${batchId}:\n\n• Original invoice/slip\n• Blind copy/emergency slip\n• GRV document (if completed)\n• Scanning reports\n• Audit trail`);
-    };
+  function num(v) { return Number(v || 0).toLocaleString(); }
+  function fmt(d) { const x = new Date(d); return Number.isNaN(x.getTime()) ? '-' : x.toLocaleString(); }
+  function ago(d) { const x = new Date(d); const now = new Date(); const ms = now - x; const hrs = Math.floor(ms / 3600000); const days = Math.floor(hrs / 24); if (days >= 1) return days === 1 ? 'Yesterday' : `${days} days ago`; if (hrs >= 1) return `${hrs} hours ago`; return 'Just now'; }
+  function csvEsc(v) { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }
+  function escapeHtml(v) { return String(v ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;'); }
 })();
