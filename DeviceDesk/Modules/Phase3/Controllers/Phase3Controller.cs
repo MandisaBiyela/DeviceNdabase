@@ -23,7 +23,7 @@ public class Phase3Controller : ControllerBase
         _context = context;
     }
 
-    private string GetUserId() => User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+    private string GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
     private bool IsInRole(string role) => User.IsInRole(role);
 
     // ═══════════════════════════════════════════════════════════════════

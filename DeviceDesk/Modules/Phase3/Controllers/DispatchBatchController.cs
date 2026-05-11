@@ -9,7 +9,7 @@ namespace DeviceDesk.Modules.Phase3.Controllers;
 
 [ApiController]
 [Route("api/dispatch/batches")]
-[AllowAnonymous]
+[Authorize]
 public class DispatchBatchController : ControllerBase
 {
     private readonly DispatchBatchService _batchService;

@@ -296,24 +296,43 @@ public class DispatchBatchService
                 _logger.LogWarning("[DispatchQueue] Diagnostic - Devices from synthetic schools: {Count}", synthetic);
             }
             
-            // Enrich with school district and EMIS code from Schools table
+            // Enrich with school district and EMIS code from Schools table (single query — avoid N+1 per device)
+            var distinctSchoolNames = devices
+                .Select(d => d.schoolName)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Select(n => n!.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            List<School> schoolRows = new();
+            if (distinctSchoolNames.Count > 0)
+            {
+                schoolRows = await _coreDb.Schools
+                    .AsNoTracking()
+                    .Where(s => distinctSchoolNames.Contains(s.Name))
+                    .ToListAsync();
+            }
+
+            var schoolByTrimmedName = new Dictionary<string, School>(StringComparer.OrdinalIgnoreCase);
+            foreach (var s in schoolRows)
+            {
+                var key = (s.Name ?? string.Empty).Trim();
+                if (string.IsNullOrEmpty(key)) continue;
+                if (!schoolByTrimmedName.ContainsKey(key))
+                    schoolByTrimmedName[key] = s;
+            }
+
             var enrichedDevices = new List<object>();
             foreach (var device in devices)
             {
                 string? district = null;
                 string? emisCode = null;
 
-                if (!string.IsNullOrEmpty(device.schoolName))
+                if (!string.IsNullOrWhiteSpace(device.schoolName) &&
+                    schoolByTrimmedName.TryGetValue(device.schoolName.Trim(), out var school))
                 {
-                    var school = await _coreDb.Schools
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(s => s.Name == device.schoolName);
-                    
-                    if (school != null)
-                    {
-                        district = school.District;
-                        emisCode = school.EmisCode;
-                    }
+                    district = school.District;
+                    emisCode = school.EmisCode;
                 }
 
                 enrichedDevices.Add(new

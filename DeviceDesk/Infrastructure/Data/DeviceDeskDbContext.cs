@@ -35,6 +35,9 @@ namespace DeviceDesk.Infrastructure.Data
         // Model-driven scanning tables (Phase 1 uses these)
         public DbSet<OrderModelList> OrderModelLists => Set<OrderModelList>();
         public DbSet<ScannedSerial> ScannedSerials => Set<ScannedSerial>();
+        public DbSet<ProcurementOrder> ProcurementOrders => Set<ProcurementOrder>();
+        public DbSet<ProcurementOrderSchool> ProcurementOrderSchools => Set<ProcurementOrderSchool>();
+        public DbSet<ProcurementOrderItem> ProcurementOrderItems => Set<ProcurementOrderItem>();
 
         protected override void OnModelCreating(ModelBuilder b)
         {
@@ -226,6 +229,50 @@ namespace DeviceDesk.Infrastructure.Data
                     .HasForeignKey(x => x.ModelID)
                     .OnDelete(DeleteBehavior.Cascade);
                 e.ToTable("ScannedSerials");
+            });
+
+            b.Entity<ProcurementOrder>(e =>
+            {
+                e.HasKey(x => x.ProcurementOrderId);
+                e.HasIndex(x => x.PoNumber).IsUnique();
+                e.Property(x => x.PoNumber).HasMaxLength(100).IsRequired();
+                e.Property(x => x.ProjectName).HasMaxLength(200).IsRequired();
+                e.Property(x => x.FinancialYear).HasMaxLength(20).IsRequired();
+                e.Property(x => x.TotalOrderValue).HasColumnType("decimal(18,2)");
+                e.Property(x => x.TotalInvoicedToDepartment).HasColumnType("decimal(18,2)");
+                e.Property(x => x.TotalPaidByDepartment).HasColumnType("decimal(18,2)");
+                e.Property(x => x.TotalPaidToSuppliers).HasColumnType("decimal(18,2)");
+                e.Property(x => x.CreatedAt).HasColumnType("datetimeoffset(7)").HasDefaultValueSql("SYSUTCDATETIME()");
+                e.Property(x => x.UpdatedAt).HasColumnType("datetimeoffset(7)").HasDefaultValueSql("SYSUTCDATETIME()");
+                e.HasMany(x => x.Schools)
+                    .WithOne(x => x.ProcurementOrder)
+                    .HasForeignKey(x => x.ProcurementOrderId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.ToTable("ProcurementOrders");
+            });
+
+            b.Entity<ProcurementOrderSchool>(e =>
+            {
+                e.HasKey(x => x.ProcurementOrderSchoolId);
+                e.HasIndex(x => x.ProcurementOrderId);
+                e.Property(x => x.SchoolName).HasMaxLength(256).IsRequired();
+                e.Property(x => x.SchoolSubTotal).HasColumnType("decimal(18,2)");
+                e.HasMany(x => x.Items)
+                    .WithOne(x => x.ProcurementOrderSchool)
+                    .HasForeignKey(x => x.ProcurementOrderSchoolId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.ToTable("ProcurementOrderSchools");
+            });
+
+            b.Entity<ProcurementOrderItem>(e =>
+            {
+                e.HasKey(x => x.ProcurementOrderItemId);
+                e.HasIndex(x => x.ProcurementOrderSchoolId);
+                e.Property(x => x.Description).HasMaxLength(300).IsRequired();
+                e.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
+                e.Property(x => x.TotalPrice).HasColumnType("decimal(18,2)");
+                e.Property(x => x.DeliveryStatus).HasConversion<int>();
+                e.ToTable("ProcurementOrderItems");
             });
 
             b.Entity<StorageLocation>(e =>
