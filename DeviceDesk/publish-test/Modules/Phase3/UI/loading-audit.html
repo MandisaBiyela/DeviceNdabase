@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading Audit - DeviceDesk</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/dashboard-shell.css" />
+    <link rel="stylesheet" href="/css/theme.css?v=2025" />
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .audit-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        .scan-area {
+            background: white;
+            border: 3px dashed #6c757d;
+            border-radius: 12px;
+            padding: 3rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            transition: all 0.3s;
+        }
+        .scan-area.active {
+            border-color: #0d6efd;
+            background-color: #e7f1ff;
+        }
+        .scan-input {
+            font-size: 1.5rem;
+            text-align: center;
+            border: 2px solid #0d6efd;
+        }
+        .device-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+        .device-list-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .device-list-card h5 {
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .device-item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .device-item.expected {
+            background-color: #e7f1ff;
+            border-left: 4px solid #0d6efd;
+        }
+        .device-item.scanned {
+            background-color: #d1e7dd;
+            border-left: 4px solid #198754;
+        }
+        .device-item.missing {
+            background-color: #f8d7da;
+            border-left: 4px solid #dc3545;
+        }
+        .device-item.extra {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+        }
+        .device-item.duplicate {
+            background-color: #ffddcc;
+            border-left: 4px solid #fd7e14;
+        }
+        .progress-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .audit-result {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            margin-top: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .audit-result.pass {
+            border-left: 5px solid #198754;
+        }
+        .audit-result.fail {
+            border-left: 5px solid #dc3545;
+        }
+        .mismatch-summary {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+        }
+        @media (max-width: 768px) {
+            .device-comparison {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body class="app-shell">
+    <aside class="app-sidebar">
+        <div class="sidebar-brand-global">
+            <img src="/img/ndabase-icon.png" class="sidebar-brand-icon" alt="Logo" />
+        </div>
+        
+        <!-- Profile Block -->
+        <div class="sidebar-profile" id="sidebarProfile">
+            <div class="profile-avatar">
+                <span class="avatar-initials" id="profileInitials">U</span>
+            </div>
+            <div class="profile-info">
+                <div class="profile-name" id="profileName">Loading...</div>
+                <div class="profile-role" id="profileRole">User</div>
+            </div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <span class="sidebar-section">DISPATCH WORKFLOW</span>
+            <a href="/dispatch/dispatch-queue.html" class="sidebar-link">
+                <i class="bi bi-clipboard-data"></i><span>Dispatch Queue</span>
+            </a>
+            <a href="/dispatch/batch-editor.html" class="sidebar-link" id="batchEditorLink">
+                <i class="bi bi-pencil-square"></i><span>Batch Editor</span>
+            </a>
+            <a href="/dispatch/loading-audit.html" class="sidebar-link active" id="loadingAuditLink">
+                <i class="bi bi-search"></i><span>Loading Audit</span>
+            </a>
+            <a href="/dispatch/transport-monitor.html" class="sidebar-link">
+                <i class="bi bi-truck"></i><span>Transport Monitor</span>
+            </a>
+            <a href="/dispatch/arrival-debrief.html" class="sidebar-link" id="arrivalDebriefLink">
+                <i class="bi bi-check-circle"></i><span>Arrival Debrief</span>
+            </a>
+            <span class="sidebar-section">SYSTEM</span>
+            <a href="/logout" class="sidebar-link danger">
+                <i class="bi bi-box-arrow-right"></i><span>Logout</span>
+            </a>
+        </nav>
+    </aside>
+
+    <div class="app-main">
+        <header class="app-header">
+            <div>
+                <div class="welcome-line">Phase 3 – Batch Dispatch</div>
+                <div class="welcome-date">Stage 5-6: Loading Audit & Verification</div>
+            </div>
+            <div class="header-right">
+                <span class="text-muted small" id="userDisplay"></span>
+            </div>
+        </header>
+
+        <div class="app-content">
+        <!-- Batch Info -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Batch ID:</strong>
+                        <div id="batchId">-</div>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>School:</strong>
+                        <div id="schoolName">-</div>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>POD Number:</strong>
+                        <div id="podNumber">-</div>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Expected Devices:</strong>
+                        <div id="expectedCount">-</div>
+                    </div>
+                </div>
+
+                <!-- Status banner for audit readiness -->
+                <div class="mt-3">
+                    <div id="statusBanner" class="alert alert-warning mb-0">
+                        Select a locked batch to begin the Loading Audit.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Section -->
+        <div class="progress-section">
+            <h5>Scanning Progress</h5>
+            <div class="d-flex justify-content-between mb-2">
+                <span>Scanned: <strong id="scannedCount">0</strong> / <strong id="expectedTotal">0</strong></span>
+                <span id="progressPercent">0%</span>
+            </div>
+            <div class="progress" style="height: 30px;">
+                <div id="progressBar" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Scan Area -->
+        <div class="scan-area" id="scanArea">
+            <h4><i class="bi bi-camera-fill"></i> Ready to Scan</h4>
+            <p class="text-muted mb-3">Click here and use barcode scanner, or type serial number</p>
+            <input 
+                type="text" 
+                class="form-control scan-input" 
+                id="scanInput" 
+                placeholder="Scan or type serial number..."
+                autocomplete="off"
+            >
+            <div class="mt-3">
+                <button class="btn btn-primary btn-lg" id="startScanBtn" onclick="focusScanInput()">
+                    Start Scanning
+                </button>
+                <button class="btn btn-outline-secondary btn-lg ms-2" onclick="clearScans()">
+                    Clear All Scans
+                </button>
+            </div>
+        </div>
+
+        <!-- Device Comparison -->
+        <div class="device-comparison">
+            <!-- Expected Devices -->
+            <div class="device-list-card">
+                <h5>
+                    <i class="bi bi-clipboard-check"></i> Expected Devices
+                    <span class="badge bg-primary float-end" id="expectedBadge">0</span>
+                </h5>
+                <div id="expectedList"></div>
+            </div>
+
+            <!-- Scanned Devices -->
+            <div class="device-list-card">
+                <h5>
+                    <i class="bi bi-check-circle-fill"></i> Scanned Devices
+                    <span class="badge bg-success float-end" id="scannedBadge">0</span>
+                </h5>
+                <div id="scannedList"></div>
+            </div>
+        </div>
+
+        <!-- Mismatch Detection -->
+        <div id="mismatchSection" style="display: none;">
+            <div class="mismatch-summary">
+                <h5><i class="bi bi-exclamation-triangle"></i> Mismatches Detected</h5>
+                <div id="mismatchDetails"></div>
+            </div>
+        </div>
+
+        <!-- Audit Result -->
+        <div id="auditResult" style="display: none;">
+            <div class="audit-result">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h3 id="resultTitle"></h3>
+                        <p id="resultMessage" class="mb-0"></p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-success btn-lg" id="proceedBtn" style="display: none;" onclick="proceedToTransport()">
+                            Mark En Route →
+                        </button>
+                        <button class="btn btn-warning btn-lg" id="retryBtn" style="display: none;" onclick="retryAudit()">
+                            Retry Audit
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+            <!-- Complete Audit Button -->
+            <div class="text-center my-4">
+                <button class="btn btn-primary btn-lg" id="completeAuditBtn" onclick="completeAudit()" disabled>
+                    Complete Audit & Verify
+                </button>
+            </div>
+
+        </div> <!-- /app-content -->
+    </div> <!-- /app-main -->
+
+    <link href="/lib/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="/css/dashboard-shell.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let batchData = null;
+        let batchId = null;
+        let expectedDevices = [];
+        let scannedSerials = new Set();
+        let scanHistory = [];
+
+        // Update sidebar links to preserve batch ID
+        function updateSidebarLinks(bId) {
+            batchId = bId || batchId;
+            const batchEditorLink = document.getElementById('batchEditorLink');
+            const arrivalDebriefLink = document.getElementById('arrivalDebriefLink');
+            if (batchEditorLink && batchId) {
+                batchEditorLink.href = `/dispatch/batch-editor?id=${batchId}`;
+            }
+            if (arrivalDebriefLink && batchId) {
+                arrivalDebriefLink.href = `/dispatch/arrival-debrief?id=${batchId}`;
+            }
+        }
+
+        function showEmptyState() {
+            const header = document.querySelector('.audit-header');
+            if (header) {
+                header.innerHTML = `
+                    <h2>No Batch Selected</h2>
+                    <p class="mb-3">Select a batch from <a href="/dispatch/transport-monitor" class="text-white">Transport Monitor</a> or enter a Batch ID</p>
+                    <div class="row">
+                        <div class="col-md-8 mx-auto">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="batchIdInput" placeholder="Enter Batch ID (UUID)">
+                                <button class="btn btn-light" onclick="loadBatchById()">Load Batch</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function loadBatchById() {
+            const batchIdInput = document.getElementById('batchIdInput');
+            if (!batchIdInput || !batchIdInput.value.trim()) {
+                alert('Please enter a Batch ID');
+                return;
+            }
+            batchId = batchIdInput.value.trim();
+            window.history.pushState({}, '', `?id=${batchId}`);
+            updateSidebarLinks(batchId);
+            loadBatch();
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            batchId = urlParams.get('id');
+            
+            if (batchId) {
+                updateSidebarLinks(batchId);
+                loadBatch();
+            } else {
+                // Show empty state with helpful instructions instead of redirecting
+                showEmptyState();
+            }
+        });
+
+        // Update sidebar links to preserve batch ID (old function - kept for compatibility)
+        function updateSidebarLinksOld(batchId) {
+            const batchEditorLink = document.getElementById('batchEditorLink');
+            const arrivalDebriefLink = document.getElementById('arrivalDebriefLink');
+            if (batchEditorLink) {
+                batchEditorLink.href = `/dispatch/batch-editor?id=${batchId}`;
+            }
+            if (arrivalDebriefLink) {
+                arrivalDebriefLink.href = `/dispatch/arrival-debrief?id=${batchId}`;
+            }
+        }
+
+        // Load batch data from URL
+        async function loadBatch() {
+            if (!batchId) {
+                showEmptyState();
+                return;
+            }
+
+            // Update sidebar links to preserve batch ID
+            updateSidebarLinks(batchId);
+
+            try {
+                const response = await fetch(`/api/dispatch/batches/${batchId}`);
+                if (!response.ok) throw new Error('Failed to load batch');
+
+                batchData = await response.json();
+                console.log('Batch data received:', batchData);
+
+                // Determine status (supports both numeric enum and string)
+                const rawStatus = batchData.status ?? batchData.Status;
+                const numericStatus = typeof rawStatus === 'string'
+                    ? ({
+                        'Draft': 0,
+                        'Locked': 1,
+                        'AuditInProgress': 2,
+                        'AuditPassed': 3,
+                        'AuditFailed': 4,
+                        'EnRoute': 5,
+                        'Delivered': 6,
+                        'Completed': 7,
+                        'Cancelled': 99
+                    }[rawStatus] ?? null)
+                    : rawStatus;
+
+                // Handle both camelCase and PascalCase property names
+                expectedDevices = (batchData.devices || batchData.Devices || []).map(d => 
+                    d.serial || d.Serial || d.serialNumber || 'Unknown'
+                ).filter(s => s !== 'Unknown');
+
+                // Populate batch info - handle both naming conventions
+                // Use batchId from URL params, or fallback to API response
+                const displayBatchId = batchId || batchData.batchId || batchData.BatchId || batchData.id || batchData.Id || '-';
+                const schoolName = batchData.schoolName || batchData.SchoolName || '-';
+                const podNumber = batchData.podNumber || batchData.PodNumber || batchData.pODNumber || '-';
+                
+                document.getElementById('batchId').textContent = displayBatchId;
+                document.getElementById('schoolName').textContent = schoolName;
+                document.getElementById('podNumber').textContent = podNumber;
+                document.getElementById('expectedCount').textContent = expectedDevices.length;
+                document.getElementById('expectedTotal').textContent = expectedDevices.length;
+                document.getElementById('expectedBadge').textContent = expectedDevices.length;
+
+                // Check if batch is locked - either by status or by having a POD number (matches backend logic)
+                const isLocked = numericStatus === 1; // Locked
+                const isInAudit = numericStatus === 2; // AuditInProgress
+                const isAuditFailed = numericStatus === 4; // AuditFailed (can retry)
+                const hasPODNumber = podNumber && podNumber !== '-' && podNumber !== 'N/A';
+                
+                // Batch is ready for audit if: Locked, AuditInProgress, AuditFailed (retry), or has PODNumber
+                const canPerformAudit = isLocked || isInAudit || isAuditFailed || hasPODNumber;
+                
+                // Enable/disable scanning based on batch status
+                const scanInput = document.getElementById('scanInput');
+                const completeBtn = document.getElementById('completeAuditBtn');
+                const statusBanner = document.getElementById('statusBanner');
+
+                if (canPerformAudit) {
+                    // Ready for loading audit
+                    if (scanInput) {
+                        scanInput.disabled = false;
+                    }
+                    if (completeBtn) {
+                        completeBtn.disabled = false;
+                    }
+                    if (statusBanner) {
+                        statusBanner.classList.remove('alert-warning');
+                        statusBanner.classList.add('alert-success');
+                        if (isAuditFailed) {
+                            statusBanner.textContent = 'Previous audit failed. You can retry the audit by scanning all devices again.';
+                        } else {
+                            statusBanner.textContent = 'Batch is locked and ready for Loading Audit. You can start scanning devices.';
+                        }
+                    }
+                } else if (numericStatus === 3) {
+                    // AuditPassed - show success message
+                    if (scanInput) {
+                        scanInput.disabled = true;
+                    }
+                    if (completeBtn) {
+                        completeBtn.disabled = true;
+                    }
+                    if (statusBanner) {
+                        statusBanner.classList.remove('alert-warning');
+                        statusBanner.classList.add('alert-success');
+                        statusBanner.textContent = '✓ Audit passed! This batch is ready to be marked as En Route.';
+                    }
+                } else {
+                    // Not in a valid state for audit
+                    if (scanInput) {
+                        scanInput.disabled = true;
+                    }
+                    if (completeBtn) {
+                        completeBtn.disabled = true;
+                    }
+                    if (statusBanner) {
+                        statusBanner.classList.remove('alert-success');
+                        statusBanner.classList.add('alert-warning');
+                        statusBanner.textContent = `This batch is not ready for Loading Audit. Current status: ${rawStatus || 'Unknown'} (${numericStatus ?? 'N/A'}). Batch must be locked first.`;
+                    }
+                }
+
+                renderExpectedDevices();
+                focusScanInput();
+            } catch (error) {
+                console.error('Error loading batch:', error);
+                alert('Failed to load batch: ' + error.message);
+            }
+        }
+
+        // Render expected devices list
+        function renderExpectedDevices() {
+            const container = document.getElementById('expectedList');
+            container.innerHTML = expectedDevices.map(serial => `
+                <div class="device-item expected" id="expected-${serial}">
+                    <span>${serial}</span>
+                    <span class="badge bg-secondary">Not Scanned</span>
+                </div>
+            `).join('');
+        }
+
+        // Focus on scan input
+        function focusScanInput() {
+            const input = document.getElementById('scanInput');
+            const area = document.getElementById('scanArea');
+            if (input) {
+                input.focus();
+            }
+            if (area) {
+                area.classList.add('active');
+            }
+        }
+
+        // Setup scan input event listener
+        function setupScanInput() {
+            const scanInput = document.getElementById('scanInput');
+            if (!scanInput) {
+                console.error('Scan input element not found');
+                return;
+            }
+
+            // Remove any existing listeners by cloning the element
+            const newInput = scanInput.cloneNode(true);
+            scanInput.parentNode.replaceChild(newInput, scanInput);
+
+            // Add event listener
+            newInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const serial = this.value.trim();
+                    console.log('Scan input received:', serial);
+                    if (serial) {
+                        processScan(serial);
+                        this.value = '';
+                    } else {
+                        console.warn('Empty serial number entered');
+                    }
+                }
+            });
+
+            // Also handle input event for barcode scanners that might not send Enter
+            newInput.addEventListener('input', function(e) {
+                const serial = this.value.trim();
+                // If the input looks complete (has reasonable length), process it after a short delay
+                if (serial.length >= 10) {
+                    setTimeout(() => {
+                        if (this.value.trim() === serial) {
+                            console.log('Auto-processing scan (barcode scanner):', serial);
+                            processScan(serial);
+                            this.value = '';
+                        }
+                    }, 100);
+                }
+            });
+
+            console.log('Scan input event listener attached');
+        }
+
+        // Process scanned serial
+        function processScan(serial) {
+            console.log('Processing scan:', serial);
+            console.log('Expected devices:', expectedDevices);
+            
+            if (!serial || serial.length === 0) {
+                console.warn('Empty serial number provided');
+                return;
+            }
+
+            // Check for duplicate scan
+            if (scannedSerials.has(serial)) {
+                console.warn('Duplicate scan detected:', serial);
+                showScanFeedback(serial, 'duplicate', 'Duplicate scan');
+                return;
+            }
+
+            // Add to scanned set
+            scannedSerials.add(serial);
+            scanHistory.push(serial);
+            console.log('Added to scanned list. Total scanned:', scannedSerials.size);
+
+            // Check if expected
+            const isExpected = expectedDevices.includes(serial);
+            console.log('Is expected device:', isExpected);
+            
+            if (isExpected) {
+                showScanFeedback(serial, 'scanned', 'Match');
+                // Update expected device status
+                const expectedItem = document.getElementById(`expected-${serial}`);
+                if (expectedItem) {
+                    expectedItem.classList.remove('expected');
+                    expectedItem.classList.add('scanned');
+                    const badge = expectedItem.querySelector('.badge');
+                    if (badge) {
+                        badge.textContent = 'Scanned';
+                        badge.className = 'badge bg-success';
+                    }
+                } else {
+                    console.warn('Expected device item not found for serial:', serial);
+                }
+            } else {
+                showScanFeedback(serial, 'extra', 'Not in manifest');
+            }
+
+            updateProgress();
+            renderScannedDevices();
+            checkAuditCompletion();
+        }
+
+        // Show scan feedback
+        function showScanFeedback(serial, type, message) {
+            // Visual feedback (could add toast notification here)
+            console.log(`${message}: ${serial}`);
+        }
+
+        // Render scanned devices list
+        function renderScannedDevices() {
+            const container = document.getElementById('scannedList');
+            document.getElementById('scannedBadge').textContent = scannedSerials.size;
+
+            if (scanHistory.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">No devices scanned yet</p>';
+                return;
+            }
+
+            container.innerHTML = scanHistory.map(serial => {
+                const isExpected = expectedDevices.includes(serial);
+                const isDuplicate = scanHistory.filter(s => s === serial).length > 1;
+                
+                let itemClass = 'scanned';
+                let badge = 'Match';
+                let badgeClass = 'bg-success';
+
+                if (isDuplicate) {
+                    itemClass = 'duplicate';
+                    badge = 'Duplicate';
+                    badgeClass = 'bg-warning';
+                } else if (!isExpected) {
+                    itemClass = 'extra';
+                    badge = 'Extra';
+                    badgeClass = 'bg-warning';
+                }
+
+                return `
+                    <div class="device-item ${itemClass}">
+                        <span>${serial}</span>
+                        <span class="badge ${badgeClass}">${badge}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Update progress bar
+        function updateProgress() {
+            const scannedCount = scannedSerials.size;
+            const expectedCount = expectedDevices.length;
+            const percentage = expectedCount > 0 ? Math.round((scannedCount / expectedCount) * 100) : 0;
+
+            document.getElementById('scannedCount').textContent = scannedCount;
+            document.getElementById('progressPercent').textContent = percentage + '%';
+            document.getElementById('progressBar').style.width = percentage + '%';
+
+            if (percentage >= 100) {
+                document.getElementById('progressBar').classList.add('bg-success');
+            }
+        }
+
+        // Check if audit can be completed
+        function checkAuditCompletion() {
+            const scannedCount = scannedSerials.size;
+            const expectedCount = expectedDevices.length;
+            const completeBtn = document.getElementById('completeAuditBtn');
+
+            // Enable complete button if at least expected count scanned
+            if (scannedCount >= expectedCount) {
+                completeBtn.disabled = false;
+            }
+        }
+
+        // Complete audit and submit to backend
+        async function completeAudit() {
+            const scannedArray = Array.from(scannedSerials);
+            
+            // Detect mismatches
+            const missing = expectedDevices.filter(s => !scannedSerials.has(s));
+            const extra = scannedArray.filter(s => !expectedDevices.includes(s));
+            const duplicates = scanHistory.filter((s, i) => scanHistory.indexOf(s) !== i);
+
+            const hasMismatches = missing.length > 0 || extra.length > 0 || duplicates.length > 0;
+
+            // Show mismatch details if any
+            if (hasMismatches) {
+                displayMismatches(missing, extra, duplicates);
+            }
+
+            // Submit audit to backend
+            try {
+                // Get batch ID from URL params or batchData
+                const urlParams = new URLSearchParams(window.location.search);
+                const batchIdFromUrl = urlParams.get('id');
+                const batchId = batchIdFromUrl || batchData.batchId || batchData.BatchId || batchData.id || batchData.Id;
+                
+                if (!batchId) {
+                    throw new Error('Batch ID not found');
+                }
+
+                console.log('Submitting audit for batch:', batchId);
+                console.log('Scanned serials:', scannedArray);
+
+                const response = await fetch(`/api/dispatch/batches/${batchId}/audit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        ScannedSerials: scannedArray
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('API error response:', errorText);
+                    let errorMessage = errorText;
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        errorMessage = errorJson.message || errorJson.error || errorText;
+                    } catch (e) {
+                        // Not JSON, use as-is
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const result = await response.json();
+                console.log('Audit result:', result);
+                
+                // Reload batch data to get updated status
+                await loadBatch();
+                
+                // Display audit result (handle both auditPassed and passed properties)
+                const auditData = result.audit || result;
+                displayAuditResult(auditData);
+            } catch (error) {
+                console.error('Error completing audit:', error);
+                alert('Failed to complete audit: ' + error.message);
+            }
+        }
+
+        // Display mismatch details
+        function displayMismatches(missing, extra, duplicates) {
+            const section = document.getElementById('mismatchSection');
+            const details = document.getElementById('mismatchDetails');
+
+            let html = '<ul class="mb-0">';
+            if (missing.length > 0) {
+                html += `<li><strong>Missing Devices (${missing.length}):</strong> ${missing.join(', ')}</li>`;
+            }
+            if (extra.length > 0) {
+                html += `<li><strong>Extra Devices (${extra.length}):</strong> ${extra.join(', ')}</li>`;
+            }
+            if (duplicates.length > 0) {
+                html += `<li><strong>Duplicate Scans (${duplicates.length}):</strong> ${duplicates.join(', ')}</li>`;
+            }
+            html += '</ul>';
+
+            details.innerHTML = html;
+            section.style.display = 'block';
+        }
+
+        // Display audit result
+        function displayAuditResult(result) {
+            const resultDiv = document.getElementById('auditResult');
+            const auditResultCard = resultDiv.querySelector('.audit-result');
+            const title = document.getElementById('resultTitle');
+            const message = document.getElementById('resultMessage');
+            const proceedBtn = document.getElementById('proceedBtn');
+            const retryBtn = document.getElementById('retryBtn');
+
+            // Handle both auditPassed and passed properties
+            const auditPassed = result.auditPassed || result.passed || false;
+
+            if (auditPassed) {
+                auditResultCard.classList.add('pass');
+                auditResultCard.classList.remove('fail');
+                title.textContent = '✓ Audit Passed';
+                message.textContent = 'All devices verified. Batch is ready for transport.';
+                proceedBtn.style.display = 'inline-block';
+                retryBtn.style.display = 'none';
+            } else {
+                auditResultCard.classList.add('fail');
+                auditResultCard.classList.remove('pass');
+                title.textContent = '✗ Audit Failed';
+                const missing = result.missing || [];
+                const extra = result.extra || [];
+                const duplicates = result.duplicates || [];
+                let failMessage = 'Mismatches detected:';
+                if (missing.length > 0) failMessage += ` ${missing.length} missing`;
+                if (extra.length > 0) failMessage += ` ${extra.length} extra`;
+                if (duplicates.length > 0) failMessage += ` ${duplicates.length} duplicates`;
+                message.textContent = result.message || failMessage || 'Mismatches detected. Please review and retry.';
+                proceedBtn.style.display = 'none';
+                retryBtn.style.display = 'inline-block';
+            }
+
+            resultDiv.style.display = 'block';
+            resultDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Proceed to transport monitor
+        async function proceedToTransport() {
+            try {
+                // Get batch ID from URL params or batchData
+                const urlParams = new URLSearchParams(window.location.search);
+                const batchIdFromUrl = urlParams.get('id');
+                const batchIdToUse = batchIdFromUrl || batchId || batchData?.batchId || batchData?.BatchId || batchData?.id || batchData?.Id;
+                
+                if (!batchIdToUse) {
+                    throw new Error('Batch ID not found');
+                }
+
+                const response = await fetch(`/api/dispatch/batches/${batchIdToUse}/enroute`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    let errorMessage = errorText;
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        errorMessage = errorJson.message || errorJson.error || errorText;
+                    } catch (e) {
+                        // Not JSON, use as-is
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                alert('Batch marked as En Route. Redirecting to Transport Monitor...');
+                window.location.href = `/dispatch/transport-monitor.html?id=${batchIdToUse}`;
+            } catch (error) {
+                console.error('Error marking en route:', error);
+                alert('Failed to mark en route: ' + error.message);
+            }
+        }
+
+        // Retry audit
+        function retryAudit() {
+            if (confirm('This will clear all scans. Continue?')) {
+                clearScans();
+                document.getElementById('auditResult').style.display = 'none';
+                document.getElementById('mismatchSection').style.display = 'none';
+            }
+        }
+
+        // Clear all scans
+        function clearScans() {
+            scannedSerials.clear();
+            scanHistory = [];
+            renderExpectedDevices();
+            renderScannedDevices();
+            updateProgress();
+            document.getElementById('completeAuditBtn').disabled = true;
+            document.getElementById('scanInput').value = '';
+            focusScanInput();
+        }
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM loaded, initializing...');
+            setupScanInput();
+            loadBatch();
+        });
+    </script>
+</body>
+</html>

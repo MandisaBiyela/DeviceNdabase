@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>ICT Allocation Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" />
+    <link rel="stylesheet" href="/css/dashboard-shell.css" />
+    <link rel="stylesheet" href="/css/theme.css?v=2025" />
+</head>
+<body class="app-shell">
+    <aside class="app-sidebar">
+        <div class="sidebar-brand-global">
+            <img src="/img/ndabase-icon.png" class="sidebar-brand-icon" alt="Ndabase Logo Icon">
+        </div>
+        
+        <!-- Profile Block -->
+        <div class="sidebar-profile" id="sidebarProfile">
+            <div class="profile-avatar">
+                <span class="avatar-initials" id="profileInitials">U</span>
+            </div>
+            <div class="profile-info">
+                <div class="profile-name" id="profileName">Loading...</div>
+                <div class="profile-role" id="profileRole">User</div>
+            </div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <span class="sidebar-section">MENU</span>
+            <div id="allocatorSidebar">
+                <a href="#" id="navPending"
+                   class="sidebar-link active"
+                   onclick="loadPendingAllocationsView(); return false;">
+                    <i class="bi bi-list-check"></i>
+                    <span>Pending Allocations</span>
+                </a>
+                <a href="#" id="navAllocate"
+                   class="sidebar-link"
+                   onclick="loadAllocateStorageView(); return false;">
+                    <i class="bi bi-search"></i>
+                    <span>Allocate Storage</span>
+                </a>
+                <a href="#" id="navOverview"
+                   class="sidebar-link"
+                   onclick="loadStorageOverviewView(); return false;">
+                    <i class="bi bi-grid-3x3-gap"></i>
+                    <span>Storage Overview</span>
+                </a>
+                <a href="#" id="navUnallocated"
+                   class="sidebar-link"
+                   onclick="loadUnallocatedDevicesView(); return false;">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <span>Unallocated Devices</span>
+                </a>
+                <a href="#" id="navSchools"
+                   class="sidebar-link"
+                   onclick="loadSchoolsInStorageView(); return false;">
+                    <i class="bi bi-building"></i>
+                    <span>Schools in Storage</span>
+                </a>
+            </div>
+            <span class="sidebar-section">SYSTEM</span>
+            <a href="/logout" class="sidebar-link" onclick="logout(); return false;">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Logout</span>
+            </a>
+        </nav>
+    </aside>
+
+    <div class="app-main">
+        <header class="app-header">
+            <div>
+                <div class="welcome-line">ICT Allocation Dashboard</div>
+                <div class="welcome-date">Phase 2</div>
+            </div>
+            <div class="header-center"></div>
+            <div class="header-right">
+                <span id="userInfo" class="me-3"></span>
+                <button class="avatar-btn"><span class="avatar-initials">IA</span></button>
+            </div>
+        </header>
+        <main class="app-content">
+            <div id="mainContent" class="p-4">
+                <!-- Views will be loaded here -->
+            </div>
+        </main>
+    </div>
+
+    <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let pendingSerial = null;
+        let currentUser = null;
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadCurrentUser();
+            await loadPendingAllocationsView();
+        });
+
+        async function loadCurrentUser() {
+            try {
+                const response = await fetch('/api/auth/current-user');
+                if (!response.ok) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+                currentUser = await response.json();
+                document.getElementById('userInfo').textContent = `${currentUser.fullName || currentUser.email} (${currentUser.role || 'IctAllocator'})`;
+                
+                // Update profile block
+                const initials = currentUser.fullName ? currentUser.fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'U';
+                document.getElementById('profileInitials').textContent = initials;
+                document.getElementById('profileName').textContent = currentUser.fullName || currentUser.email || 'User';
+                document.getElementById('profileRole').textContent = currentUser.role || 'User';
+            } catch (error) {
+                console.error('Error loading user:', error);
+                window.location.href = '/login.html';
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+            } catch (e) {
+                console.warn('Logout request aborted or failed:', e);
+            } finally {
+                window.location.href = '/login.html';
+            }
+        }
+
+        function setActiveNav(id) {
+            const links = document.querySelectorAll('#allocatorSidebar .sidebar-link');
+            links.forEach(l => l.classList.remove('active'));
+            const target = document.getElementById(id);
+            if (target) target.classList.add('active');
+        }
+
+        async function renderWithScripts(targetId, html) {
+            const container = document.getElementById(targetId);
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+
+            // Remove previously injected view scripts to avoid accumulation
+            document.querySelectorAll('script[data-view-script="true"]').forEach(s => s.remove());
+
+            // Extract scripts from the fetched fragment
+            const scripts = Array.from(temp.querySelectorAll('script'));
+            scripts.forEach(s => s.parentNode.removeChild(s));
+
+            // Inject remaining HTML
+            container.innerHTML = temp.innerHTML;
+
+            // Re-insert scripts sequentially; await external script loads
+            for (const oldScript of scripts) {
+                const newScript = document.createElement('script');
+                newScript.setAttribute('data-view-script', 'true');
+                if (oldScript.type) newScript.type = oldScript.type;
+                if (oldScript.src) {
+                    newScript.src = oldScript.src;
+                    newScript.async = false;
+                    const loaded = new Promise(resolve => {
+                        newScript.onload = () => resolve();
+                        newScript.onerror = () => { console.error('Failed to load script:', newScript.src); resolve(); };
+                    });
+                    container.appendChild(newScript);
+                    await loaded;
+                } else {
+                    newScript.textContent = oldScript.textContent;
+                    container.appendChild(newScript);
+                }
+            }
+        }
+
+        async function loadPendingAllocationsView() {
+            setActiveNav('navPending');
+            try {
+                const resp = await fetch('/phase2/allocator/pending-allocations.html');
+                const html = await resp.text();
+                await renderWithScripts('mainContent', html);
+            } catch (err) {
+                document.getElementById('mainContent').innerHTML = '<div class="alert alert-danger">Failed to load Pending Allocations view.</div>';
+            }
+        }
+
+        async function loadAllocateStorageView(serial = '') {
+            setActiveNav('navAllocate');
+            pendingSerial = serial;
+            try {
+                const resp = await fetch('/phase2/allocator/allocate-storage.html');
+                let html = await resp.text();
+                // Pre-fill serial if provided
+                if (serial) {
+                    html = html.replace('id="serialInput"', `id="serialInput" value="${serial}"`);
+                }
+                await renderWithScripts('mainContent', html);
+            } catch (err) {
+                document.getElementById('mainContent').innerHTML = '<div class="alert alert-danger">Failed to load Allocate Storage view.</div>';
+            }
+        }
+
+        async function loadStorageOverviewView() {
+            setActiveNav('navOverview');
+            try {
+                const resp = await fetch('/phase2/allocator/storage-overview.html');
+                const html = await resp.text();
+                await renderWithScripts('mainContent', html);
+            } catch (err) {
+                document.getElementById('mainContent').innerHTML = '<div class="alert alert-danger">Failed to load Storage Overview view.</div>';
+            }
+        }
+
+        async function loadUnallocatedDevicesView() {
+            setActiveNav('navUnallocated');
+            try {
+                const resp = await fetch('/phase2/allocator/unallocated-devices.html');
+                const html = await resp.text();
+                await renderWithScripts('mainContent', html);
+            } catch (err) {
+                document.getElementById('mainContent').innerHTML = '<div class="alert alert-danger">Failed to load Unallocated Devices view.</div>';
+            }
+        }
+
+        async function loadSchoolsInStorageView() {
+            setActiveNav('navSchools');
+            try {
+                const resp = await fetch('/phase2/allocator/schools-in-storage.html');
+                const html = await resp.text();
+                await renderWithScripts('mainContent', html);
+            } catch (err) {
+                document.getElementById('mainContent').innerHTML = '<div class="alert alert-danger">Failed to load Schools in Storage view.</div>';
+            }
+        }
+
+        // Make functions globally available for onclick handlers in loaded views
+        window.loadAllocateStorageView = loadAllocateStorageView;
+    </script>
+</body>
+</html>

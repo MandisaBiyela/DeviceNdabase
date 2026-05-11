@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Editor - DeviceDesk</title>
+    <link href="/lib/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="/css/dashboard-shell.css" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/theme.css?v=2025" />
+    <link href="/css/site.css" rel="stylesheet" />
+    <style>
+        .batch-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 8px; margin-bottom: 2rem; }
+        .status-badge { font-size: 1.1rem; padding: 0.5rem 1rem; }
+        .device-list-item { transition: all 0.2s; }
+        .device-list-item:hover { background-color: #f8f9fa; }
+        .section-card { border-left: 4px solid #667eea; }
+        .readonly-field { background-color: #e9ecef; }
+    </style>
+</head>
+<body class="app-shell">
+    <aside class="app-sidebar">
+        <div class="sidebar-brand-global">
+            <img src="/img/ndabase-icon.png" class="sidebar-brand-icon" alt="Logo" />
+        </div>
+        
+        <!-- Profile Block -->
+        <div class="sidebar-profile" id="sidebarProfile">
+            <div class="profile-avatar">
+                <span class="avatar-initials" id="profileInitials">U</span>
+            </div>
+            <div class="profile-info">
+                <div class="profile-name" id="profileName">Loading...</div>
+                <div class="profile-role" id="profileRole">User</div>
+            </div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <span class="sidebar-section">DISPATCH WORKFLOW</span>
+            <a href="/dispatch/dispatch-queue.html" class="sidebar-link">
+                <i class="bi bi-clipboard-data"></i><span>Dispatch Queue</span>
+            </a>
+            <a href="/dispatch/batch-editor.html" class="sidebar-link active" id="batchEditorLink">
+                <i class="bi bi-pencil-square"></i><span>Batch Editor</span>
+            </a>
+            <a href="/dispatch/loading-audit.html" class="sidebar-link" id="loadingAuditLink">
+                <i class="bi bi-search"></i><span>Loading Audit</span>
+            </a>
+            <a href="/dispatch/transport-monitor.html" class="sidebar-link">
+                <i class="bi bi-truck"></i><span>Transport Monitor</span>
+            </a>
+            <a href="/dispatch/arrival-debrief.html" class="sidebar-link" id="arrivalDebriefLink">
+                <i class="bi bi-check-circle"></i><span>Arrival Debrief</span>
+            </a>
+            <span class="sidebar-section">SYSTEM</span>
+            <a href="/logout" class="sidebar-link danger">
+                <i class="bi bi-box-arrow-right"></i><span>Logout</span>
+            </a>
+        </nav>
+    </aside>
+
+    <div class="app-main">
+        <header class="app-header">
+            <div>
+                <div class="welcome-line">Phase 3 – Batch Dispatch</div>
+                <div class="welcome-date">Stage 3-5: Batch Editor & Confirmation</div>
+            </div>
+            <div class="header-right">
+                <button id="btnCancelBatch" class="btn btn-sm btn-outline-danger me-2" style="display:none;" onclick="cancelCurrentBatch()">
+                    <i class="bi bi-x-circle"></i> Cancel Batch
+                </button>
+                <button class="btn btn-sm btn-outline-secondary me-2" onclick="loadBatch()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                <a href="/dispatch/dispatch-queue.html" class="btn btn-sm btn-outline-secondary">← Back to Queue</a>
+            </div>
+        </header>
+
+        <div class="app-content">
+
+                <!-- Batch Header -->
+                <div class="batch-header shadow">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h3 class="mb-2" id="batchTitle">Loading...</h3>
+                            <p class="mb-0" id="batchSubtitle"></p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <span class="badge status-badge" id="statusBadge">Draft</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Form -->
+                <div class="row">
+                    <!-- Left Column: School & Trip Details -->
+                    <div class="col-md-6">
+                        <div class="card section-card mb-4">
+                            <div class="card-header"><h5><i class="bi bi-building"></i> School & Stock Details</h5></div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label">School Name</label>
+                                    <input type="text" class="form-control readonly-field" id="schoolName" readonly>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Stock Type</label>
+                                    <input type="text" class="form-control readonly-field" id="stockType" readonly>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">District</label>
+                                    <input type="text" class="form-control readonly-field" id="district" readonly>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">EMIS Code</label>
+                                    <input type="text" class="form-control readonly-field" id="emisCode" readonly>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Source Reference</label>
+                                    <input type="text" class="form-control readonly-field" id="sourceRef" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card section-card">
+                            <div class="card-header"><h5><i class="bi bi-truck"></i> Trip Details</h5></div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Trip Reference</label>
+                                    <input type="text" class="form-control readonly-field" id="tripRef" readonly>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Driver Name *</label>
+                                    <input type="text" class="form-control" id="driverName" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Vehicle Registration *</label>
+                                    <input type="text" class="form-control" id="vehicleReg" placeholder="e.g., ABC-123-GP" required>
+                                </div>
+                                <button class="btn btn-primary w-100" onclick="saveDetails()" id="saveBtn"><i class="bi bi-save"></i> Save Details</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Devices -->
+                    <div class="col-md-6">
+                        <div class="card section-card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5><i class="bi bi-box-seam"></i> Devices in Batch</h5>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button id="btn-find-matching"
+                                            type="button"
+                                            class="btn btn-sm btn-outline-secondary"
+                                            style="display:none;"
+                                            onclick="findAndAddMatchingDevices()">
+                                        <i class="bi bi-search"></i> Find Matching Devices
+                                    </button>
+                                    <span class="badge bg-primary" id="deviceCount">0</span>
+                                </div>
+                            </div>
+                            <div class="card-body" style="max-height: 600px; overflow-y: auto;">
+                                <div id="deviceList">
+                                    <!-- Devices will be loaded here -->
+                                </div>
+                                <div id="emptyDevices" class="text-center py-4 text-muted" style="display: none;">
+                                    <p>No devices in this batch yet.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="card mt-4 border-danger" id="lockSection">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-exclamation-triangle-fill"></i> Ready to Lock Batch?</h5>
+                        <p class="card-text">
+                            Once locked, you cannot add or remove devices, or modify school/trip details. 
+                            The system will generate POD and Delivery Note numbers.
+                        </p>
+                        <div class="alert alert-warning">
+                            <strong>Requirements:</strong>
+                            <ul class="mb-0">
+                                <li>At least 1 device in batch</li>
+                                <li>Trip Reference filled</li>
+                                <li>Driver Name filled</li>
+                                <li>Vehicle Registration filled</li>
+                            </ul>
+                        </div>
+                        <button class="btn btn-danger btn-lg" onclick="lockBatch()" id="lockBtn" disabled>
+                            <i class="bi bi-lock-fill"></i> Lock Batch & Generate POD
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Locked State -->
+                <div class="alert alert-success mt-4" id="lockedState" style="display: none;">
+                    <h5><i class="bi bi-check-circle-fill"></i> Batch Locked Successfully!</h5>
+                    <div class="mb-2">
+                        <strong>POD Number:</strong> <span id="podNumber"></span>
+                        <button class="btn btn-sm btn-outline-primary ms-2" onclick="downloadPOD()" id="downloadPODBtn">
+                            <i class="bi bi-download"></i> Download POD
+                        </button>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Delivery Note:</strong> <span id="dnNumber"></span>
+                        <button class="btn btn-sm btn-outline-primary ms-2" onclick="downloadDeliveryNote()" id="downloadDNBtn">
+                            <i class="bi bi-download"></i> Download Delivery Note
+                        </button>
+                    </div>
+                    <a href="#" class="btn btn-success" id="auditLink">Proceed to Loading Audit →</a>
+                </div>
+
+        </div> <!-- /app-content -->
+    </div> <!-- /app-main -->
+
+    <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+    <script>
+        let batchId = null;
+        let batch = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            batchId = params.get('id');
+            
+            // If no id in URL, try last created batch from localStorage
+            if (!batchId) {
+                const stored = localStorage.getItem('phase3.lastBatchId');
+                if (stored) {
+                    batchId = stored;
+                    console.log('Batch Editor - Using stored batchId:', batchId);
+                }
+            }
+            
+            console.log('Batch Editor - Current URL:', window.location.href);
+            console.log('Batch Editor - URL params:', window.location.search);
+            console.log('Batch Editor - Final batchId to load:', batchId);
+            
+            if (!batchId) {
+                // No batch to load – show empty state
+                showEmptyState();
+                return;
+            }
+            // Update sidebar links to preserve batch ID
+            updateSidebarLinks(batchId);
+            loadBatch();
+        });
+
+        function updateSidebarLinks(batchId) {
+            const loadingAuditLink = document.getElementById('loadingAuditLink');
+            const arrivalDebriefLink = document.getElementById('arrivalDebriefLink');
+            if (loadingAuditLink) {
+                loadingAuditLink.href = `/dispatch/loading-audit.html?id=${batchId}`;
+            }
+            if (arrivalDebriefLink) {
+                arrivalDebriefLink.href = `/dispatch/arrival-debrief?id=${batchId}`;
+            }
+        }
+
+        async function loadBatch() {
+            try {
+                console.log('Loading batch with ID:', batchId);
+                const response = await fetch(`/api/dispatch/batches/${batchId}`);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('API Error:', response.status, errorText);
+                    throw new Error(`Batch not found (${response.status}): ${errorText}`);
+                }
+                
+                batch = await response.json();
+                console.log('Batch loaded:', batch);
+                
+                if (!batch || (!batch.batchId && !batch.BatchId)) {
+                    console.error('Invalid batch data:', batch);
+                    throw new Error('Invalid batch data received');
+                }
+                
+                // Remember this batch as the current one
+                if (batchId) {
+                    localStorage.setItem('phase3.lastBatchId', batchId);
+                }
+                
+                renderBatch();
+            } catch (error) {
+                console.error('Failed to load batch:', error);
+                const userChoice = confirm(`Failed to load batch: ${error.message}\n\nWould you like to:\n\nOK - Go to Transport Monitor\nCancel - Try again`);
+                if (userChoice) {
+                    window.location.href = '/dispatch/transport-monitor';
+                } else {
+                    loadBatch(); // Retry
+                }
+            }
+        }
+
+        function showEmptyState() {
+            // Show empty state instead of redirecting
+            document.getElementById('batchTitle').textContent = 'No Batch Selected';
+            document.getElementById('batchSubtitle').textContent = 'Select a batch from Transport Monitor or enter a Batch ID';
+            document.getElementById('statusBadge').textContent = 'None';
+            document.getElementById('statusBadge').className = 'badge status-badge bg-secondary';
+            
+            // Show helpful message with batch selector
+            const lockSection = document.getElementById('lockSection');
+            if (lockSection) {
+                lockSection.innerHTML = `
+                    <div class="alert alert-info">
+                        <h5><i class="bi bi-clipboard-check"></i> Select a Batch</h5>
+                        <div class="mb-3">
+                            <label for="batchIdInput" class="form-label">Enter Batch ID (UUID):</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="batchIdInput" placeholder="Paste Batch ID from Transport Monitor">
+                                <button class="btn btn-primary" onclick="loadBatchById()">Load Batch</button>
+                            </div>
+                        </div>
+                        <p class="mb-2">Or:</p>
+                        <ul class="mb-0">
+                            <li>Go to <a href="/dispatch/transport-monitor" class="alert-link">Transport Monitor</a> to view all batches</li>
+                            <li>Click "View Details" on any batch to open it here</li>
+                        </ul>
+                    </div>
+                `;
+            }
+        }
+
+        function loadBatchById() {
+            const batchIdInput = document.getElementById('batchIdInput');
+            if (!batchIdInput || !batchIdInput.value.trim()) {
+                alert('Please enter a Batch ID');
+                return;
+            }
+            batchId = batchIdInput.value.trim();
+            window.history.pushState({}, '', `?id=${batchId}`);
+            updateSidebarLinks(batchId);
+            loadBatch();
+        }
+
+        function renderBatch() {
+            // Header
+            document.getElementById('batchTitle').textContent = batch.schoolName;
+            document.getElementById('batchSubtitle').textContent = 
+                `Created ${new Date(batch.createdAt).toLocaleString()} • ${batch.devices?.length || 0} devices`;
+            
+            const statusBadge = document.getElementById('statusBadge');
+            statusBadge.textContent = getStatusText(batch.status);
+            statusBadge.className = `badge status-badge ${getStatusClass(batch.status)}`;
+
+            // Form fields
+            document.getElementById('schoolName').value = batch.schoolName || '';
+            document.getElementById('stockType').value = batch.stockType || '';
+            document.getElementById('district').value = batch.district || '';
+            document.getElementById('emisCode').value = batch.emisCode || '';
+            document.getElementById('sourceRef').value = batch.sourceReference || '';
+            // Trip Reference is auto-generated from GRV (Source Reference) if not set
+            const tripRef = batch.tripReference || (batch.sourceReference ? `${batch.sourceReference}-TRIP` : '');
+            document.getElementById('tripRef').value = tripRef;
+            document.getElementById('driverName').value = batch.driverName || '';
+            document.getElementById('vehicleReg').value = batch.vehicleReg || '';
+
+            // Devices
+            renderDevices();
+
+            // UI State
+            const isDraft = batch.status === 0; // Draft
+
+            // Show "Find Matching Devices" button only for Draft batches
+            const btnFind = document.getElementById('btn-find-matching');
+            if (btnFind) {
+                btnFind.style.display = isDraft ? 'inline-block' : 'none';
+            }
+
+            // Show Cancel Batch button only for Draft batches
+            const btnCancel = document.getElementById('btnCancelBatch');
+            if (btnCancel) {
+                btnCancel.style.display = isDraft ? 'inline-block' : 'none';
+            }
+
+            // District, EMIS Code, and Trip Reference are always read-only (never editable)
+            // Only Driver Name and Vehicle Registration are editable for Draft batches
+            document.getElementById('driverName').disabled = !isDraft;
+            document.getElementById('vehicleReg').disabled = !isDraft;
+            document.getElementById('saveBtn').disabled = !isDraft;
+
+            if (isDraft) {
+                document.getElementById('lockSection').style.display = 'block';
+                document.getElementById('lockedState').style.display = 'none';
+                updateLockButton();
+            } else {
+                document.getElementById('lockSection').style.display = 'none';
+                document.getElementById('lockedState').style.display = 'block';
+                document.getElementById('podNumber').textContent = batch.podNumber || 'N/A';
+                document.getElementById('dnNumber').textContent = batch.deliveryNoteNumber || 'N/A';
+                
+                // Determine if batch can proceed to Loading Audit
+                // Only Locked (1) or AuditInProgress (2) statuses can go to Loading Audit
+                const batchStatus = batch.status ?? batch.Status;
+                const numericStatus = typeof batchStatus === 'string'
+                    ? ({
+                        'Draft': 0,
+                        'Locked': 1,
+                        'AuditInProgress': 2,
+                        'AuditPassed': 3,
+                        'AuditFailed': 4,
+                        'EnRoute': 5,
+                        'Delivered': 6,
+                        'Completed': 7,
+                        'Cancelled': 99
+                    }[batchStatus] ?? null)
+                    : batchStatus;
+                
+                const canProceedToAudit = numericStatus === 1 || numericStatus === 2; // Locked or AuditInProgress
+                const auditLink = document.getElementById('auditLink');
+                if (auditLink) {
+                    if (canProceedToAudit) {
+                        auditLink.href = `/dispatch/loading-audit.html?id=${batchId}`;
+                        auditLink.style.display = 'inline-block';
+                    } else {
+                        auditLink.style.display = 'none';
+                    }
+                }
+                
+                // Show/hide download buttons based on whether documents exist
+                const hasPOD = batch.podNumber && batch.podNumber !== 'N/A';
+                const hasDN = batch.deliveryNoteNumber && batch.deliveryNoteNumber !== 'N/A';
+                document.getElementById('downloadPODBtn').style.display = hasPOD ? 'inline-block' : 'none';
+                document.getElementById('downloadDNBtn').style.display = hasDN ? 'inline-block' : 'none';
+            }
+        }
+
+        // Find and add matching devices (same school + GRV)
+        async function findAndAddMatchingDevices() {
+            if (!batchId) {
+                alert('No batch selected.');
+                return;
+            }
+
+            try {
+                // 1) Ask backend for matching devices + GRV summary
+                const response = await fetch(`/api/dispatch/batches/${batchId}/matching-devices`);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Failed to get matching devices: ${response.status} ${errorText}`);
+                }
+
+                const result = await response.json();
+
+                const total = result.totalInGrv || 0;
+                const eligibleCount = result.eligibleCount || 0;
+                const inIctCount = result.inIctCount || 0;
+                const devices = result.devices || [];
+
+                // Build info message
+                let msg = `GRV summary for this batch:\n` +
+                          `- Total devices in GRV: ${total}\n` +
+                          `- Eligible to add now: ${eligibleCount}\n`;
+
+                if (inIctCount > 0) {
+                    msg += `- Still in ICT centre (cannot add yet): ${inIctCount}\n`;
+                }
+
+                if (eligibleCount === 0 || devices.length === 0) {
+                    alert(msg + '\n\nNo additional devices can be added right now.');
+                    return;
+                }
+
+                // 2) Confirmation with full context
+                msg += `\nDo you want to add ALL ${eligibleCount} eligible device(s) to this batch?`;
+                const confirmAdd = confirm(msg);
+                if (!confirmAdd) {
+                    return;
+                }
+
+                const deviceIds = devices.map(d => d.id);
+
+                // 3) Call existing AddDevices endpoint
+                const addResponse = await fetch(
+                    `/api/dispatch/batches/${batchId}/devices`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ deviceIds: deviceIds })
+                    }
+                );
+
+                if (!addResponse.ok) {
+                    const errorData = await addResponse.json().catch(() => ({ message: 'Failed to add devices' }));
+                    throw new Error(errorData.message || 'Failed to add devices');
+                }
+
+                const addResult = await addResponse.json();
+
+                // 4) Feedback + reload
+                alert(addResult.message || `Added ${eligibleCount} device(s) to batch.`);
+                await loadBatch();
+            } catch (err) {
+                console.error('Error finding/adding matching devices', err);
+                alert('Error finding/adding matching devices: ' + err.message);
+            }
+        }
+
+        async function downloadPOD() {
+            try {
+                const response = await fetch(`/api/dispatch/batches/${batchId}/pod-download`);
+                if (!response.ok) {
+                    // Try to get error message from response
+                    let errorMessage = 'Failed to download POD';
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.message || errorData.error || errorData.details || errorMessage;
+                    } catch (e) {
+                        errorMessage = `Failed to download POD (${response.status}): ${response.statusText}`;
+                    }
+                    throw new Error(errorMessage);
+                }
+                const blob = await response.blob();
+                
+                // Check if response is actually a PDF
+                if (!blob.type.includes('pdf') && blob.size > 0) {
+                    // Might be JSON error message
+                    const text = await blob.text();
+                    try {
+                        const errorData = JSON.parse(text);
+                        throw new Error(errorData.message || errorData.error || errorData.details || 'Failed to download POD');
+                    } catch (e) {
+                        throw new Error('Received invalid response from server');
+                    }
+                }
+                
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${batch.podNumber || 'POD'}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (error) {
+                console.error('Error downloading POD:', error);
+                alert('Failed to download POD: ' + error.message);
+            }
+        }
+
+        async function downloadDeliveryNote() {
+            try {
+                const response = await fetch(`/api/dispatch/batches/${batchId}/delivery-note-download`);
+                if (!response.ok) {
+                    // Try to get error message from response
+                    let errorMessage = 'Failed to download Delivery Note';
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.message || errorData.error || errorData.details || errorMessage;
+                    } catch (e) {
+                        errorMessage = `Failed to download Delivery Note (${response.status}): ${response.statusText}`;
+                    }
+                    throw new Error(errorMessage);
+                }
+                const blob = await response.blob();
+                
+                // Check if response is actually a PDF
+                if (!blob.type.includes('pdf') && blob.size > 0) {
+                    // Might be JSON error message
+                    const text = await blob.text();
+                    try {
+                        const errorData = JSON.parse(text);
+                        throw new Error(errorData.message || errorData.error || errorData.details || 'Failed to download Delivery Note');
+                    } catch (e) {
+                        throw new Error('Received invalid response from server');
+                    }
+                }
+                
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${batch.deliveryNoteNumber || 'DeliveryNote'}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (error) {
+                console.error('Error downloading Delivery Note:', error);
+                alert('Failed to download Delivery Note: ' + error.message);
+            }
+        }
+
+        function renderDevices() {
+            const list = document.getElementById('deviceList');
+            const empty = document.getElementById('emptyDevices');
+            const devices = batch.devices || [];
+
+            document.getElementById('deviceCount').textContent = devices.length;
+
+            if (devices.length === 0) {
+                list.innerHTML = '';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            list.innerHTML = devices.map(d => `
+                <div class="device-list-item border-bottom py-3 d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="mb-1"><strong><i class="bi bi-laptop"></i> ${d.serial}</strong></div>
+                        ${d.schoolName ? `<div class="small text-muted mb-1"><i class="bi bi-building"></i> School: ${d.schoolName}</div>` : ''}
+                        ${d.zone ? `<div class="small text-muted mb-1"><i class="bi bi-geo-alt"></i> Zone: ${d.zone}</div>` : ''}
+                        ${d.receiptId ? `<div class="small text-muted mb-1"><i class="bi bi-receipt"></i> Receipt: ${d.receiptId}</div>` : ''}
+                        <small class="text-muted"><i class="bi bi-calendar-plus"></i> Added ${new Date(d.addedAt).toLocaleString()}</small>
+                    </div>
+                    ${batch.status === 0 ? `
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeDevice(${d.deviceId})">
+                            <i class="bi bi-trash"></i> Remove
+                        </button>
+                    ` : `
+                        <span class="badge bg-success"><i class="bi bi-lock-fill"></i> Locked</span>
+                    `}
+                </div>
+            `).join('');
+        }
+
+        function getStatusText(status) {
+            const statuses = {
+                0: 'Draft', 1: 'Locked', 2: 'Audit In Progress', 3: 'Audit Passed',
+                4: 'Audit Failed', 5: 'En Route', 6: 'Delivered', 7: 'Completed', 99: 'Cancelled'
+            };
+            return statuses[status] || 'Unknown';
+        }
+
+        function getStatusClass(status) {
+            const classes = {
+                0: 'bg-secondary', 1: 'bg-warning', 2: 'bg-info', 3: 'bg-success',
+                4: 'bg-danger', 5: 'bg-primary', 6: 'bg-success', 7: 'bg-dark', 99: 'bg-danger'
+            };
+            return classes[status] || 'bg-secondary';
+        }
+
+        async function saveDetails() {
+            try {
+                const response = await fetch(`/api/dispatch/batches/${batchId}/details`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        // District, EMIS Code, and Trip Reference are read-only and not sent
+                        driverName: document.getElementById('driverName').value.trim() || null,
+                        driverUserId: null,
+                        vehicleReg: document.getElementById('vehicleReg').value.trim() || null
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to save');
+                }
+
+                alert('Details saved successfully!');
+                await loadBatch();
+            } catch (error) {
+                alert(`Failed to save: ${error.message}`);
+            }
+        }
+
+        async function cancelCurrentBatch() {
+            if (!batchId) {
+                alert('No batch loaded.');
+                return;
+            }
+
+            const confirmed = confirm(
+                'Are you sure you want to cancel this batch?\n\n' +
+                '- The batch status will change to Cancelled.\n' +
+                '- All devices in this batch will return to the Dispatch Queue.'
+            );
+            if (!confirmed) return;
+
+            try {
+                const response = await fetch(`/api/dispatch/batches/${batchId}/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ message: 'Failed to cancel batch' }));
+                    throw new Error(errorData.message || 'Failed to cancel batch');
+                }
+
+                const result = await response.json();
+                alert(result.message || 'Batch cancelled. Devices returned to dispatch queue.');
+
+                // Clear the stored batch and go back to queue
+                localStorage.removeItem('phase3.lastBatchId');
+                window.location.href = '/dispatch/dispatch-queue.html';
+            } catch (err) {
+                console.error('Error cancelling batch:', err);
+                alert(`Error cancelling batch: ${err.message}`);
+            }
+        }
+
+        async function removeDevice(deviceId) {
+            if (!confirm('Remove this device from the batch?')) return;
+
+            try {
+                const response = await fetch(`/api/dispatch/batches/${batchId}/devices/${deviceId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to remove device');
+                }
+
+                alert('Device removed');
+                await loadBatch();
+            } catch (error) {
+                alert(`Failed to remove device: ${error.message}`);
+            }
+        }
+
+        function updateLockButton() {
+            const tripRef = document.getElementById('tripRef').value.trim();
+            const driverName = document.getElementById('driverName').value.trim();
+            const vehicleReg = document.getElementById('vehicleReg').value.trim();
+            const hasDevices = (batch.devices || []).length > 0;
+
+            // Trip Reference is auto-generated from GRV, so it should always exist
+            const canLock = tripRef && driverName && vehicleReg && hasDevices;
+            const lockBtn = document.getElementById('lockBtn');
+            if (lockBtn) {
+                lockBtn.disabled = !canLock;
+            }
+        }
+
+        // Update lock button state on input
+        document.addEventListener('input', updateLockButton);
+
+        async function lockBatch() {
+            if (!confirm('Lock this batch? You will not be able to make changes after locking.')) return;
+            try {
+                const response = await fetch(`/api/dispatch/batches/${batchId}/lock`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    let errorMessage = 'Failed to lock batch';
+                    try {
+                        const errorText = await response.text();
+                        if (errorText) {
+                            const error = JSON.parse(errorText);
+                            errorMessage = error.message || errorMessage;
+                        } else {
+                            errorMessage = `Failed to lock batch (${response.status}): ${response.statusText}`;
+                        }
+                    } catch (e) {
+                        errorMessage = `Failed to lock batch (${response.status}): ${response.statusText}`;
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                // Try to parse JSON, but handle empty responses
+                let result;
+                const responseText = await response.text();
+                if (responseText) {
+                    try {
+                        result = JSON.parse(responseText);
+                    } catch (e) {
+                        // If JSON parsing fails, use default message
+                        result = { message: 'Batch locked successfully' };
+                    }
+                } else {
+                    result = { message: 'Batch locked successfully' };
+                }
+
+                const message = result.message || 'Batch locked successfully';
+                alert(message);
+
+                // Ask user if they want to continue directly to Loading Audit
+                if (confirm('Continue to Loading Audit for this batch?')) {
+                    // Persist last batch id for convenience and navigate with explicit id
+                    try {
+                        localStorage.setItem('phase3.lastBatchId', batchId);
+                    } catch (e) {
+                        console.warn('Unable to persist last batch id:', e);
+                    }
+                    window.location.href = `/dispatch/loading-audit.html?id=${encodeURIComponent(batchId)}`;
+                    return;
+                }
+
+                // Stay on editor and refresh data if user chooses not to continue
+                await loadBatch();
+            } catch (error) {
+                console.error('Error locking batch:', error);
+                alert(`Failed to lock batch: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>
