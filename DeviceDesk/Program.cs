@@ -108,6 +108,8 @@ builder.Services.AddScoped<CsvImportService>();
 builder.Services.AddScoped<DocumentService>();
 builder.Services.AddScoped<NewStockBatchService>();
 builder.Services.AddScoped<RnrBatchService>();
+builder.Services.AddScoped<OrderValidationService>();
+builder.Services.AddSingleton<ProcurementOrderExportService>();
 
 // Integration services (bridges between phases)
 // builder.Services.AddScoped<OrderIntegrationService>(); // Commented out - uses old Orders table
@@ -713,6 +715,24 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/superadmin"
 });
 
+// Serve React app from frontend/dist at /app when available
+var reactUiPath = Path.Combine(app.Environment.ContentRootPath, "frontend", "dist");
+if (Directory.Exists(reactUiPath))
+{
+    app.UseDefaultFiles(new DefaultFilesOptions
+    {
+        FileProvider = new PhysicalFileProvider(reactUiPath),
+        RequestPath = "/app",
+        DefaultFileNames = ["index.html"]
+    });
+
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(reactUiPath),
+        RequestPath = "/app"
+    });
+}
+
 // GM UI not served in this build
 
 // Root resolves to MVC default route (Home/Index)
@@ -742,6 +762,13 @@ if (app.Environment.IsDevelopment())
 
 // API + fallback to Phase0 hub
 app.MapControllers();
+if (Directory.Exists(reactUiPath))
+{
+    app.MapFallbackToFile("/app/{*path:nonfile}", "index.html", new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(reactUiPath)
+    });
+}
 
 // Role-based landing page
 app.MapGet("/", (HttpContext ctx) =>
@@ -771,10 +798,11 @@ app.MapGet("/", (HttpContext ctx) =>
             return Results.Redirect("/superadmin/dashboard.html");
         if (user.IsInRole("Admin") || roleClaims.Contains("Admin"))
             return Results.Redirect("/admin/index.html");
-        // DispatchClerk must come BEFORE OrdersClerk to ensure priority
-        if (user.IsInRole("DispatchClerk") || roleClaims.Contains("DispatchClerk"))
+        // Dispatch group must come BEFORE OrdersClerk to ensure priority
+        if (user.IsInRole("DispatchClerk") || user.IsInRole("DispatchDriver") || user.IsInRole("DispatchQA") || user.IsInRole("DispatchManager") ||
+            roleClaims.Contains("DispatchClerk") || roleClaims.Contains("DispatchDriver") || roleClaims.Contains("DispatchQA") || roleClaims.Contains("DispatchManager"))
         {
-            Console.WriteLine("[ROOT] Redirecting DispatchClerk to /dispatch/index.html");
+            Console.WriteLine("[ROOT] Redirecting Dispatch user to /dispatch/index.html");
             return Results.Redirect("/dispatch/index.html");
         }
         if (user.IsInRole("Receiver") || user.IsInRole("ReceivingClerk") || roleClaims.Contains("Receiver") || roleClaims.Contains("ReceivingClerk"))
@@ -802,7 +830,7 @@ app.MapFallback(async context =>
             return;
         }
 
-        if (user.IsInRole("DispatchClerk"))
+        if (user.IsInRole("DispatchClerk") || user.IsInRole("DispatchDriver") || user.IsInRole("DispatchQA") || user.IsInRole("DispatchManager"))
         {
             context.Response.Redirect("/dispatch/index.html");
             return;

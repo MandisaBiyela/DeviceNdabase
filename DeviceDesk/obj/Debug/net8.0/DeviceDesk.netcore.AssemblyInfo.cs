@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DeviceDesk.netcore")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+cd2300b0395abac2b2fb747881cda85d73fa4b57")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ce9951e13c96ce2fedfd03e3690d18c4c764b9f8")]
 [assembly: System.Reflection.AssemblyProductAttribute("DeviceDesk.netcore")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DeviceDesk.netcore")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

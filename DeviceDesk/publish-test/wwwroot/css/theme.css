@@ -1,0 +1,409 @@
+/* ============================================
+   DeviceDesk Global Theme - Dark Sidebar + Blue Header
+   Version: 2025
+   ============================================ */
+
+/* ============================================
+   SIDEBAR - Dark Navy + Charcoal Gradient
+   ============================================ */
+.app-sidebar {
+    background: linear-gradient(180deg, #1B1F3B 0%, #0D0F1C 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Sidebar Brand Global (Logo) */
+.sidebar-brand-global {
+    padding: 18px 20px 16px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: rgba(0, 0, 0, 0.2) !important;
+}
+
+.sidebar-brand-icon {
+    /* Preserve original logo colors */
+    max-width: 100%;
+    height: auto;
+}
+
+/* Sidebar Brand (DD DeviceDesk) */
+.sidebar-brand {
+    padding: 1rem 1rem !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: rgba(0, 0, 0, 0.2) !important;
+}
+
+.brand-logo {
+    background: #1976D2 !important;
+    color: #ffffff !important;
+}
+
+.brand-title,
+.brand-subtitle {
+    color: #ffffff !important;
+}
+
+.brand-subtitle {
+    opacity: 0.8 !important;
+}
+
+/* ============================================
+   PROFILE BLOCK - Top of Sidebar
+   ============================================ */
+.sidebar-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.2);
+    margin-bottom: 8px;
+}
+
+.profile-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #1976D2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.avatar-initials {
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 18px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.profile-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.profile-name {
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-role {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: capitalize;
+}
+
+/* ============================================
+   SIDEBAR NAVIGATION
+   ============================================ */
+.sidebar-nav {
+    padding: 0.75rem 0 !important;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.sidebar-section {
+    display: block;
+    color: rgba(255, 255, 255, 0.5) !important;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.5rem 1rem;
+    margin-top: 0.5rem;
+    font-weight: 600;
+}
+
+.sidebar-link {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    color: rgba(255, 255, 255, 0.9) !important;
+    text-decoration: none;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin: 0.125rem 0.5rem;
+    font-size: 0.92rem;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.sidebar-link i {
+    color: rgba(255, 255, 255, 0.8) !important;
+    font-size: 1.1rem;
+    width: 20px;
+    text-align: center;
+}
+
+.sidebar-link:hover {
+    background: rgba(25, 118, 210, 0.2) !important;
+    color: #ffffff !important;
+    transform: translateX(2px);
+}
+
+.sidebar-link:hover i {
+    color: #2196F3 !important;
+}
+
+.sidebar-link.active {
+    background: #1976D2 !important;
+    color: #ffffff !important;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.3);
+}
+
+.sidebar-link.active i {
+    color: #ffffff !important;
+}
+
+.sidebar-link.danger {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.sidebar-link.danger:hover {
+    background: rgba(244, 67, 54, 0.2) !important;
+    color: #ff5252 !important;
+}
+
+.sidebar-link.danger:hover i {
+    color: #ff5252 !important;
+}
+
+/* ============================================
+   HEADER BAR - Bright Blue Sticky
+   ============================================ */
+.app-header {
+    background: #2196F3 !important;
+    color: #ffffff !important;
+    padding: 1rem 1.25rem !important;
+    border-bottom: none !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+    position: sticky !important;
+    top: 0;
+    z-index: 1000;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.welcome-line {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 1.1rem;
+    margin-bottom: 2px;
+}
+
+.welcome-date {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-size: 0.875rem;
+    font-weight: 400;
+}
+
+.header-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.header-right .btn,
+.header-right .avatar-btn {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    color: #ffffff !important;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.header-right .btn:hover,
+.header-right .avatar-btn:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+    transform: translateY(-1px);
+}
+
+.header-right .text-muted {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* ============================================
+   MAIN CONTENT AREA
+   ============================================ */
+.app-shell {
+    background: #F4F6FC !important;
+    color: #111827;
+}
+
+.app-content {
+    padding: 1.25rem;
+    background: #F4F6FC;
+    min-height: calc(100vh - 80px);
+}
+
+/* ============================================
+   CARDS - White with Subtle Shadow
+   ============================================ */
+.card,
+.panel {
+    background: #ffffff !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+    border: none !important;
+    margin-bottom: 1rem;
+}
+
+.card-header,
+.panel-header {
+    background: #ffffff !important;
+    border-bottom: 1px solid #E5E7EB !important;
+    padding: 1rem 1.25rem;
+    font-weight: 600;
+    border-radius: 8px 8px 0 0 !important;
+}
+
+.card-body,
+.panel-body {
+    padding: 1.25rem;
+}
+
+/* Override Bootstrap card header colors if needed */
+.card-header.bg-primary {
+    background: #2196F3 !important;
+    color: #ffffff !important;
+    border-bottom: none !important;
+}
+
+.card-header.bg-success {
+    background: #4CAF50 !important;
+    color: #ffffff !important;
+    border-bottom: none !important;
+}
+
+/* ============================================
+   STAT CARDS
+   ============================================ */
+.stat-card {
+    background: #ffffff !important;
+    border: none !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+    padding: 1rem;
+}
+
+.stat-icon {
+    border-radius: 8px;
+}
+
+/* ============================================
+   BUTTONS - Ensure visibility on blue header
+   ============================================ */
+.btn-outline-secondary {
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    color: #ffffff !important;
+}
+
+.btn-outline-secondary:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+    color: #ffffff !important;
+}
+
+/* ============================================
+   AVATAR BUTTON IN HEADER
+   ============================================ */
+.avatar-btn {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    color: #ffffff !important;
+    border-radius: 50% !important;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-weight: 600;
+}
+
+.avatar-btn:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+@media (max-width: 768px) {
+    .app-sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+    
+    .app-main {
+        margin-left: 0 !important;
+    }
+    
+    .app-header {
+        padding: 0.75rem 1rem !important;
+    }
+    
+    .welcome-line {
+        font-size: 1rem;
+    }
+}
+
+/* ============================================
+   UTILITY OVERRIDES
+   ============================================ */
+.text-muted {
+    color: #6B7280 !important;
+}
+
+/* Ensure white text in header */
+.app-header .text-muted {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Date range button in header */
+.date-range-btn {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    color: #ffffff !important;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    font-weight: 500;
+}
+
+.date-range-btn:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Export button in header */
+.btn-export {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    color: #ffffff !important;
+}
+
+.btn-export:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
+}
+

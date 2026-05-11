@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Order detail — Phase 0</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+  <link rel="stylesheet" href="/css/dashboard-shell.css" />
+  <link rel="stylesheet" href="/css/theme.css?v=2025" />
+  <link href="css/orders-page.css" rel="stylesheet" />
+</head>
+<body class="app-shell">
+  <aside class="app-sidebar">
+    <div class="sidebar-brand-global">
+      <img src="/img/ndabase-icon.png" class="sidebar-brand-icon" alt="Ndabase Logo Icon" />
+    </div>
+    <div class="sidebar-profile">
+      <div class="profile-avatar"><span class="avatar-initials" id="profileInitials">U</span></div>
+      <div class="profile-info">
+        <div class="profile-name" id="profileName">User</div>
+        <div class="profile-role" id="profileRole">User</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="sidebar-section">NEW</span>
+      <a href="/phase0/new.html" class="sidebar-link"><i class="bi bi-arrow-bar-up"></i><span>Upload NEW</span></a>
+      <a href="/phase0/new-batches.html" class="sidebar-link"><i class="bi bi-collection-play"></i><span>NEW Batches</span></a>
+      <a href="/phase0/orders.html" class="sidebar-link active"><i class="bi bi-file-earmark-text"></i><span>Device Orders</span></a>
+      <span class="sidebar-section">SYSTEM</span>
+      <a href="/logout" class="sidebar-link danger"><i class="bi bi-box-arrow-right"></i><span>Logout</span></a>
+    </nav>
+  </aside>
+
+  <div class="app-main">
+    <header class="app-header">
+      <div>
+        <div class="welcome-line">Procurement order</div>
+        <div class="welcome-date orders-header-subtitle">Read-only detail</div>
+      </div>
+    </header>
+
+    <main class="app-content">
+      <div class="container-fluid px-3 px-lg-4" style="max-width: 960px;">
+        <p class="mb-3"><a href="/phase0/orders.html" class="btn btn-outline-primary btn-sm">← Back to orders</a></p>
+        <div id="detailError" class="alert alert-danger d-none"></div>
+        <div id="detailRoot" class="d-none">
+          <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
+            <div>
+              <h1 class="orders-page-title mb-1" id="dPo">—</h1>
+              <p class="text-secondary mb-0" id="dProject">—</p>
+            </div>
+            <span id="dStatus" class="pill-balanced">—</span>
+          </div>
+
+          <section class="orders-card-xl mb-3">
+            <div class="row g-3 small">
+              <div class="col-md-4"><span class="text-muted">Financial year</span><div class="fw-semibold" id="dFy">—</div></div>
+              <div class="col-md-4"><span class="text-muted">Total order value</span><div class="fw-semibold" id="dTotal">—</div></div>
+              <div class="col-md-4"><span class="text-muted">School totals</span><div class="fw-semibold" id="dSchoolTotals">—</div></div>
+              <div class="col-md-4"><span class="text-muted">Invoiced to department</span><div class="fw-semibold" id="dInv">—</div></div>
+              <div class="col-md-4"><span class="text-muted">Paid by department</span><div class="fw-semibold" id="dPaidDept">—</div></div>
+              <div class="col-md-4"><span class="text-muted">Paid to suppliers</span><div class="fw-semibold" id="dPaidSup">—</div></div>
+              <div class="col-md-4"><span class="text-muted">Outstanding balance</span><div class="fw-semibold" id="dOut">—</div></div>
+              <div class="col-md-4"><span class="text-muted">Created (UTC)</span><div class="fw-semibold" id="dCreated">—</div></div>
+            </div>
+          </section>
+
+          <div id="dSchools"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/phase0.api.js"></script>
+  <script src="js/order-detail.js"></script>
+  <script>
+    fetch("/api/auth/current-user", { credentials: "include" }).then(async (r) => {
+      if (!r.ok) return;
+      const user = await r.json();
+      const initials = user.fullName
+        ? user.fullName.split(" ").map((n) => n[0]).join("").substring(0, 2).toUpperCase()
+        : (user.email || "U").substring(0, 2).toUpperCase();
+      document.getElementById("profileInitials").textContent = initials;
+      document.getElementById("profileName").textContent = user.fullName || user.email || "User";
+      document.getElementById("profileRole").textContent = (user.roles && user.roles[0]) || user.role || "User";
+    });
+  </script>
+</body>
+</html>

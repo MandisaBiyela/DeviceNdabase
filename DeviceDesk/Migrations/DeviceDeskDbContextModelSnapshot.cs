@@ -1019,6 +1019,114 @@ namespace DeviceDesk.netcore.Migrations
                     b.ToTable("OrderModelLists", (string)null);
                 });
 
+            modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ProcurementOrder", b =>
+                {
+                    b.Property<Guid>("ProcurementOrderId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetimeoffset(7)")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<string>("FinancialYear")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("PoNumber")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ProjectName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("TotalInvoicedToDepartment")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalOrderValue")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalPaidByDepartment")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalPaidToSuppliers")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetimeoffset(7)")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.HasKey("ProcurementOrderId");
+
+                    b.HasIndex("PoNumber")
+                        .IsUnique();
+
+                    b.ToTable("ProcurementOrders", (string)null);
+                });
+
+            modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ProcurementOrderItem", b =>
+                {
+                    b.Property<Guid>("ProcurementOrderItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DeliveryStatus")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid>("ProcurementOrderSchoolId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("QtyOrdered")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TotalPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("ProcurementOrderItemId");
+
+                    b.HasIndex("ProcurementOrderSchoolId");
+
+                    b.ToTable("ProcurementOrderItems", (string)null);
+                });
+
+            modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ProcurementOrderSchool", b =>
+                {
+                    b.Property<Guid>("ProcurementOrderSchoolId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProcurementOrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SchoolName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<decimal>("SchoolSubTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("ProcurementOrderSchoolId");
+
+                    b.HasIndex("ProcurementOrderId");
+
+                    b.ToTable("ProcurementOrderSchools", (string)null);
+                });
+
             modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ScannedSerial", b =>
                 {
                     b.Property<Guid>("SerialID")
@@ -1211,6 +1319,28 @@ namespace DeviceDesk.netcore.Migrations
                     b.Navigation("Order");
                 });
 
+            modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ProcurementOrderItem", b =>
+                {
+                    b.HasOne("DeviceDesk.Modules.Phase0.Models.ProcurementOrderSchool", "ProcurementOrderSchool")
+                        .WithMany("Items")
+                        .HasForeignKey("ProcurementOrderSchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProcurementOrderSchool");
+                });
+
+            modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ProcurementOrderSchool", b =>
+                {
+                    b.HasOne("DeviceDesk.Modules.Phase0.Models.ProcurementOrder", "ProcurementOrder")
+                        .WithMany("Schools")
+                        .HasForeignKey("ProcurementOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProcurementOrder");
+                });
+
             modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ScannedSerial", b =>
                 {
                     b.HasOne("DeviceDesk.Modules.Phase0.Models.OrderModelList", null)
@@ -1267,6 +1397,16 @@ namespace DeviceDesk.netcore.Migrations
             modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.OrderModelList", b =>
                 {
                     b.Navigation("ScannedSerials");
+                });
+
+            modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ProcurementOrder", b =>
+                {
+                    b.Navigation("Schools");
+                });
+
+            modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ProcurementOrderSchool", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }

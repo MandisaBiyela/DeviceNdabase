@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Phase 0 - Device Orders</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+  <link rel="stylesheet" href="/css/dashboard-shell.css" />
+  <link rel="stylesheet" href="/css/theme.css?v=2025" />
+  <link href="css/phase0.css" rel="stylesheet" />
+  <link href="css/orders-page.css" rel="stylesheet" />
+</head>
+<body class="app-shell">
+  <aside class="app-sidebar">
+    <div class="sidebar-brand-global">
+      <img src="/img/ndabase-icon.png" class="sidebar-brand-icon" alt="Ndabase Logo Icon" />
+    </div>
+    <div class="sidebar-profile" id="sidebarProfile">
+      <div class="profile-avatar"><span class="avatar-initials" id="profileInitials">U</span></div>
+      <div class="profile-info">
+        <div class="profile-name is-loading" id="profileName">Loading…</div>
+        <div class="profile-role" id="profileRole">User</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="sidebar-section">NEW</span>
+      <a href="/phase0/new.html" class="sidebar-link"><i class="bi bi-arrow-bar-up"></i><span>Upload NEW</span></a>
+      <a href="/phase0/new-batches.html" class="sidebar-link"><i class="bi bi-collection-play"></i><span>NEW Batches</span></a>
+      <a href="/phase0/orders.html" class="sidebar-link active"><i class="bi bi-file-earmark-text"></i><span>Device Orders</span></a>
+      <span class="sidebar-section">SYSTEM</span>
+      <a href="/logout" class="sidebar-link danger"><i class="bi bi-box-arrow-right"></i><span>Logout</span></a>
+    </nav>
+  </aside>
+
+  <div class="app-main">
+    <header class="app-header">
+      <div>
+        <div class="welcome-line">Phase 0 - Device Orders</div>
+        <div class="welcome-date orders-header-subtitle">Parent and school allocation capture</div>
+      </div>
+      <div class="header-right">
+        <span class="orders-p0-badge" title="Phase 0">P0</span>
+        <span class="orders-user-initials-badge" id="headerUserInitials" aria-label="User initials">—</span>
+      </div>
+    </header>
+
+    <main class="app-content">
+      <div class="container-fluid px-3 px-lg-4" style="max-width: 1200px;">
+        <h1 class="orders-page-title">Create Procurement Order</h1>
+
+        <!-- Section 1: Order header -->
+        <section class="orders-card-xl" aria-labelledby="hdr-order">
+          <h2 id="hdr-order" class="visually-hidden">Order header</h2>
+          <div class="row g-4">
+            <div class="col-lg-3 col-md-6">
+              <label class="orders-label" for="poNumber">PO Number</label>
+              <input id="poNumber" class="orders-input" type="text" placeholder="e.g. PO-2026-001" autocomplete="off" />
+              <div id="err-poNumber" class="invalid-feedback-inline d-none"></div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+              <label class="orders-label" for="projectName">Project Name</label>
+              <input id="projectName" class="orders-input" type="text" placeholder="e.g. Smart Schools Phase 0" autocomplete="off" />
+              <div id="err-projectName" class="invalid-feedback-inline d-none"></div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+              <label class="orders-label" for="financialYear">Financial Year</label>
+              <select id="financialYear" class="orders-input">
+                <option value="2024/2025">2024/2025</option>
+                <option value="2025/2026" selected>2025/2026</option>
+                <option value="2026/2027">2026/2027</option>
+              </select>
+            </div>
+            <div class="col-lg-3 col-md-6">
+              <label class="orders-label" for="totalOrderValue">Total Order Value</label>
+              <div class="input-r-prefix">
+                <span class="input-r-prefix__sym">R</span>
+                <input id="totalOrderValue" class="orders-input" type="number" min="0" step="0.01" placeholder="0.00" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 2: Financial reconciliation -->
+        <section class="orders-card-xl" aria-labelledby="hdr-fin">
+          <div class="orders-section-title" id="hdr-fin">
+            <i class="bi bi-bar-chart-line text-secondary"></i>
+            Financial Reconciliation
+          </div>
+          <div class="row g-4">
+            <div class="col-md-4">
+              <label class="orders-label" for="totalInvoicedToDepartment">Total Invoiced to Department</label>
+              <div class="input-r-prefix">
+                <span class="input-r-prefix__sym">R</span>
+                <input id="totalInvoicedToDepartment" class="orders-input" type="number" min="0" step="0.01" value="0" />
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="orders-label" for="totalPaidByDepartment">Total Paid by Department</label>
+              <div class="input-r-prefix">
+                <span class="input-r-prefix__sym">R</span>
+                <input id="totalPaidByDepartment" class="orders-input" type="number" min="0" step="0.01" placeholder="0.00" />
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="orders-label" for="totalPaidToSuppliers">Total Paid to Suppliers</label>
+              <div class="input-r-prefix">
+                <span class="input-r-prefix__sym">R</span>
+                <input id="totalPaidToSuppliers" class="orders-input" type="number" min="0" step="0.01" placeholder="0.00" />
+              </div>
+            </div>
+          </div>
+          <div class="recon-status-row">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <span class="small text-secondary">Variance:</span>
+              <span id="varianceDisplay" class="variance-zero">R 0.00</span>
+              <span class="small text-muted">(Invoiced − Paid by Department)</span>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <span class="small text-secondary">Balance Status:</span>
+              <span id="reconBalanceBadge" class="pill-balanced">✓ Balanced</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 3: School entries -->
+        <section class="orders-card-xl" aria-labelledby="hdr-schools">
+          <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <div class="orders-section-title mb-0" id="hdr-schools">
+              <i class="bi bi-mortarboard text-secondary"></i>
+              School Entries
+            </div>
+            <button id="addSchoolBtn" type="button" class="btn-add-school">
+              <i class="bi bi-plus-lg"></i> Add School
+            </button>
+          </div>
+          <div id="schoolsContainer"></div>
+          <div id="err-schools" class="invalid-feedback-inline d-none"></div>
+        </section>
+
+        <!-- Section 4: Summary footer -->
+        <section class="summary-footer-card" aria-live="polite">
+          <div>
+            <span class="small text-secondary">Sum of School Subtotals:</span>
+            <span id="schoolsTotal" class="fs-4 fw-bold text-dark ms-2">R 0.00</span>
+          </div>
+          <div class="d-flex align-items-center flex-wrap gap-2">
+            <span class="small text-secondary">Balance Status:</span>
+            <span id="balanceStatus" class="pill-unbalanced">⚠ Unbalanced</span>
+          </div>
+        </section>
+
+        <!-- Actions -->
+        <div class="d-flex flex-wrap gap-3 align-items-center mb-4">
+          <button id="saveOrderBtn" type="button" class="btn-save-order">
+            <i class="bi bi-check2-circle"></i> Save Order
+          </button>
+          <button id="refreshOrdersBtn" type="button" class="btn-refresh-orders">
+            <i class="bi bi-arrow-clockwise" id="refreshOrdersIcon"></i> Refresh Existing Orders
+          </button>
+        </div>
+        <div id="orderAlert" class="mb-3"></div>
+
+        <!-- Section 5: Existing orders -->
+        <section class="orders-card-xl" aria-labelledby="hdr-existing">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <div class="orders-section-title mb-0" id="hdr-existing">Existing Orders</div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <input id="ordersSearch" type="search" class="orders-input" style="width: 13rem; height: 2rem; font-size: 0.8125rem" placeholder="Search orders…" />
+              <div class="btn-group btn-group-sm" role="group" aria-label="Export">
+                <button id="exportExcelBtn" type="button" class="btn btn-outline-primary btn-sm">Excel</button>
+                <button id="exportPdfBtn" type="button" class="btn btn-outline-primary btn-sm">PDF</button>
+              </div>
+            </div>
+          </div>
+          <div class="table-responsive orders-table-wrap">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>PO</th>
+                  <th>Project</th>
+                  <th>FY</th>
+                  <th class="text-end">Total</th>
+                  <th class="text-end">School Totals</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="ordersTableBody"></tbody>
+            </table>
+          </div>
+          <div id="ordersEmptyState" class="orders-empty d-none">
+            <div class="mb-2"><i class="bi bi-file-earmark-text"></i></div>
+            <div>No orders yet</div>
+            <div class="small text-muted mt-1">Save your first order above</div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="ordersToastHost" class="orders-toast-host" aria-live="polite"></div>
+
+  <script src="js/phase0.api.js"></script>
+  <script src="js/orders.js"></script>
+  <script>
+    async function loadProfile() {
+      const elName = document.getElementById("profileName");
+      try {
+        const res = await fetch("/api/auth/current-user", { credentials: "include" });
+        if (!res.ok) return;
+        const user = await res.json();
+        const initials = user.fullName
+          ? user.fullName.split(" ").map((n) => n[0]).join("").substring(0, 2).toUpperCase()
+          : (user.email || "U").substring(0, 2).toUpperCase();
+        document.getElementById("profileInitials").textContent = initials;
+        document.getElementById("headerUserInitials").textContent = initials;
+        elName.textContent = user.fullName || user.email || "User";
+        elName.classList.remove("is-loading");
+        document.getElementById("profileRole").textContent = (user.roles && user.roles[0]) || user.role || "User";
+      } catch (_) {
+        elName.textContent = "User";
+        elName.classList.remove("is-loading");
+      }
+    }
+    document.addEventListener("DOMContentLoaded", loadProfile);
+  </script>
+</body>
+</html>

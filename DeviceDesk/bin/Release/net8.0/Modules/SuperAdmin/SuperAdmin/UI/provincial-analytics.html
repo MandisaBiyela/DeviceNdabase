@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Provincial Analytics - DeviceDesk</title>
+    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+    <link rel="stylesheet" href="/css/dashboard-shell.css" />
+    <link rel="stylesheet" href="/css/theme.css?v=2025" />
+    <link rel="icon" href="/favicon.ico" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        .district-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .district-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            border-color: #6366f1;
+        }
+        .district-card.selected {
+            border-color: #6366f1;
+            border-width: 2px;
+            background: linear-gradient(135deg, #f5f7ff 0%, #ffffff 100%);
+        }
+        .district-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .district-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .district-badge {
+            background: #eff6ff;
+            color: #2563eb;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .district-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-item-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 0.25rem;
+        }
+        .stat-item-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .summary-card {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+        .summary-stat {
+            text-align: center;
+        }
+        .summary-stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .summary-stat-label {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+        .district-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        .chart-section {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body class="app-shell" style="font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif">
+    <aside class="app-sidebar">
+        <div class="sidebar-brand-global">
+            <img src="/img/ndabase-icon.png" class="sidebar-brand-icon" alt="Logo Icon">
+            <div class="sidebar-brand-text">
+                <span class="brand-line-1"></span>
+                <span class="brand-line-2"></span>
+            </div>
+        </div>
+        
+        <div class="sidebar-profile" id="sidebarProfile">
+            <div class="profile-avatar">
+                <span class="avatar-initials" id="profileInitials">SA</span>
+            </div>
+            <div class="profile-info">
+                <div class="profile-name" id="profileName">Super Admin</div>
+                <div class="profile-role" id="profileRole">SuperAdmin</div>
+            </div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <span class="sidebar-section">MAIN MENU</span>
+            <a href="/superadmin/dashboard.html" class="sidebar-link"><i class="bi bi-grid-fill"></i><span>Dashboard</span></a>
+            <a href="#" class="sidebar-link" onclick="showDevicesTable()"><i class="bi bi-device-hdd"></i><span>All Devices</span></a>
+            <a href="/superadmin/provincial-analytics.html" class="sidebar-link active"><i class="bi bi-geo-alt-fill"></i><span>Provincial Analytics</span></a>
+            <a href="/superadmin/user-management.html" class="sidebar-link"><i class="bi bi-people"></i><span>User Management</span></a>
+            <a href="#" class="sidebar-link"><i class="bi bi-journal-text"></i><span>Audit Logs</span></a>
+            <a href="#" class="sidebar-link"><i class="bi bi-download"></i><span>Export Center</span></a>
+            <span class="sidebar-section">SYSTEM</span>
+            <a href="/logout" class="sidebar-link danger"><i class="bi bi-box-arrow-right"></i><span>Logout</span></a>
+        </nav>
+    </aside>
+
+    <div class="app-main">
+        <header class="app-header">
+            <div>
+                <div class="welcome-line">Provincial Analytics</div>
+                <div class="welcome-date">District-level Performance & Distribution</div>
+            </div>
+            <div class="header-right">
+                <button class="btn btn-sm btn-light me-2" onclick="refreshData()">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    <span>Refresh</span>
+                </button>
+                <button class="btn btn-sm btn-primary" onclick="exportData()">
+                    <i class="bi bi-download"></i>
+                    <span>Export</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="app-content">
+            <!-- Summary Cards -->
+            <div class="summary-card">
+                <h3 class="mb-4"><i class="bi bi-graph-up me-2"></i>Provincial Overview</h3>
+                <div class="summary-grid">
+                    <div class="summary-stat">
+                        <div class="summary-stat-value" id="totalDistrictsSummary">0</div>
+                        <div class="summary-stat-label">Total Districts</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="summary-stat-value" id="totalSchoolsSummary">0</div>
+                        <div class="summary-stat-label">Total Schools</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="summary-stat-value" id="totalDevicesSummary">0</div>
+                        <div class="summary-stat-label">Total Devices</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="summary-stat-value" id="processedDevicesSummary">0</div>
+                        <div class="summary-stat-label">Devices Processed</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Province-Level Device Types Section -->
+            <div class="chart-section mb-4">
+                <h4 class="fw-semibold mb-3">
+                    <i class="bi bi-map-fill me-2 text-primary"></i>
+                    Province-Level Device Distribution
+                </h4>
+                <p class="text-muted small mb-3">Project allocation by province and device type</p>
+                <div id="provinceGrid" class="row g-3">
+                    <div class="text-center p-4">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <div class="mt-2 text-muted small">Loading province data...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- District Cards Grid -->
+            <div class="mb-3">
+                <h4 class="fw-semibold">
+                    <i class="bi bi-building me-2 text-primary"></i>
+                    Districts Breakdown
+                </h4>
+                <p class="text-muted small">Click any district to view detailed analytics</p>
+            </div>
+            
+            <div id="districtGrid" class="district-grid">
+                <div class="text-center p-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div class="mt-3 text-muted">Loading district data...</div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="chart-section">
+                <h5 class="fw-semibold mb-0">
+                    <i class="bi bi-bar-chart-fill me-2"></i>
+                    Devices by District
+                </h5>
+                <div class="chart-container">
+                    <canvas id="districtChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-section">
+                <h5 class="fw-semibold mb-0">
+                    <i class="bi bi-pie-chart-fill me-2"></i>
+                    Schools by District
+                </h5>
+                <div class="chart-container">
+                    <canvas id="schoolsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Selected District Details Modal -->
+            <div class="modal fade" id="districtDetailModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="modalDistrictName">District Details</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body" id="modalDistrictBody">
+                            <div class="text-center p-4">
+                                <div class="spinner-border" role="status"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let provincialData = null;
+        let provinceDeviceTypes = null;
+        let selectedDistrict = null;
+        let charts = {};
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadProvincialData();
+            await loadProvinceDeviceTypes();
+            
+            // Auto-refresh every 30 seconds
+            setInterval(refreshData, 30000);
+        });
+
+        async function loadProvincialData() {
+            try {
+                const res = await fetch('/api/superadmin/dashboard/provincial-analytics', {
+                    credentials: 'include'
+                });
+
+                if (!res.ok) {
+                    throw new Error(`API returned status: ${res.status}`);
+                }
+
+                provincialData = await res.json();
+                console.log('[Provincial] District data loaded:', provincialData);
+
+                renderSummary();
+                renderDistrictGrid();
+                renderCharts();
+            } catch (err) {
+                console.error('[Provincial] Error loading district data:', err);
+                document.getElementById('districtGrid').innerHTML = `
+                    <div class="col-12 text-center p-5">
+                        <i class="bi bi-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3">Unable to Load District Data</h5>
+                        <p class="text-muted">${err.message}</p>
+                        <button class="btn btn-primary" onclick="refreshData()">
+                            <i class="bi bi-arrow-clockwise"></i> Retry
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadProvinceDeviceTypes() {
+            try {
+                const res = await fetch('/api/superadmin/csv-import/provincial-device-types', {
+                    credentials: 'include'
+                });
+
+                if (!res.ok) {
+                    console.warn('[Province Types] API returned status:', res.status);
+                    return;
+                }
+
+                const data = await res.json();
+                provinceDeviceTypes = data.provinces;
+                console.log('[Province Types] Data loaded:', provinceDeviceTypes);
+
+                renderProvinceGrid();
+            } catch (err) {
+                console.error('[Province Types] Error loading data:', err);
+                document.getElementById('provinceGrid').innerHTML = `
+                    <div class="col-12 text-center p-3 text-muted small">
+                        Province-level data unavailable
+                    </div>
+                `;
+            }
+        }
+
+        function renderProvinceGrid() {
+            if (!provinceDeviceTypes || provinceDeviceTypes.length === 0) {
+                document.getElementById('provinceGrid').innerHTML = `
+                    <div class="col-12 text-center p-3 text-muted small">
+                        No province data available
+                    </div>
+                `;
+                return;
+            }
+
+            const html = provinceDeviceTypes.map(province => {
+                const deviceTypesList = Object.entries(province.deviceTypes)
+                    .map(([type, qty]) => `
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small">${type}</span>
+                            <span class="badge bg-primary">${qty.toLocaleString()}</span>
+                        </div>
+                    `).join('');
+
+                return `
+                    <div class="col-md-4">
+                        <div class="card h-100">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-flag-fill me-2"></i>${province.province}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <div class="text-muted small">Total Devices</div>
+                                    <h4 class="mb-0">${province.totalDevices.toLocaleString()}</h4>
+                                </div>
+                                <div class="text-muted small mb-2">Device Types (${province.deviceTypeCount})</div>
+                                ${deviceTypesList}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('provinceGrid').innerHTML = html;
+        }
+
+        function renderSummary() {
+            if (!provincialData) return;
+
+            const totalDistricts = provincialData.totalDistricts || 0;
+            const schoolsByDistrict = provincialData.schoolsByDistrict || {};
+            const devicesByDistrict = provincialData.devicesByDistrict || {};
+            const processedByDistrict = provincialData.processedByDistrict || {};
+
+            const totalSchools = Object.values(schoolsByDistrict).reduce((sum, val) => sum + val, 0);
+            const totalDevices = Object.values(devicesByDistrict).reduce((sum, val) => sum + val, 0);
+            const totalProcessed = Object.values(processedByDistrict).reduce((sum, val) => sum + val, 0);
+
+            document.getElementById('totalDistrictsSummary').textContent = totalDistricts.toLocaleString();
+            document.getElementById('totalSchoolsSummary').textContent = totalSchools.toLocaleString();
+            document.getElementById('totalDevicesSummary').textContent = totalDevices.toLocaleString();
+            document.getElementById('processedDevicesSummary').textContent = totalProcessed.toLocaleString();
+        }
+
+        function renderDistrictGrid() {
+            if (!provincialData) return;
+
+            const schoolsByDistrict = provincialData.schoolsByDistrict || {};
+            const devicesByDistrict = provincialData.devicesByDistrict || {};
+            const processedByDistrict = provincialData.processedByDistrict || {};
+
+            const districtNames = Object.keys(schoolsByDistrict).sort((a, b) => 
+                (devicesByDistrict[b] || 0) - (devicesByDistrict[a] || 0)
+            );
+
+            if (districtNames.length === 0) {
+                document.getElementById('districtGrid').innerHTML = `
+                    <div class="col-12 text-center p-5 text-muted">
+                        <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                        <p class="mt-3">No district data available</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const html = districtNames.map(district => {
+                const schools = schoolsByDistrict[district] || 0;
+                const devices = devicesByDistrict[district] || 0;
+                const processed = processedByDistrict[district] || 0;
+                const processingRate = devices > 0 ? ((processed / devices) * 100).toFixed(1) : 0;
+                const isSelected = selectedDistrict === district ? 'selected' : '';
+
+                return `
+                    <div class="district-card ${isSelected}" onclick="selectDistrict('${district}')">
+                        <div class="district-header">
+                            <div class="district-name">
+                                <i class="bi bi-geo-alt-fill text-primary me-2"></i>${district}
+                            </div>
+                            <div class="district-badge">${processingRate}% processed</div>
+                        </div>
+                        <div class="district-stats">
+                            <div class="stat-item">
+                                <div class="stat-item-value">${schools.toLocaleString()}</div>
+                                <div class="stat-item-label">
+                                    <i class="bi bi-building"></i> Schools
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-item-value">${devices.toLocaleString()}</div>
+                                <div class="stat-item-label">
+                                    <i class="bi bi-device-hdd"></i> Devices
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-item-value">${processed.toLocaleString()}</div>
+                                <div class="stat-item-label">
+                                    <i class="bi bi-check-circle"></i> Processed
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('districtGrid').innerHTML = html;
+        }
+
+        function renderCharts() {
+            if (!provincialData) return;
+
+            const schoolsByDistrict = provincialData.schoolsByDistrict || {};
+            const devicesByDistrict = provincialData.devicesByDistrict || {};
+
+            const districts = Object.keys(schoolsByDistrict).sort((a, b) => 
+                (devicesByDistrict[b] || 0) - (devicesByDistrict[a] || 0)
+            ).slice(0, 10); // Top 10 districts
+
+            // Devices by District Chart
+            renderDistrictChart(districts, devicesByDistrict);
+
+            // Schools by District Chart
+            renderSchoolsChart(districts, schoolsByDistrict);
+        }
+
+        function renderDistrictChart(districts, devicesByDistrict) {
+            const ctx = document.getElementById('districtChart');
+            if (!ctx) return;
+
+            if (charts.districtChart) {
+                charts.districtChart.destroy();
+            }
+
+            const data = districts.map(d => devicesByDistrict[d] || 0);
+
+            charts.districtChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: districts,
+                    datasets: [{
+                        label: 'Devices',
+                        data: data,
+                        backgroundColor: 'rgba(99, 102, 241, 0.8)',
+                        borderColor: 'rgba(99, 102, 241, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderSchoolsChart(districts, schoolsByDistrict) {
+            const ctx = document.getElementById('schoolsChart');
+            if (!ctx) return;
+
+            if (charts.schoolsChart) {
+                charts.schoolsChart.destroy();
+            }
+
+            const data = districts.map(d => schoolsByDistrict[d] || 0);
+            const colors = [
+                '#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981',
+                '#3b82f6', '#ef4444', '#06b6d4', '#84cc16', '#f97316'
+            ];
+
+            charts.schoolsChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: districts,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                boxWidth: 15,
+                                padding: 10
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function selectDistrict(district) {
+            if (selectedDistrict === district) {
+                selectedDistrict = null;
+            } else {
+                selectedDistrict = district;
+            }
+            renderDistrictGrid();
+            showDistrictDetails(district);
+        }
+
+        async function showDistrictDetails(district) {
+            const modal = new bootstrap.Modal(document.getElementById('districtDetailModal'));
+            document.getElementById('modalDistrictName').textContent = `${district} District`;
+            
+            const schoolsByDistrict = provincialData.schoolsByDistrict || {};
+            const devicesByDistrict = provincialData.devicesByDistrict || {};
+            const processedByDistrict = provincialData.processedByDistrict || {};
+
+            const schools = schoolsByDistrict[district] || 0;
+            const devices = devicesByDistrict[district] || 0;
+            const processed = processedByDistrict[district] || 0;
+            const pending = devices - processed;
+            const rate = devices > 0 ? ((processed / devices) * 100).toFixed(1) : 0;
+
+            document.getElementById('modalDistrictBody').innerHTML = `
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">Schools</h6>
+                                <h2 class="card-title">${schools.toLocaleString()}</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">Total Devices</h6>
+                                <h2 class="card-title">${devices.toLocaleString()}</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-success">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">Processed</h6>
+                                <h2 class="card-title text-success">${processed.toLocaleString()}</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-warning">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">Pending</h6>
+                                <h2 class="card-title text-warning">${pending.toLocaleString()}</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">Processing Rate</h6>
+                                <div class="progress" style="height: 30px;">
+                                    <div class="progress-bar bg-primary" role="progressbar" 
+                                         style="width: ${rate}%; font-size: 1rem; font-weight: 600;"
+                                         aria-valuenow="${rate}" aria-valuemin="0" aria-valuemax="100">
+                                        ${rate}%
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            modal.show();
+        }
+
+        async function refreshData() {
+            console.log('[Provincial] Refreshing data...');
+            await loadProvincialData();
+            await loadProvinceDeviceTypes();
+        }
+
+        function exportData() {
+            if (!provincialData) {
+                alert('No data to export');
+                return;
+            }
+
+            const schoolsByDistrict = provincialData.schoolsByDistrict || {};
+            const devicesByDistrict = provincialData.devicesByDistrict || {};
+            const processedByDistrict = provincialData.processedByDistrict || {};
+
+            let csv = 'District,Schools,Devices,Processed,Processing Rate\n';
+            
+            Object.keys(schoolsByDistrict).forEach(district => {
+                const schools = schoolsByDistrict[district] || 0;
+                const devices = devicesByDistrict[district] || 0;
+                const processed = processedByDistrict[district] || 0;
+                const rate = devices > 0 ? ((processed / devices) * 100).toFixed(1) : 0;
+                
+                csv += `"${district}",${schools},${devices},${processed},${rate}%\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `provincial-analytics-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        function showDevicesTable() {
+            window.location.href = '/superadmin/dashboard.html#devices';
+        }
+    </script>
+</body>
+</html>
+

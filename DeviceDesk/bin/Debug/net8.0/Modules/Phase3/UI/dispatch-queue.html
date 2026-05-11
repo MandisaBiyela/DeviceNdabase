@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dispatch Queue - DeviceDesk</title>
-    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
     <link rel="stylesheet" href="/css/dashboard-shell.css" />
     <link rel="stylesheet" href="/css/theme.css?v=2025" />
     <style>
+        /* Avoid `transition: all` — it animates layout-affecting properties and can amplify repaint flicker. */
         .device-card {
-            transition: all 0.2s ease;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
         .device-card:hover {
             transform: translateY(-2px);
@@ -87,7 +88,7 @@
                 <div class="welcome-date">Stage 1-3: Dispatch Queue & Batch Creation</div>
             </div>
             <div class="header-right">
-                <button class="btn btn-sm btn-outline-secondary me-2" onclick="loadQueue()" title="Refresh queue">
+                <button class="btn btn-sm btn-outline-secondary me-2" type="button" id="refreshQueueBtn" title="Refresh queue">
                     <i class="bi bi-arrow-clockwise"></i> Refresh
                 </button>
                 <span class="text-muted small me-2" id="lastRefresh"></span>
@@ -146,8 +147,7 @@
                         </div>
                         <div class="col-md-4 d-flex align-items-end justify-content-end">
                             <small id="dispatchSerialFilterInfo"
-                                   class="text-muted"
-                                   style="display:none;">
+                                   class="text-muted d-none">
                                 Showing <span id="dispatchSerialFilteredCount" class="fw-bold"></span> of
                                 <span id="dispatchSerialTotalCount" class="fw-bold"></span> devices
                             </small>
@@ -161,7 +161,7 @@
                 <div class="row align-items-center">
                     <div class="col-md-6">
                         <div class="form-check">
-                            <input class="form-check-input device-checkbox" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                            <input class="form-check-input device-checkbox" type="checkbox" id="selectAll" autocomplete="off">
                             <label class="form-check-label" for="selectAll">
                                 <strong>Select All (<span id="toolbarCount">0</span> devices)</strong>
                             </label>
@@ -175,13 +175,13 @@
                 </div>
             </div>
 
-            <!-- Device Grid -->
+            <!-- Device Grid (Bootstrap row keeps display:flex; avoid toggling inline display) -->
             <div id="deviceGrid" class="row g-3">
                 <!-- Devices will be loaded here -->
             </div>
 
             <!-- Empty State -->
-            <div id="emptyState" class="text-center py-5" style="display: none;">
+            <div id="emptyState" class="text-center py-5 d-none">
                 <i class="bi bi-inbox" style="font-size: 4rem; color: #6c757d;"></i>
                 <h4 class="mt-3">No devices in queue</h4>
                 <p class="text-muted mb-3">Devices will appear here after passing Phase 2 QA.</p>
@@ -263,7 +263,7 @@
         </div>
     </div>
 
-    <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/dispatch/js/api.js"></script>
     <script>
         let devices = [];
@@ -274,6 +274,23 @@
         let autoRefreshInterval = null;
         let isLoadingQueue = false;
         let lastRefreshTime = 0;
+        /** Avoid change-handler loops when updating "Select all" from code (some browsers fire change). */
+        let suppressSelectAllChange = false;
+        /** Skip redundant full DOM rebuilds when data + filter + selection are unchanged. */
+        let lastRenderSignature = '';
+        let serialFilterDebounceTimer = null;
+        /** Coalesce accidental double-fetch (visibility quirks, double clicks, overlapping timers). */
+        let lastLoadQueueStartTime = 0;
+        const DISPATCH_QUEUE_DEBUG = new URLSearchParams(location.search).get('dqDebug') === '1';
+        function dqLog() {
+            if (!DISPATCH_QUEUE_DEBUG) return;
+            console.log('[DispatchQueue]', ...arguments);
+        }
+
+        function isDispatchRole(roles) {
+            const r = Array.isArray(roles) ? roles : [];
+            return r.some(x => ['DispatchClerk', 'DispatchDriver', 'DispatchQA', 'DispatchManager'].includes(x));
+        }
 
         async function initDispatchQueue() {
             try {
@@ -291,7 +308,7 @@
                 }
 
                 const roles = user.roles || [];
-                if (!roles.includes('DispatchClerk')) {
+                if (!isDispatchRole(roles)) {
                     // Let backend root decide their dashboard
                     window.location.href = '/';
                     return;
@@ -313,7 +330,9 @@
                 if (profileRole) profileRole.textContent = user.role || 'Dispatch Clerk';
                 
             createBatchModalInstance = new bootstrap.Modal(document.getElementById('createBatchModal'));
-            await loadQueue();
+            wireSelectAllCheckbox();
+            document.getElementById('refreshQueueBtn')?.addEventListener('click', () => loadQueue(true));
+            await loadQueue(true);
             
             // Start auto-refresh every 12 seconds
             startAutoRefresh();
@@ -336,10 +355,20 @@
                     const now = Date.now();
                     // Debounce: don't refresh if last refresh was less than 5 seconds ago
                     if (now - lastRefreshTime > 5000) {
-                        loadQueue();
+                        loadQueue(false);
                     }
                 }
             }, 45000); // 45 seconds
+        }
+
+        function wireSelectAllCheckbox() {
+            const el = document.getElementById('selectAll');
+            if (!el || el.dataset.wired === '1') return;
+            el.dataset.wired = '1';
+            el.addEventListener('change', () => {
+                if (suppressSelectAllChange) return;
+                toggleSelectAll();
+            });
         }
 
         function stopAutoRefresh() {
@@ -349,15 +378,14 @@
             }
         }
 
-        // Stop auto-refresh when page is hidden (tab switch)
+        // Stop auto-refresh when tab is hidden. Do not fetch on every visibility flip — some environments
+        // emit rapid visibilitychange events and cause visible UI flicker.
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 stopAutoRefresh();
-            } else {
-                startAutoRefresh();
-                // Also refresh immediately when tab becomes visible
-                loadQueue();
+                return;
             }
+            startAutoRefresh();
         });
 
         document.addEventListener('DOMContentLoaded', initDispatchQueue);
@@ -379,16 +407,23 @@
             }
         }
 
-        async function loadQueue() {
+        async function loadQueue(force = false) {
             // Prevent multiple simultaneous requests
             if (isLoadingQueue) {
-                console.log('Queue load already in progress, skipping...');
+                dqLog('loadQueue skipped (already in progress)');
                 return;
             }
+            const nowTs = Date.now();
+            if (!force && nowTs - lastLoadQueueStartTime < 600) {
+                dqLog('loadQueue skipped (rapid repeat guard)');
+                return;
+            }
+            lastLoadQueueStartTime = nowTs;
             
             try {
                 isLoadingQueue = true;
                 lastRefreshTime = Date.now();
+                dqLog('Fetching dispatch queue', force ? '(forced)' : '');
                 
                 const response = await fetch('/api/dispatch/batches/queue', {
                     cache: 'no-cache', // Ensure fresh data
@@ -404,10 +439,15 @@
                 }
                 
                 devices = await response.json();
-                console.log('Loaded devices:', devices.length);
+                dqLog('API response length', devices.length);
+                if (!DISPATCH_QUEUE_DEBUG) {
+                    console.log('Loaded devices:', devices.length);
+                }
                 
                 // Store in the global array for filtering
                 dispatchQueueAllDevices = devices || [];
+                // Always allow one paint after new server data (IDs may match but fields can change)
+                lastRenderSignature = '';
                 
                 // Update last refresh timestamp
                 const now = new Date();
@@ -417,8 +457,8 @@
                     lastRefreshEl.textContent = `Last refresh: ${timeStr}`;
                 }
                 
-                // Apply serial filter after loading (this will update counts and render)
-                applyDispatchSerialFilter();
+                // Apply serial filter after loading (immediate — no debounce on fetch)
+                applyDispatchSerialFilterImmediate();
             } catch (error) {
                 console.error('Failed to load queue:', error);
                 // Don't show alert on auto-refresh failures, only log
@@ -430,7 +470,7 @@
             }
         }
 
-        function applyDispatchSerialFilter() {
+        function applyDispatchSerialFilterImmediate() {
             const input = document.getElementById('serialSearch');
             const term = (input?.value || '').trim().toLowerCase();
 
@@ -453,10 +493,22 @@
             updateDispatchSerialFilterInfo();
         }
 
+        function applyDispatchSerialFilter() {
+            if (serialFilterDebounceTimer) clearTimeout(serialFilterDebounceTimer);
+            serialFilterDebounceTimer = setTimeout(() => {
+                serialFilterDebounceTimer = null;
+                applyDispatchSerialFilterImmediate();
+            }, 220);
+        }
+
         function clearDispatchSerialSearch() {
             const input = document.getElementById('serialSearch');
             if (input) input.value = '';
-            applyDispatchSerialFilter();
+            if (serialFilterDebounceTimer) {
+                clearTimeout(serialFilterDebounceTimer);
+                serialFilterDebounceTimer = null;
+            }
+            applyDispatchSerialFilterImmediate();
         }
 
         function updateDispatchSerialFilterInfo() {
@@ -473,22 +525,45 @@
             filteredSpan.textContent = filtered.toString();
 
             // Only show the text when something is filtered
-            info.style.display = (filtered !== total) ? 'inline' : 'none';
+            info.classList.toggle('d-none', filtered === total);
+        }
+
+        function computeRenderSignature() {
+            const term = (document.getElementById('serialSearch')?.value || '').trim().toLowerCase();
+            const ids = dispatchQueueFilteredDevices.map(d => String(d.id)).sort().join(',');
+            const sel = Array.from(selectedDevices).map(String).sort().join(',');
+            return `${ids}|${term}|${sel}|${dispatchQueueFilteredDevices.length}`;
         }
 
         function renderDevices() {
+            dqLog('DispatchQueue render pass');
             const grid = document.getElementById('deviceGrid');
             const emptyState = document.getElementById('emptyState');
 
             // Use devices array (which is set to dispatchQueueFilteredDevices in applyDispatchSerialFilter)
             if (devices.length === 0) {
-                grid.style.display = 'none';
-                emptyState.style.display = 'block';
+                const sig = computeRenderSignature() + '|empty';
+                if (sig === lastRenderSignature) {
+                    dqLog('DispatchQueue render skipped (unchanged empty state)');
+                    return;
+                }
+                lastRenderSignature = sig;
+                dqLog('DispatchQueue rendered (empty)');
+                grid.classList.add('d-none');
+                emptyState.classList.remove('d-none');
                 return;
             }
 
-            grid.style.display = 'flex';
-            emptyState.style.display = 'none';
+            const sig = computeRenderSignature() + '|grid';
+            if (sig === lastRenderSignature) {
+                dqLog('DispatchQueue render skipped (unchanged grid)');
+                return;
+            }
+            lastRenderSignature = sig;
+            dqLog('DispatchQueue rendered', devices.length, 'cards');
+
+            grid.classList.remove('d-none');
+            emptyState.classList.add('d-none');
 
             grid.innerHTML = devices.map(device => `
                 <div class="col-md-4 col-lg-3">
@@ -545,6 +620,7 @@
         }
 
         function toggleSelectAll() {
+            if (suppressSelectAllChange) return;
             const selectAll = document.getElementById('selectAll').checked;
             if (selectAll) {
                 dispatchQueueFilteredDevices.forEach(d => selectedDevices.add(d.id));
@@ -563,7 +639,17 @@
             // Check if all filtered devices are selected
             const allFilteredSelected = dispatchQueueFilteredDevices.length > 0 && 
                 dispatchQueueFilteredDevices.every(d => selectedDevices.has(d.id));
-            document.getElementById('selectAll').checked = allFilteredSelected;
+            const selectAllEl = document.getElementById('selectAll');
+            if (selectAllEl && selectAllEl.checked !== allFilteredSelected) {
+                suppressSelectAllChange = true;
+                try {
+                    selectAllEl.checked = allFilteredSelected;
+                } finally {
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => { suppressSelectAllChange = false; });
+                    });
+                }
+            }
         }
 
         function showCreateBatchModal() {
