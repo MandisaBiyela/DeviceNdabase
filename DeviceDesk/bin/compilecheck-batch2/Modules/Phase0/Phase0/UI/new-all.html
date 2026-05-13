@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>All NEW Stock Devices</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+  <link rel="stylesheet" href="/css/dashboard-shell.css" />
+  <link rel="stylesheet" href="/css/theme.css?v=2025" />
+  <link href="css/phase0.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    body.sr-device-list-page { background:#F9FAFB; font-family:"DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+    body.sr-device-list-page .app-content { background:#F9FAFB; }
+    body.sr-device-list-page .app-header{
+      background: linear-gradient(90deg, #2563EB 0%, #1D4ED8 100%);
+      color:#fff;
+      border-bottom:none;
+      box-shadow:none;
+    }
+    body.sr-device-list-page .welcome-line{ color:#fff; font-weight:800; }
+    body.sr-device-list-page .welcome-date{ color:#93C5FD; font-weight:600; }
+    body.sr-device-list-page .avatar-btn{
+      background:#fff;
+      border:none;
+      color:#111827;
+      width:40px;
+      height:40px;
+      border-radius:999px;
+      box-shadow: 0 1px 2px rgba(16,24,40,.08);
+    }
+    body.sr-device-list-page .avatar-initials{ color:#111827; font-weight:800; }
+
+    .sr-input{
+      height:36px;
+      font-size:13px;
+      border:1px solid #D1D5DB;
+      border-radius:10px;
+      padding:0 12px;
+      background:#fff;
+      width:100%;
+    }
+    .sr-input:focus{
+      box-shadow: 0 0 0 2px rgba(37,99,235,.25), 0 0 0 4px rgba(37,99,235,.12);
+      outline:none;
+      border-color:#2563EB;
+    }
+
+    .sr-btn{
+      height:36px;
+      padding:0 20px;
+      border-radius:10px;
+      border:1px solid #D1D5DB;
+      background:#fff;
+      color:#374151;
+      font-weight:700;
+      font-size:13px;
+    }
+    .sr-btn:hover{ background:#F9FAFB; }
+    .sr-btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+    .sr-btn-primary{
+      background:#2563EB;
+      border-color:#2563EB;
+      color:#fff;
+    }
+    .sr-btn-primary:hover{ background:#1D4ED8; border-color:#1D4ED8; color:#fff; }
+
+    .sr-device-filter-stack{
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+      margin-top:4px;
+      max-width: 320px;
+      width:100%;
+    }
+    .sr-filter-row{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .sr-filter-label{
+      font-size:14px;
+      color:#6B7280;
+      font-weight:600;
+      display:block;
+      margin-bottom:2px;
+    }
+    .sr-device-search-actions{ margin-top:0; }
+    .sr-device-stats{
+      margin-top:2px;
+      font-size:13px;
+      color:#6B7280;
+      font-weight:500;
+      max-width:none;
+    }
+
+    .sr-results-card{
+      background:transparent;
+      border:none;
+      border-radius:0;
+      box-shadow:none;
+      overflow:visible;
+    }
+    .sr-results-table{
+      width:100%;
+      border-collapse:collapse;
+      table-layout: fixed;
+    }
+    .sr-results-table thead th{
+      position:sticky;
+      top:0;
+      z-index:10;
+      background:#F9FAFB;
+      color:#6B7280;
+      font-size:12px;
+      font-weight:600;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      border-top:1px solid #E5E7EB;
+      border-bottom:1px solid #E5E7EB;
+      height:40px;
+      padding:0 10px;
+      text-align:left;
+    }
+    .sr-results-table tbody td{
+      font-size:13px;
+      color:#374151;
+      border-bottom:1px solid #F3F4F6;
+      padding:0 10px;
+      height:56px;
+      vertical-align:middle;
+    }
+    .sr-results-table tbody tr:nth-child(even){ background:#fff; }
+    .sr-results-table tbody tr:nth-child(odd){ background:rgba(249,250,251,.65); }
+    .sr-device-row:hover{
+      background: rgba(37,99,235,.10) !important;
+      cursor: default;
+      transition: background .1s ease;
+    }
+
+    .sr-col-num{
+      width:60px;
+      text-align:right;
+      color:#9CA3AF;
+      font-family:"DM Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:12px;
+      padding-right:16px !important;
+    }
+    .sr-col-mono{
+      font-family:"DM Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:12px;
+      color:#111827;
+      font-weight:500;
+    }
+    .sr-col-qty{ text-align:center; }
+    .sr-qty-pill{
+      background:#F3F4F6;
+      border-radius:999px;
+      padding:0 8px;
+      font-size:12px;
+      font-family:"DM Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      color:#6B7280;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:28px;
+      height:24px;
+      text-align:center;
+    }
+    .sr-qty-pill-bulk{ background:#EFF6FF; color:#1D4ED8; }
+    .sr-qty-pill-single{ background:#F3F4F6; color:#6B7280; }
+    .sr-col-date{ color:#6B7280; font-size:12px; white-space:nowrap; }
+
+    .sr-truncate{
+      max-width:160px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      display:inline-block;
+      vertical-align:bottom;
+    }
+    .sr-batch-link{
+      color:#2563EB;
+      text-decoration:none;
+      font-size:12px;
+    }
+    .sr-batch-link:hover{ text-decoration:underline; }
+
+    .sr-muted{ color:#D1D5DB; font-size:12px; }
+    .sr-batch-empty{ font-size:14px; display:block; min-width:20px; text-align:center; }
+    .sr-batch-cell{ text-align:left; }
+
+    .sr-empty-cell{ padding:34px 0; }
+    .sr-empty-state{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:6px;
+    }
+    .sr-empty-icon{ width:40px; height:40px; color:#D1D5DB; }
+    .sr-empty-title{ font-size:14px; font-weight:600; color:#6B7280; }
+    .sr-empty-subtitle{ font-size:12px; color:#9CA3AF; }
+    .sr-skeleton-row td{ height:56px; }
+    .sr-skeleton{
+      height:14px;
+      border-radius:6px;
+      background:#E5E7EB;
+      animation: srPulse 1.2s ease-in-out infinite;
+    }
+    .s-w-8{ width:30px; } .s-w-10{ width:42px; } .s-w-14{ width:76px; } .s-w-16{ width:92px; }
+    .s-w-18{ width:104px; } .s-w-20{ width:118px; } .s-w-22{ width:126px; } .s-w-24{ width:138px; }
+    .s-w-28{ width:164px; } .s-w-30{ width:178px; }
+    @keyframes srPulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+    .sr-pagination{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      margin-top:18px;
+    }
+    .sr-pagination-label{ font-size:13px; color:#6B7280; font-weight:500; }
+    .sr-pagination-controls{
+      display:flex;
+      gap:6px;
+      align-items:center;
+      justify-content:flex-start;
+      flex-wrap:wrap;
+    }
+    .sr-page-pill{
+      width:32px;
+      height:32px;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:13px;
+      font-weight:800;
+      border:none;
+      background:transparent;
+      color:#2563EB;
+      cursor:pointer;
+    }
+    .sr-page-pill:not(.sr-page-pill-current):hover{
+      background:#EFF6FF;
+    }
+    .sr-page-pill-current{
+      background:#2563EB;
+      color:#fff;
+    }
+    .sr-page-pill-disabled{
+      background:#F3F4F6;
+      color:#C0C4CC;
+      cursor:not-allowed;
+      pointer-events:none;
+    }
+  </style>
+</head>
+<body class="app-shell sr-device-list-page" data-device-type="new" data-api-path="devices/new">
+<aside class="app-sidebar" id="phase0Sidebar"></aside>
+
+<div class="app-main">
+<header class="app-header"><div><div class="welcome-line">Phase 0 · NEW</div><div class="welcome-date">All NEW Devices</div></div><div class="header-right"><button class="avatar-btn"><span class="avatar-initials">P0</span></button></div></header>
+<main class="app-content">
+<div class="container-fluid my-4 px-0">
+  <div class="sr-device-page">
+    <div class="sr-device-filter-stack">
+      <div class="sr-filter-row">
+        <label for="q" class="sr-filter-label">Search</label>
+        <input id="q" type="text" class="sr-input" placeholder="Serial / IMEI / Brand / Model">
+      </div>
+      <div class="sr-filter-row">
+        <label for="from" class="sr-filter-label">From</label>
+        <input id="from" type="date" class="sr-input">
+      </div>
+      <div class="sr-filter-row">
+        <label for="to" class="sr-filter-label">To</label>
+        <input id="to" type="date" class="sr-input">
+      </div>
+      <div class="sr-filter-row">
+        <label for="pageSize" class="sr-filter-label">Page size</label>
+        <select id="pageSize" class="sr-input" style="max-width:100px;">
+          <option value="10">10</option>
+          <option value="25" selected>25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+
+      <div class="sr-device-search-actions">
+        <button id="searchBtn" class="sr-btn sr-btn-primary">Search</button>
+      </div>
+
+      <div id="stats" class="sr-device-stats">Total: 0 · Qty Sum: 0 · Brands: 0 · Models: 0</div>
+    </div>
+
+    <div class="sr-results-card mt-3">
+      <div class="table-responsive">
+        <table class="sr-results-table">
+          <colgroup>
+            <col style="width:60px;">
+            <col style="width:180px;">
+            <col style="width:140px;">
+            <col style="width:120px;">
+            <col style="width:160px;">
+            <col style="width:80px;">
+            <col style="width:180px;">
+            <col>
+          </colgroup>
+          <thead>
+            <tr>
+              <th style="width:64px;">#</th>
+              <th>Serial</th>
+              <th>IMEI</th>
+              <th>Brand</th>
+              <th>Model</th>
+              <th style="text-align:center;">Qty</th>
+              <th style="width:180px;">Imported At</th>
+              <th>Batch File</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sr-pagination">
+      <div id="pagerText" class="sr-pagination-label">—</div>
+      <div id="pager" class="sr-pagination-controls"></div>
+    </div>
+  </div>
+</div>
+
+ 
+ </main>
+ </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/phase0.api.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/device-list-page.js"></script>
+  <script>
+    async function loadProfile() {
+      try {
+        const response = await fetch('/api/auth/current-user');
+        if (response.ok) {
+          const user = await response.json();
+          const initials = user.fullName ? user.fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'U';
+          document.getElementById('profileInitials').textContent = initials;
+          document.getElementById('profileName').textContent = user.fullName || 'User';
+          document.getElementById('profileRole').textContent = user.role || 'User';
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      }
+    }
+    document.addEventListener('DOMContentLoaded', loadProfile);
+  </script>
+</body>
+
+<script>
+async function logout(){
+  try{ await fetch('/api/auth/logout', { method:'POST' }); }
+  finally{ window.location.href = '/login.html'; }
+}
+</script>
+</html>

@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RnR Import - DeviceDesk</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .upload-zone {
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background-color: #f8f9fa;
+        }
+        .upload-zone:hover {
+            border-color: #0d6efd;
+            background-color: #e7f3ff;
+        }
+        .upload-zone.dragover {
+            border-color: #0d6efd;
+            background-color: #e7f3ff;
+        }
+        .workflow-progress {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 2rem 0;
+            gap: 1rem;
+        }
+        .workflow-step {
+            text-align: center;
+            flex: 1;
+            max-width: 150px;
+        }
+        .workflow-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e9ecef;
+            border: 2px solid #dee2e6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 0.5rem;
+            font-weight: bold;
+            color: #6c757d;
+        }
+        .workflow-step.active .workflow-circle {
+            background: #0d6efd;
+            border-color: #0d6efd;
+            color: white;
+        }
+        .workflow-step.completed .workflow-circle {
+            background: #198754;
+            border-color: #198754;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/phase1/dashboard.html">
+                <i class="bi bi-box-seam"></i> DeviceDesk
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/phase1/dashboard.html">
+                    <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-10 mx-auto">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 id="pageTitle">RnR Import - School Returns</h2>
+                    <a href="/phase1/receiving-create.html" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </a>
+                </div>
+
+                <!-- Workflow Progress -->
+                <div class="workflow-progress">
+                    <div class="workflow-step active">
+                        <div class="workflow-circle">1</div>
+                        <div class="workflow-label">Import Slip</div>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="workflow-circle">2</div>
+                        <div class="workflow-label">Device Scanning</div>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="workflow-circle">3</div>
+                        <div class="workflow-label">Verification</div>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="workflow-circle">4</div>
+                        <div class="workflow-label">Complete</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="bi bi-upload"></i> Import School Collection Slip
+                        </h5>
+                        <p class="text-muted">Upload the school collection slip and optionally import expected items from CSV.</p>
+                        
+                        <form id="rnrForm" enctype="multipart/form-data">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3" style="position: relative;">
+                                        <label for="schoolSearch" class="form-label">School <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="schoolSearch" placeholder="Start typing school name or EMIS" autocomplete="off" />
+                                        <div class="form-text">Start typing to search schools from the official list.</div>
+                                        <!-- Hidden values actually sent to backend -->
+                                        <input type="hidden" id="schoolId" name="SchoolId" />
+                                        <input type="hidden" id="schoolName" name="SchoolName" />
+                                        <small id="schoolSelectedInfo" class="form-text text-muted d-none">
+                                            Selected: <span id="schoolSelectedLabel"></span>
+                                        </small>
+                                        <!-- Suggestion dropdown -->
+                                        <div id="schoolSearchResults" class="list-group position-absolute w-100" style="z-index: 1050; max-height: 260px; overflow-y: auto; display: none;">
+                                            <!-- suggestions injected by JS -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="slipNumber" class="form-label">Slip Number <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="slipNumber" name="SlipNumber" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="slipDate" class="form-label">Collection Date <span class="text-danger">*</span></label>
+                                        <input type="date" class="form-control" id="slipDate" name="SlipDate" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="mode" class="form-label">RnR Type</label>
+                                        <select class="form-select" id="mode" name="Mode">
+                                            <option value="1">Normal RnR</option>
+                                            <option value="2">Emergency RnR</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="receivedBy" class="form-label">Received By</label>
+                                        <input type="text" class="form-control" id="receivedBy" name="ReceivedBy" placeholder="Clerk name">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="notes" class="form-label">Notes</label>
+                                <textarea class="form-control" id="notes" name="Notes" rows="3" placeholder="Optional notes"></textarea>
+                            </div>
+
+                            <!-- Single File Upload Section -->
+                            <div class="mb-4">
+                                <h6 class="mb-3">
+                                    <i class="bi bi-file-earmark"></i> Collection Slip / Items List
+                                    <span class="text-danger">*</span>
+                                </h6>
+                                
+                                <div class="upload-zone" id="fileUploadZone">
+                                    <i class="bi bi-cloud-upload fs-1 text-muted mb-3"></i>
+                                    <h6>Drag & Drop File Here</h6>
+                                    <p class="text-muted">Upload one file: PDF/JPG/PNG slip or CSV/XLSX items list</p>
+                                    <input type="file" id="file" name="file" 
+                                           accept=".pdf,.jpg,.jpeg,.png,.csv,.xlsx" 
+                                           style="display: none;" required>
+                                    <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('file').click()">
+                                        <i class="bi bi-folder2-open"></i> Browse Files
+                                    </button>
+                                    <div class="form-text mt-2">
+                                        <strong>Accepted:</strong> PDF, JPG, PNG, CSV, XLSX (one file only)<br>
+                                        <small class="text-muted">
+                                            • PDF/JPG/PNG: Collection slip document<br>
+                                            • CSV/XLSX: Expected items list (columns: Serial, Model)<br>
+                                            • <a href="#" id="downloadTemplate">Download CSV Template</a>
+                                        </small>
+                                    </div>
+                                </div>
+                                
+                                <div id="fileInfo" class="mt-2" style="display: none;">
+                                    <div class="alert alert-success d-flex align-items-center">
+                                        <i class="bi bi-check-circle me-2"></i>
+                                        <span id="fileName"></span>
+                                        <span id="fileType" class="badge bg-secondary ms-2"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="alertContainer"></div>
+
+                            <div class="d-flex gap-2">
+                                <button type="button" id="btnCreate" class="btn btn-success">
+                                    <i class="bi bi-plus-circle"></i> Create RnR Batch
+                                </button>
+                                <a href="/phase1/dashboard.html" class="btn btn-outline-secondary">
+                                    <i class="bi bi-house"></i> Back to Dashboard
+                                </a>
+                            </div>
+                        </form>
+
+                        <!-- Success Section -->
+                        <div id="successSection" class="mt-4" style="display: none;">
+                            <div class="card border-success">
+                                <div class="card-body">
+                                    <h5 class="card-title text-success">
+                                        <i class="bi bi-check-circle"></i> RnR Batch Created Successfully!
+                                    </h5>
+                                    <p id="batchInfo" class="card-text"></p>
+                                    
+                                    <div class="d-flex gap-2">
+                                        <button type="button" id="btnBTC" class="btn btn-primary">
+                                            <i class="bi bi-printer"></i> Generate Blind Transfer Copy
+                                        </button>
+                                        <button type="button" id="btnScan" class="btn btn-success">
+                                            <i class="bi bi-upc-scan"></i> Start Scanning
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        (() => {
+            // Get mode from URL parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            const mode = urlParams.get('mode');
+            
+            if (mode === 'emergency') {
+                document.getElementById('mode').value = '2';
+                document.getElementById('pageTitle').textContent = 'Emergency RnR Import';
+            }
+
+            let batchId = null;
+
+            // SCHOOL SEARCH / TYPEAHEAD
+            let schoolSearchTimeout = null;
+            const schoolSearchInput = document.getElementById('schoolSearch');
+            const schoolIdInput = document.getElementById('schoolId');
+            const schoolNameInput = document.getElementById('schoolName');
+            const schoolResultsBox = document.getElementById('schoolSearchResults');
+            const schoolSelectedInfo = document.getElementById('schoolSelectedInfo');
+            const schoolSelectedLabel = document.getElementById('schoolSelectedLabel');
+
+            async function searchSchools(term) {
+                const resp = await fetch(`/api/phase1/schools/search?term=${encodeURIComponent(term)}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!resp.ok) {
+                    console.error('School search failed');
+                    return [];
+                }
+                return await resp.json();
+            }
+
+            function renderSchoolResults(results) {
+                schoolResultsBox.innerHTML = '';
+                if (!results || results.length === 0) {
+                    schoolResultsBox.style.display = 'none';
+                    return;
+                }
+                results.forEach(s => {
+                    const item = document.createElement('button');
+                    item.type = 'button';
+                    item.className = 'list-group-item list-group-item-action';
+                    // API returns PascalCase, support both for safety
+                    const name = s.Name || s.name;
+                    const emis = s.EmisCode || s.emisCode;
+                    const district = s.District || s.district;
+                    const circuit = s.Circuit || s.circuit;
+                    item.textContent = `${name} (${emis}) – ${district} / ${circuit}`;
+                    item.addEventListener('click', () => {
+                        selectSchool(s);
+                    });
+                    schoolResultsBox.appendChild(item);
+                });
+                schoolResultsBox.style.display = 'block';
+            }
+
+            function selectSchool(school) {
+                // API returns PascalCase: SchoolId, Name, EmisCode, District, Circuit
+                schoolIdInput.value = school.SchoolId || school.schoolId; // Support both cases
+                schoolSearchInput.value = `${school.Name || school.name} (${school.EmisCode || school.emisCode})`;
+                schoolNameInput.value = school.Name || school.name;
+                schoolSelectedLabel.textContent = `${school.Name || school.name} (${school.EmisCode || school.emisCode}) – ${school.District || school.district} / ${school.Circuit || school.circuit}`;
+                schoolSelectedInfo.classList.remove('d-none');
+                schoolResultsBox.style.display = 'none';
+            }
+
+            // Wire up school search
+            document.addEventListener('click', (e) => {
+                // hide dropdown when clicking outside
+                if (!schoolResultsBox.contains(e.target) && e.target !== schoolSearchInput) {
+                    schoolResultsBox.style.display = 'none';
+                }
+            });
+
+            schoolSearchInput.addEventListener('input', () => {
+                const term = schoolSearchInput.value.trim();
+                schoolIdInput.value = '';
+                schoolNameInput.value = '';
+                schoolSelectedInfo.classList.add('d-none');
+                
+                if (schoolSearchTimeout) {
+                    clearTimeout(schoolSearchTimeout);
+                }
+                
+                if (term.length < 2) {
+                    schoolResultsBox.style.display = 'none';
+                    return;
+                }
+                
+                schoolSearchTimeout = setTimeout(async () => {
+                    const schools = await searchSchools(term);
+                    renderSchoolResults(schools);
+                }, 250);
+            });
+
+            // Single file upload handlers
+            const fileUploadZone = document.getElementById('fileUploadZone');
+            const fileInput = document.getElementById('file');
+
+            // Drag and drop for single file
+            fileUploadZone.addEventListener('click', () => fileInput.click());
+            fileUploadZone.addEventListener('dragover', handleDragOver);
+            fileUploadZone.addEventListener('dragleave', handleDragLeave);
+            fileUploadZone.addEventListener('drop', handleDrop);
+
+            function handleDragOver(e) {
+                e.preventDefault();
+                e.currentTarget.classList.add('dragover');
+            }
+
+            function handleDragLeave(e) {
+                e.preventDefault();
+                e.currentTarget.classList.remove('dragover');
+            }
+
+            function handleDrop(e) {
+                e.preventDefault();
+                e.currentTarget.classList.remove('dragover');
+                
+                const files = Array.from(e.dataTransfer.files);
+                if (files.length > 0) {
+                    fileInput.files = e.dataTransfer.files;
+                    fileInput.dispatchEvent(new Event('change'));
+                }
+            }
+
+            // File input change handler
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    let fileTypeLabel = '';
+                    
+                    if (['pdf', 'jpg', 'jpeg', 'png'].includes(ext)) {
+                        fileTypeLabel = 'Collection Slip';
+                    } else if (['csv', 'xlsx'].includes(ext)) {
+                        fileTypeLabel = 'Items List';
+                    }
+                    
+                    document.getElementById('fileName').textContent = file.name;
+                    document.getElementById('fileType').textContent = fileTypeLabel;
+                    document.getElementById('fileInfo').style.display = 'block';
+                }
+            });
+
+            // Download CSV template
+            document.getElementById('downloadTemplate').addEventListener('click', (e) => {
+                e.preventDefault();
+                const csv = "Serial,Model,Qty\nABC123,Tablet Model X,1\nDEF456,Laptop Model Y,1\n";
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'rnr_items_template.csv';
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+
+            // Create batch
+            document.getElementById('btnCreate').addEventListener('click', async () => {
+                const file = document.getElementById('file').files[0];
+                if (!file) {
+                    showAlert('Please choose a file.', 'warning');
+                    return;
+                }
+
+                // Validate school selection
+                const schoolIdVal = document.getElementById('schoolId').value;
+                if (!schoolIdVal) {
+                    showAlert('Please select a school from the list (type at least 2 letters and click on the school).', 'warning');
+                    return;
+                }
+                
+                // Ensure SchoolId is a valid integer
+                const schoolIdInt = parseInt(schoolIdVal, 10);
+                if (isNaN(schoolIdInt) || schoolIdInt <= 0) {
+                    showAlert('Invalid school selected. Please select a school from the list.', 'warning');
+                    return;
+                }
+
+                const form = document.getElementById('rnrForm');
+                const formData = new FormData(form);
+                formData.set('file', file); // Ensure single file is set
+                formData.set('SchoolId', schoolIdInt.toString()); // Ensure it's sent as a valid integer string
+                
+                // Debug: Log form data being sent
+                console.log('Form data being sent:');
+                for (const [key, value] of formData.entries()) {
+                    if (key === 'file') {
+                        console.log(`  ${key}: [File] ${value.name || 'unknown'}`);
+                    } else {
+                        console.log(`  ${key}: ${value}`);
+                    }
+                }
+                
+                try {
+                    showAlert('Creating RnR batch...', 'info');
+                    
+                    const response = await fetch('/api/phase1/rnr/import', {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'same-origin'
+                    });
+
+                    // Robust body parsing: handle non-JSON (e.g., login HTML, error text)
+                    const contentType = response.headers.get('content-type') || '';
+                    let data = {};
+                    if (contentType.includes('application/json')) {
+                        try { data = await response.json(); } catch { data = {}; }
+                    } else {
+                        try { data.text = await response.text(); } catch { /* ignore */ }
+                    }
+
+                    // Handle auth redirects (401/403)
+                    if (response.status === 401 || response.status === 403) {
+                        showAlert('Please log in to continue.', 'danger');
+                        window.location.href = '/index.html';
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        // Handle duplicate serials error with detailed message
+                        if (data && data.code === 'DUPLICATE_SERIALS' && Array.isArray(data.duplicates) && data.duplicates.length > 0) {
+                            console.log('Duplicate data received:', data.duplicates);
+                            const duplicateList = data.duplicates
+                                .map(d => {
+                                    const serials = d.RawSerials && Array.isArray(d.RawSerials) && d.RawSerials.length > 0
+                                        ? d.RawSerials.join("', '")
+                                        : d.Serial || 'Unknown';
+                                    return `'${serials}' (appears ${d.Count || 'unknown'} times)`;
+                                })
+                                .join('\n');
+                            const errorMsg = `Duplicate serials found in your file:\n\n${duplicateList}\n\nPlease ensure each serial number is unique.`;
+                            showAlert(errorMsg, 'danger');
+                            return; // Exit early, don't throw
+                        }
+                        
+                        // Try to extract detailed error message
+                        let msg = 'Failed to create RnR batch';
+                        if (data) {
+                            if (data.error) {
+                                msg = data.error;
+                            } else if (data.message) {
+                                msg = data.message;
+                            } else if (data.title) {
+                                msg = data.title;
+                            } else if (data.errors && typeof data.errors === 'object') {
+                                // ModelState errors
+                                const errorMessages = [];
+                                for (const key in data.errors) {
+                                    if (Array.isArray(data.errors[key])) {
+                                        errorMessages.push(...data.errors[key]);
+                                    } else {
+                                        errorMessages.push(data.errors[key]);
+                                    }
+                                }
+                                msg = errorMessages.join(', ') || msg;
+                            } else if (data.text) {
+                                msg = data.text;
+                            }
+                        }
+                        console.error('Server error response:', response.status, data);
+                        throw new Error(msg);
+                    }
+
+                    batchId = data.batchId;
+                    document.getElementById('batchInfo').textContent = `Batch ID: ${batchId}`;
+                    document.getElementById('successSection').style.display = 'block';
+                    
+                    showAlert('RnR batch created successfully!', 'success');
+                    
+                    // Scroll to success section
+                    document.getElementById('successSection').scrollIntoView({ behavior: 'smooth' });
+                    
+                } catch (error) {
+                    console.error('Error creating batch:', error);
+                    let errorMessage = 'Failed to create batch: ' + (error?.message || 'Unknown error');
+                    showAlert(errorMessage, 'danger');
+                }
+            });
+
+            // Generate BTC
+            document.getElementById('btnBTC').addEventListener('click', () => {
+                if (!batchId) return;
+                window.open(`/api/phase1/rnr/batches/${batchId}/blind-transfer`, '_blank');
+            });
+
+            // Start scanning
+            document.getElementById('btnScan').addEventListener('click', () => {
+                if (!batchId) return;
+                window.location.href = `/phase1/rnr-scanning.html?batchId=${batchId}`;
+            });
+
+            function showAlert(message, type) {
+                const alertContainer = document.getElementById('alertContainer');
+                const alertId = 'alert-' + Date.now();
+                
+                const alertHtml = `
+                    <div id="${alertId}" class="alert alert-${type} alert-dismissible fade show" role="alert">
+                        ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `;
+                
+                alertContainer.innerHTML = alertHtml;
+                
+                // Auto-remove after 5 seconds for non-error alerts
+                if (type !== 'danger') {
+                    setTimeout(() => {
+                        const alertElement = document.getElementById(alertId);
+                        if (alertElement) {
+                            alertElement.remove();
+                        }
+                    }, 5000);
+                }
+            }
+        })();
+    </script>
+
+    <script src="/shared/js/common.js"></script>
+    <script>
+        // Ensure the Phase 1 shell & sidebar load
+        ddLoadSidebar({ area: 'phase1', active: 'newBatch' });
+    </script>
+</body>
+</html>

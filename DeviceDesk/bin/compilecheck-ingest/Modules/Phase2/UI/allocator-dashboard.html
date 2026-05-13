@@ -1,0 +1,378 @@
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">Allocate Physical Storage Locations</h2>
+            <small class="text-muted">
+                Search for a device and assign it a storage location in the ICT Centre.
+            </small>
+        </div>
+    </div>
+
+    <div id="alertContainer"></div>
+
+    <div class="row">
+        <!-- Left: Search & Device Info -->
+        <div class="col-lg-5 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">1. Search Device</h5>
+                </div>
+                <div class="card-body">
+                    <form id="searchForm" class="mb-3">
+                        <div class="mb-3">
+                            <label for="serialInput" class="form-label">Serial Number</label>
+                            <input type="text" id="serialInput" class="form-control" 
+                                   placeholder="Scan or type serial" required />
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-search me-1"></i> Find Device
+                        </button>
+                    </form>
+
+                    <div id="deviceSummary" class="border rounded p-3" style="display:none;">
+                        <h6 class="mb-2">Device Summary</h6>
+                        <dl class="row mb-0 small">
+                            <dt class="col-4">Serial</dt>
+                            <dd class="col-8" id="summarySerial"></dd>
+                            <dt class="col-4">Stage</dt>
+                            <dd class="col-8" id="summaryStage"></dd>
+                            <dt class="col-4">School</dt>
+                            <dd class="col-8" id="summarySchool"></dd>
+                            <dt class="col-4">Category</dt>
+                            <dd class="col-8" id="summaryCategory"></dd>
+                            <dt class="col-4">Current Location</dt>
+                            <dd class="col-8" id="summaryLocation"></dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Allocation Form -->
+        <div class="col-lg-7 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">2. Allocate Storage</h5>
+                    <small class="text-muted" id="allocationSerialLabel">No device selected</small>
+                </div>
+                <div class="card-body">
+                    <div id="stageWarning" class="alert alert-warning" style="display:none;">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        <strong>Warning:</strong> This device is in <span id="warningStage"></span> stage. 
+                        Allocation may be blocked if the device has left ICT centre.
+                    </div>
+
+                    <form id="allocationForm">
+                        <!-- Core Location Selection -->
+                        <div class="mb-3">
+                            <label for="locationSelect" class="form-label">Core Location (Zone/Shelf)</label>
+                            <select id="locationSelect" class="form-select">
+                                <option value="">Select a location...</option>
+                            </select>
+                            <small class="text-muted">Optional: Link to a predefined storage zone</small>
+                        </div>
+
+                        <!-- Detailed Storage Fields -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="buildingInput" class="form-label">Building</label>
+                                <input type="text" id="buildingInput" class="form-control" 
+                                       placeholder="e.g. ICT Centre Main" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="roomInput" class="form-label">Room</label>
+                                <input type="text" id="roomInput" class="form-control" 
+                                       placeholder="e.g. Intake Room A" />
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="rackInput" class="form-label">Rack</label>
+                                <input type="text" id="rackInput" class="form-control" 
+                                       placeholder="e.g. Rack A" />
+                            </div>
+                            <div class="col-md-4">
+                                <label for="shelfInput" class="form-label">Shelf</label>
+                                <input type="text" id="shelfInput" class="form-control" 
+                                       placeholder="e.g. Shelf 3" />
+                            </div>
+                            <div class="col-md-4">
+                                <label for="binInput" class="form-label">Bin</label>
+                                <input type="text" id="binInput" class="form-control" 
+                                       placeholder="e.g. Bin 12" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="notesInput" class="form-label">Notes (optional)</label>
+                            <textarea id="notesInput" class="form-control" rows="2" 
+                                      placeholder="Additional notes about this storage location"></textarea>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success" id="btnAllocate" disabled>
+                                <i class="bi bi-check-circle me-1"></i> Save Allocation
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="btnClearStorage" disabled>
+                                <i class="bi bi-eraser me-1"></i> Clear Storage
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentPhase2Id = null;
+    let currentCoreDeviceId = null;
+    let currentStage = null;
+
+    // Check if we came from pending allocations
+    if (window.pendingAllocationSerial) {
+        document.getElementById('serialInput').value = window.pendingAllocationSerial;
+        currentPhase2Id = window.pendingAllocationPhase2Id;
+        window.pendingAllocationSerial = null;
+        window.pendingAllocationPhase2Id = null;
+        // Auto-search
+        document.getElementById('searchForm').dispatchEvent(new Event('submit'));
+    }
+
+    // Check URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const serialParam = urlParams.get('serial');
+    if (serialParam) {
+        document.getElementById('serialInput').value = serialParam;
+        document.getElementById('searchForm').dispatchEvent(new Event('submit'));
+    }
+
+    function showAlert(message, type = 'info') {
+        const container = document.getElementById('alertContainer');
+        container.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+    }
+
+    function clearAlert() {
+        document.getElementById('alertContainer').innerHTML = '';
+    }
+
+    document.getElementById('searchForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const serial = document.getElementById('serialInput').value.trim();
+        if (!serial) {
+            showAlert('Please enter a serial number.', 'warning');
+            return;
+        }
+
+        clearAlert();
+        document.getElementById('deviceSummary').style.display = 'none';
+        document.getElementById('btnAllocate').disabled = true;
+        document.getElementById('btnClearStorage').disabled = true;
+        document.getElementById('allocationSerialLabel').textContent = 'Loading...';
+
+        try {
+            const response = await fetch(`/api/phase2/allocation/search?serial=${encodeURIComponent(serial)}`);
+            if (!response.ok) {
+                const text = await response.text();
+                showAlert(text || 'Device not found.', 'danger');
+                return;
+            }
+
+            const data = await response.json();
+            currentPhase2Id = data.phase2Id;
+            currentCoreDeviceId = data.coreDeviceId;
+            currentStage = data.phase2Stage;
+
+            // Update device summary
+            document.getElementById('summarySerial').textContent = data.serial || '';
+            document.getElementById('summaryStage').textContent = data.phase2Stage || '';
+            document.getElementById('summarySchool').textContent = data.schoolName || 'N/A';
+            document.getElementById('summaryCategory').textContent = data.category || 'N/A';
+            
+            const locationText = data.currentLocation 
+                ? `${data.currentLocation.code} - ${data.currentLocation.name}`
+                : 'Not allocated';
+            document.getElementById('summaryLocation').textContent = locationText;
+
+            // Show Phase 2 storage if exists
+            if (data.phase2Storage) {
+                const p2Storage = data.phase2Storage;
+                const p2LocationText = [
+                    p2Storage.building,
+                    p2Storage.room,
+                    p2Storage.rack,
+                    p2Storage.shelf,
+                    p2Storage.bin
+                ].filter(x => x).join(' / ') || 'Not set';
+                document.getElementById('summaryLocation').textContent += ` (Phase 2: ${p2LocationText})`;
+            }
+
+            document.getElementById('deviceSummary').style.display = 'block';
+            document.getElementById('allocationSerialLabel').textContent = `Allocating: ${data.serial}`;
+
+            // Check stage warning
+            const blockedStages = ['Dispatch', 'AwaitingDispatch', 'Disposal', 'SchoolAllocation'];
+            if (blockedStages.includes(data.phase2Stage)) {
+                document.getElementById('stageWarning').style.display = 'block';
+                document.getElementById('warningStage').textContent = data.phase2Stage;
+                document.getElementById('btnAllocate').disabled = true;
+            } else {
+                document.getElementById('stageWarning').style.display = 'none';
+                document.getElementById('btnAllocate').disabled = false;
+                document.getElementById('btnClearStorage').disabled = false;
+            }
+
+            // Load locations if we have a core device
+            if (data.coreDeviceId) {
+                await loadLocations(data.coreDeviceId);
+            }
+
+            // Populate Phase 2 storage fields if exists
+            if (data.phase2Storage) {
+                document.getElementById('buildingInput').value = data.phase2Storage.building || '';
+                document.getElementById('roomInput').value = data.phase2Storage.room || '';
+                document.getElementById('rackInput').value = data.phase2Storage.rack || '';
+                document.getElementById('shelfInput').value = data.phase2Storage.shelf || '';
+                document.getElementById('binInput').value = data.phase2Storage.bin || '';
+                document.getElementById('notesInput').value = data.phase2Storage.notes || '';
+            }
+        } catch (error) {
+            console.error('Error searching device:', error);
+            showAlert('Unexpected error while searching device.', 'danger');
+        }
+    });
+
+    async function loadLocations(deviceId) {
+        try {
+            const response = await fetch(`/api/phase2/allocation/locations?deviceId=${encodeURIComponent(deviceId)}`);
+            if (!response.ok) return;
+
+            const data = await response.json();
+            const select = document.getElementById('locationSelect');
+            select.innerHTML = '<option value="">Select a location...</option>';
+            
+            data.locations.forEach(loc => {
+                const opt = document.createElement('option');
+                opt.value = loc.id;
+                opt.textContent = `${loc.code} - ${loc.name}`;
+                select.appendChild(opt);
+            });
+        } catch (error) {
+            console.error('Error loading locations:', error);
+        }
+    }
+
+    document.getElementById('allocationForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!currentPhase2Id) {
+            showAlert('Please search for a device first.', 'warning');
+            return;
+        }
+
+        clearAlert();
+        const btn = document.getElementById('btnAllocate');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+
+        try {
+            const storageLocationId = document.getElementById('locationSelect').value 
+                ? parseInt(document.getElementById('locationSelect').value, 10) 
+                : null;
+
+            const response = await fetch('/api/phase2/allocation/allocate-detailed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phase2DeviceId: currentPhase2Id,
+                    storageLocationId: storageLocationId,
+                    building: document.getElementById('buildingInput').value.trim() || null,
+                    room: document.getElementById('roomInput').value.trim() || null,
+                    rack: document.getElementById('rackInput').value.trim() || null,
+                    shelf: document.getElementById('shelfInput').value.trim() || null,
+                    bin: document.getElementById('binInput').value.trim() || null,
+                    notes: document.getElementById('notesInput').value.trim() || null
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                showAlert(result.message || 'Failed to allocate storage.', 'danger');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Save Allocation';
+                return;
+            }
+
+            showAlert('Storage allocated successfully!', 'success');
+            
+            // Refresh device info
+            document.getElementById('searchForm').dispatchEvent(new Event('submit'));
+            
+            // If we're in the dashboard, refresh pending allocations
+            if (typeof loadPendingAllocationsView === 'function') {
+                // Could trigger a refresh of pending list if it's open
+            }
+        } catch (error) {
+            console.error('Error allocating storage:', error);
+            showAlert('Unexpected error while allocating storage.', 'danger');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Save Allocation';
+        }
+    });
+
+    document.getElementById('btnClearStorage').addEventListener('click', async () => {
+        if (!currentPhase2Id) {
+            showAlert('Please search for a device first.', 'warning');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to clear the storage allocation for this device?')) {
+            return;
+        }
+
+        clearAlert();
+        const btn = document.getElementById('btnClearStorage');
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(`/api/phase2/allocation/clear?phase2DeviceId=${currentPhase2Id}`, {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                showAlert(result.message || 'Failed to clear storage.', 'danger');
+                btn.disabled = false;
+                return;
+            }
+
+            showAlert('Storage allocation cleared.', 'success');
+            
+            // Clear form fields
+            document.getElementById('buildingInput').value = '';
+            document.getElementById('roomInput').value = '';
+            document.getElementById('rackInput').value = '';
+            document.getElementById('shelfInput').value = '';
+            document.getElementById('binInput').value = '';
+            document.getElementById('notesInput').value = '';
+            document.getElementById('locationSelect').value = '';
+
+            // Refresh device info
+            document.getElementById('searchForm').dispatchEvent(new Event('submit'));
+        } catch (error) {
+            console.error('Error clearing storage:', error);
+            showAlert('Unexpected error while clearing storage.', 'danger');
+        } finally {
+            btn.disabled = false;
+        }
+    });
+</script>
+

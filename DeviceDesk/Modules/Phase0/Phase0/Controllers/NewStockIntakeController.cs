@@ -50,19 +50,30 @@ namespace DeviceDesk.Modules.Phase0.Controllers
                 var batch = new DeviceImportBatch { Source = "NEW", FileName = pack?.FileName ?? "manual-entry" };
                 _db.Batches.Add(batch);
                 var seenInUpload = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                
+
+                // Promote the first non-empty per-item OrderNumber onto the batch so
+                // it shows up in batch lists and links back to procurement orders.
+                var firstOrderNumber = items
+                    .Select(x => x.orderNumber?.Trim())
+                    .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+                if (!string.IsNullOrWhiteSpace(firstOrderNumber))
+                {
+                    batch.OrderNumber = firstOrderNumber;
+                }
+
                 foreach (var it in items)
                 {
                     var brand = it.brand?.Trim();
                     var model = it.model?.Trim();
                     var deviceType = it.deviceType?.Trim();
+                    var orderNumber = string.IsNullOrWhiteSpace(it.orderNumber) ? null : it.orderNumber.Trim();
                     var qty = it.qty > 0 ? it.qty : 1;
-                    
+
                     // Check if this is order-style (no serial/IMEI but has deviceType and qty)
-                    bool isOrderStyle = string.IsNullOrWhiteSpace(it.serial) && 
-                                       string.IsNullOrWhiteSpace(it.imei) && 
+                    bool isOrderStyle = string.IsNullOrWhiteSpace(it.serial) &&
+                                       string.IsNullOrWhiteSpace(it.imei) &&
                                        !string.IsNullOrWhiteSpace(deviceType);
-                    
+
                     if (isOrderStyle)
                     {
                         // Order-style: Create multiple devices based on quantity
@@ -70,16 +81,17 @@ namespace DeviceDesk.Modules.Phase0.Controllers
                         {
                             // Generate a truly unique placeholder serial using GUID
                             var uniqueId = Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper();
-                            var placeholderSerial = $"PENDING-MANUAL-{deviceType}-{uniqueId}";
-                            
-                            var dev = new Device 
-                            { 
-                                Id = Guid.NewGuid(), 
-                                Source = "NEW", 
-                                Brand = brand, 
+                            var orderTag = string.IsNullOrWhiteSpace(orderNumber) ? "MANUAL" : orderNumber;
+                            var placeholderSerial = $"PENDING-{orderTag}-{deviceType}-{uniqueId}";
+
+                            var dev = new Device
+                            {
+                                Id = Guid.NewGuid(),
+                                Source = "NEW",
+                                Brand = brand,
                                 Model = model,
                                 DeviceType = deviceType,
-                                OrderNumber = null,
+                                OrderNumber = orderNumber,
                                 BatchId = batch.BatchId,
                                 SerialNumber = placeholderSerial
                             };
@@ -120,7 +132,7 @@ namespace DeviceDesk.Modules.Phase0.Controllers
         }
 
         private static bool IsImei(string s) => s.All(char.IsDigit) && s.Length >= 10;
-        private record ManualItem(string? serial, string? imei, string? brand, string? model, string? deviceType, int qty);
+        private record ManualItem(string? serial, string? imei, string? brand, string? model, string? deviceType, int qty, string? orderNumber = null);
         private record ManualItemsWrapper(List<ManualItem> items);
         [HttpPost("documents")]
         public async Task<IActionResult> UploadDoc(IFormFile file, [FromQuery] string docType = "PO", CancellationToken ct = default)
@@ -134,18 +146,28 @@ namespace DeviceDesk.Modules.Phase0.Controllers
         }
 
         // GET /api/phase0/new/batches
+        // Optional filter ?orderNumber=PO-XYZ to list only batches linked to a procurement order.
         [HttpGet("batches")]
-        public async Task<IActionResult> GetBatches(int page = 1, int pageSize = 10)
+        public async Task<IActionResult> GetBatches(int page = 1, int pageSize = 10, string? orderNumber = null)
         {
             page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 100);
-            var query = _db.Batches
-                .Where(b => b.Source == "NEW")
+
+            var batches = _db.Batches.Where(b => b.Source == "NEW");
+
+            if (!string.IsNullOrWhiteSpace(orderNumber))
+            {
+                var needle = orderNumber.Trim();
+                batches = batches.Where(b => b.OrderNumber == needle);
+            }
+
+            var query = batches
                 .OrderByDescending(b => b.CreatedAt)
                 .Select(b => new {
                     Id = b.BatchId,
                     b.CreatedAt,
                     UploadedBy = "System",
                     SourceFileName = b.FileName,
+                    OrderNumber = b.OrderNumber,
                     Items = _db.Devices.Count(d => d.BatchId == b.BatchId)
                 });
 

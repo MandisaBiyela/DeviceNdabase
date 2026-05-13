@@ -2,6 +2,7 @@ using DeviceDesk.Infrastructure.Data;
 using DeviceDesk.Infrastructure.Identity;
 using DeviceDesk.Modules.Phase0.Services;
 using DeviceDesk.Modules.Phase1.Services;
+using DeviceDesk.Modules.Phase1.Services.DocumentIngest;
 using DeviceDesk.Modules.Phase2.Data;
 using DeviceDesk.Modules.Phase2.Models;
 using DeviceDesk.Modules.Phase2.Services;
@@ -109,7 +110,9 @@ builder.Services.AddScoped<DocumentService>();
 builder.Services.AddScoped<NewStockBatchService>();
 builder.Services.AddScoped<RnrBatchService>();
 builder.Services.AddScoped<OrderValidationService>();
+builder.Services.AddScoped<ProcurementOrderBatchSyncService>();
 builder.Services.AddSingleton<ProcurementOrderExportService>();
+builder.Services.AddSingleton<CloseOutReportDocxService>();
 
 // Integration services (bridges between phases)
 // builder.Services.AddScoped<OrderIntegrationService>(); // Commented out - uses old Orders table
@@ -127,6 +130,13 @@ builder.Services.AddScoped<RnrBlindCopyService>();
 builder.Services.AddScoped<RnrGrvService>();
 builder.Services.AddScoped<ModelDrivenScanningService>();
 builder.Services.AddScoped<ReceivingBatchSyncService>();
+
+builder.Services.Configure<AnthropicOptions>(builder.Configuration.GetSection(AnthropicOptions.SectionName));
+builder.Services.AddHttpClient<AnthropicDocumentClassifier>();
+builder.Services.AddScoped<DocumentTextExtractorService>();
+builder.Services.AddScoped<DocumentMatchService>();
+builder.Services.AddScoped<DynamicIngestTableService>();
+builder.Services.AddScoped<ReceivingDocumentIngestService>();
 
 // Phase 2 services
 builder.Services.AddScoped<ReceiptingService>();
@@ -426,7 +436,7 @@ app.Use(async (ctx, next) =>
         // Authenticated but wrong role → send to their dashboard
         if (isOrdersClerk)
         {
-            ctx.Response.Redirect("/phase0/new.html");
+            ctx.Response.Redirect("/phase0/orders.html");
             return;
         }
 
@@ -446,7 +456,7 @@ app.Use(async (ctx, next) =>
 
         if (isOrdersClerk)
         {
-            ctx.Response.Redirect("/phase0/new.html");
+            ctx.Response.Redirect("/phase0/orders.html");
             return;
         }
 
@@ -474,7 +484,7 @@ app.Use(async (ctx, next) =>
         if (isOrdersClerk)
         {
             Console.WriteLine("[RBAC] Redirecting OrdersClerk to phase0");
-            ctx.Response.Redirect("/phase0/new.html");
+            ctx.Response.Redirect("/phase0/orders.html");
             return;
         }
 
@@ -511,7 +521,7 @@ app.Use(async (ctx, next) =>
         // Authenticated but wrong role → send to their dashboard
         if (isOrdersClerk)
         {
-            ctx.Response.Redirect("/phase0/new.html");
+            ctx.Response.Redirect("/phase0/orders.html");
             return;
         }
 
@@ -555,7 +565,7 @@ app.Use(async (ctx, next) =>
 
         if (isOrdersClerk)
         {
-            ctx.Response.Redirect("/phase0/new.html");
+            ctx.Response.Redirect("/phase0/orders.html");
             return;
         }
 
@@ -586,13 +596,13 @@ app.Use(async (ctx, next) =>
     await next();
 });
 
-// Redirect /phase0 to the Upload NEW page so URL updates visibly
+// Redirect /phase0 to the Device Orders page (logical step 1 of Phase 0)
 app.Use(async (ctx, next) =>
 {
     var p = ctx.Request.Path.Value ?? string.Empty;
     if (string.Equals(p, "/phase0", StringComparison.OrdinalIgnoreCase))
     {
-        ctx.Response.Redirect("/phase0/new.html");
+        ctx.Response.Redirect("/phase0/orders.html");
         return;
     }
     await next();
@@ -614,7 +624,7 @@ app.UseDefaultFiles(new DefaultFilesOptions
 {
     FileProvider = new PhysicalFileProvider(phase0UiPath),
     RequestPath = "/phase0",
-    DefaultFileNames = ["new.html"]
+    DefaultFileNames = ["orders.html", "new.html"]
 });
 
 // Static files (css/js/html) under /phase0
@@ -813,7 +823,7 @@ app.MapGet("/", (HttpContext ctx) =>
             roleClaims.Contains("IctClerk") || roleClaims.Contains("IctInspector") || roleClaims.Contains("IctTechnician") || roleClaims.Contains("IctManager"))
             return Results.Redirect("/phase2/index.html");
         if (user.IsInRole("OrdersClerk") || roleClaims.Contains("OrdersClerk"))
-            return Results.Redirect("/phase0/new.html");
+            return Results.Redirect("/phase0/orders.html");
     }
     
     return Results.Redirect("/login.html");
@@ -852,7 +862,7 @@ app.MapFallback(async context =>
 
         if (user.IsInRole("OrdersClerk"))
 {
-    context.Response.Redirect("/phase0/new.html");
+    context.Response.Redirect("/phase0/orders.html");
             return;
         }
     }

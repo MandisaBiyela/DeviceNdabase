@@ -1,0 +1,1347 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Phase 0 — School Readiness Checklist</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+  <link rel="stylesheet" href="/css/dashboard-shell.css" />
+  <link rel="stylesheet" href="/css/theme.css?v=2025" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <link href="css/phase0.css" rel="stylesheet">
+  <style>
+    /* Scoped design system for School Readiness */
+    body.sr-page { font-family: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+    .sr-page .app-sidebar { background: #0F172A !important; }
+    .sr-page .app-header {
+      background: linear-gradient(90deg, #2563EB 0%, #1D4ED8 100%) !important;
+      border-bottom: none !important;
+      box-shadow: none !important;
+      color: #fff !important;
+    }
+    .sr-page .welcome-line { color: #fff !important; font-weight: 800 !important; }
+    .sr-page .welcome-date { color: #93C5FD !important; font-weight: 500 !important; }
+    .sr-page .avatar-btn {
+      background: rgba(255,255,255,.15) !important;
+      border: 1px solid rgba(255,255,255,.25) !important;
+      color: #fff !important;
+      width: 40px !important;
+      height: 40px !important;
+      border-radius: 999px !important;
+      padding: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-weight: 700 !important;
+    }
+    .sr-page .sidebar-link.active {
+      background: rgba(37,99,235,.14) !important;
+      border-left: 4px solid #2563EB !important;
+      padding-left: calc(1rem - 4px) !important;
+      color: #fff !important;
+    }
+
+    .readiness-photo { max-width: 160px; max-height: 120px; object-fit: cover; border-radius: 6px; }
+    .readiness-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+    .sr-mono { font-family: "DM Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    .sr-page .card, .sr-page .panel {
+      border: 1px solid #E2E8F0 !important;
+      border-radius: 16px !important;
+      box-shadow: 0 1px 2px rgba(16,24,40,.06) !important;
+    }
+    .sr-page .card-body { padding: 16px !important; }
+    .sr-critical-badge {
+      background: #fee2e2;
+      color: #dc2626;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 8px;
+      margin-left: 8px;
+    }
+    .sr-row-highlight {
+      outline: 2px solid #2563EB;
+      background: #eff6ff !important;
+      transition: background .35s ease;
+    }
+
+    /* Status pills */
+    .sr-status-group { display: flex; flex-wrap: wrap; gap: 6px; }
+    .sr-status-pill {
+      height: 28px;
+      padding: 0 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 28px;
+      border: 1px solid var(--sr-pill-color);
+      background: transparent;
+      color: var(--sr-pill-color);
+      transition: all .15s ease;
+      white-space: nowrap;
+    }
+    .sr-status-pill:hover { transform: translateY(-1px); }
+    .sr-status-pill.sr-active { background: var(--sr-pill-color); color: #fff; }
+
+    /* Issue panel slide-down */
+    .sr-issue-panel {
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: max-height 150ms ease, opacity 150ms ease, transform 150ms ease;
+    }
+    .sr-issue-panel.open {
+      max-height: 360px;
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .sr-issue-box {
+      border: 1px solid #E2E8F0;
+      border-radius: 14px;
+      background: #fff;
+      padding: 12px;
+    }
+    .sr-sev-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--sr-sev-color, #D97706);
+      display: inline-block;
+    }
+
+    /* Table polish */
+    .sr-table-scroll { max-height: 62vh; overflow: auto; }
+    #readinessTable thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #F8FAFC !important;
+      border-bottom: 1px solid #E2E8F0 !important;
+    }
+    #readinessTable tbody tr:nth-child(even) { background: #F8FAFC; }
+
+    /* Upload zones & validation */
+    .sr-upload-zone {
+      border: 1px dashed #CBD5E1;
+      background: #fff;
+      border-radius: 14px;
+      padding: 10px;
+    }
+    .sr-upload-zone input[type="file"]{ border: 0 !important; padding: 0 !important; background: transparent !important; }
+    .sr-action-btn {
+      height: 32px;
+      padding: 0 14px;
+      font-size: 13px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      background: #fff;
+      color: #111827;
+      font-weight: 500;
+    }
+    .sr-action-btn:hover { background: #f9fafb; }
+    .sr-action-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .sr-action-btn:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59,130,246,.25), 0 0 0 4px rgba(59,130,246,.12);
+    }
+    .sr-action-btn-primary {
+      background: #2563EB;
+      color: #fff;
+      border-color: #2563EB;
+    }
+    .sr-action-btn-primary:hover { background: #1D4ED8; border-color: #1D4ED8; }
+
+    .sr-field-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #6B7280;
+      min-width: 140px;
+      margin: 0;
+    }
+    .sr-input {
+      height: 32px;
+      font-size: 13px;
+      border: 1px solid #d1d5db !important;
+      border-radius: 10px !important;
+      padding: 0 10px !important;
+    }
+    .sr-input:focus {
+      box-shadow: 0 0 0 2px rgba(37,99,235,.25), 0 0 0 4px rgba(37,99,235,.12) !important;
+      border-color: #3b82f6 !important;
+      outline: none !important;
+    }
+
+    .sr-dropzone {
+      cursor: pointer;
+      transition: border-color .15s ease, background .15s ease;
+    }
+    .sr-dropzone.sr-dropzone-active {
+      border-color: #2563EB;
+      background: rgba(37,99,235,.06);
+      box-shadow: 0 0 0 .2rem rgba(37,99,235,.15);
+    }
+
+    .sr-progress-ok { color: #16A34A !important; font-weight: 600; }
+    .sr-stats-grid{
+      display:grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap:8px;
+    }
+    .sr-stat-cell{
+      border:1px solid #e2e8f0;
+      border-radius:12px;
+      background:#fff;
+      padding:8px;
+      text-align:center;
+    }
+    .sr-stat-label{ font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:.02em; }
+    .sr-stat-value{ font-size:18px; font-weight:700; color:#0f172a; line-height:1.2; }
+    .sr-stat-chip{ border-radius:999px; padding:2px 8px; font-size:11px; font-weight:700; display:inline-block; }
+    .sr-chip-green{ background:#dcfce7; color:#15803d; }
+    .sr-chip-amber{ background:#fef3c7; color:#b45309; }
+    .sr-chip-red{ background:#fee2e2; color:#b91c1c; }
+    .sr-chip-slate{ background:#e2e8f0; color:#334155; }
+    .sr-sticky-footer{
+      position: sticky;
+      bottom: 0;
+      z-index: 10;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 10px 14px;
+      background: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .sr-progress-track{ width: 12rem; height: 8px; border-radius: 999px; background: #e5e7eb; overflow: hidden; }
+    .sr-progress-fill{ height: 100%; width: 0%; background: #dc2626; transition: width .15s ease; }
+    .sr-decision-pill{ border:1px solid; border-radius:999px; padding:5px 12px; font-weight:600; font-size:13px; }
+    .sr-dec-green{ background:#f0fdf4; color:#15803d; border-color:#bbf7d0; }
+    .sr-dec-amber{ background:#fffbeb; color:#b45309; border-color:#fde68a; }
+    .sr-dec-red{ background:#fef2f2; color:#b91c1c; border-color:#fecaca; }
+    .sr-gates-popover{
+      position:absolute;
+      right:0;
+      bottom:110%;
+      min-width:320px;
+      border:1px solid #e5e7eb;
+      border-radius:12px;
+      background:#fff;
+      box-shadow:0 10px 24px rgba(15,23,42,.15);
+      padding:10px;
+      display:none;
+    }
+    .sr-gates-wrap{ position:relative; }
+    .sr-gates-wrap:hover .sr-gates-popover{ display:block; }
+    .sr-gate-ok{ color:#15803d; }
+    .sr-gate-bad{ color:#b91c1c; }
+
+    .sr-category-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+      border: 1px solid #E2E8F0;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      background: #fff;
+      color: #334155;
+    }
+    .sr-category-badge[data-cat] .sr-cat-remove {
+      border: 0;
+      background: transparent;
+      color: #64748b;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0;
+      cursor: pointer;
+    }
+    .sr-category-badge[data-cat] .sr-cat-remove:hover { color: #DC2626; }
+
+    .sr-print-only { display: none; }
+    .sr-evidence-zone {
+      border: 1px solid #E2E8F0;
+      border-radius: 14px;
+      background: #fff;
+      padding: 8px 10px;
+    }
+    .sr-evidence-zone input[type="file"]{ border: 1px solid #E2E8F0 !important; padding: 6px !important; border-radius: 10px !important; }
+    .sr-invalid-zone { border-color: #DC2626 !important; box-shadow: 0 0 0 .2rem rgba(220,38,38,.15); }
+    .sr-invalid { border-color: #DC2626 !important; box-shadow: 0 0 0 .2rem rgba(220,38,38,.15) !important; }
+
+    /* Category badges */
+    .sr-category-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+    .sr-category-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid #E2E8F0;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      background: #F3F4F6;
+      color: #334155;
+    }
+    .sr-category-badge.sr-cat-has {
+      background: rgba(37,99,235,.14);
+      border-color: rgba(37,99,235,.45);
+      color: #1D4ED8;
+    }
+
+    @media (max-width: 1024px) {
+      .sr-page .app-sidebar { width: 72px !important; }
+      .sr-page .sidebar-profile .profile-info, .sr-page .sidebar-section { display: none !important; }
+      .sr-page .sidebar-link span { display: none !important; }
+      .sr-page .sidebar-link { justify-content: center; padding: .75rem .75rem !important; }
+      .sr-page .sidebar-brand-global { justify-content: center; }
+      .sr-page .sidebar-brand-text { display: none !important; }
+    }
+
+    @media print {
+      /* Fixed print header (repeats on each page) */
+      #srPrintHeader { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; }
+      .sr-print-only { display: block !important; }
+      .sr-print-hide, .sr-print-hide * { display: none !important; }
+
+      .app-sidebar, .app-header, .no-print { display: none !important; }
+      body { background: #fff !important; }
+
+      /* Offset main content from fixed header */
+      .sr-print-offset { padding-top: 84px !important; }
+
+      /* Black-on-white table */
+      #readinessTable, #readinessTable th, #readinessTable td {
+        background: #fff !important;
+        color: #000 !important;
+      }
+      #readinessTable .badge {
+        background: transparent !important;
+        color: #000 !important;
+        border: 1px solid #00000022;
+      }
+      #readinessTable { border-collapse: collapse !important; }
+      #readinessTable th { border-bottom: 1px solid #00000022 !important; }
+      #readinessTable td { border-top: 1px solid #00000010 !important; }
+      #readinessTable tbody tr:nth-child(even) { background: #fff !important; }
+
+      /* Hide editable issue panel inputs/selects on print */
+      #readinessTable .sr-issue-panel { display: none !important; }
+      #readinessTable .sr-status-pill { border-color: #00000022 !important; color: #000 !important; background: transparent !important; }
+      #readinessTable .sr-status-pill.sr-active { border-color: #00000055 !important; color: #000 !important; background: transparent !important; }
+
+      /* Keep thumbnails, hide upload controls */
+      #readinessTable input[type="file"], #readinessTable [data-add-photo] { display: none !important; }
+
+      /* Page breaks between major sections */
+      .sr-page-break { break-after: page; }
+    }
+  </style>
+</head>
+<body class="app-shell sr-page">
+  <aside class="app-sidebar" id="phase0Sidebar"></aside>
+
+  <div class="app-main">
+    <header class="app-header">
+      <div>
+        <div class="welcome-line">Phase 0 · NEW Stock</div>
+        <div class="welcome-date">School Readiness Checklist</div>
+      </div>
+      <div class="header-right">
+        <button class="avatar-btn"><span class="avatar-initials">P0</span></button>
+      </div>
+    </header>
+    <main class="app-content">
+    <div id="srPrintHeader" class="sr-print-only" style="padding:10px 18px;background:#fff;border-bottom:1px solid #e5e7eb;">
+      <div style="font-weight:800;color:#111827;">School Readiness Checklist</div>
+      <div class="sr-mono small text-muted" id="srPrintMeta" style="color:#334155;"></div>
+    </div>
+    <div class="container my-4 sr-print-offset">
+      <div class="mb-3">
+        <h3 class="mb-2">School Readiness Checklist</h3>
+        <div id="srActionToolbar" class="sr-print-hide no-print d-flex gap-2 flex-wrap">
+          <button id="btnSaveLocal" class="sr-action-btn">Save Locally</button>
+          <button id="btnLoadLocal" class="sr-action-btn">Load</button>
+          <button id="btnExportCsv" class="sr-action-btn">Export CSV</button>
+          <button id="btnContinueRooms" class="sr-action-btn" disabled>Continue to Rooms</button>
+          <button id="btnRooms" class="sr-action-btn" disabled>Add Room</button>
+          <button id="btnPrint" class="sr-action-btn">Print</button>
+        </div>
+      </div>
+
+      <div class="card mb-4 sr-page-break"><div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="d-flex align-items-center gap-3">
+              <label class="sr-field-label" for="schoolName">School Name</label>
+              <input id="schoolName" class="form-control sr-input" style="width:220px" placeholder="e.g. Thuto Primary"/>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center gap-3">
+              <label class="sr-field-label" for="emis">EMIS Code</label>
+              <input id="emis" class="form-control sr-input" style="width:180px" placeholder="e.g. 700123"/>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center gap-3">
+              <label class="sr-field-label" for="visitAt">Visit Date/Time (local)</label>
+              <input id="visitAt" type="datetime-local" class="form-control sr-input" style="width:220px"/>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center gap-3">
+              <label class="sr-field-label" for="inspector">Inspector</label>
+              <input id="inspector" class="form-control sr-input" style="width:180px" placeholder="Your name"/>
+            </div>
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card mb-4 sr-page-break"><div class="card-body">
+        <h5 class="mb-2">Gate/Security, Electrical Board, Admin/Server/Strong Room</h5>
+        <div class="small text-muted mb-3 sr-mono" id="schoolEvidenceProgress">
+          0/3 — Upload one photo per required category
+        </div>
+
+        <div class="sr-upload-zone sr-dropzone no-print" id="schoolDropZone" tabindex="0" role="button" aria-label="Upload school photos">
+          <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+            <div class="sr-mono small text-muted">
+              Drag & drop photos here
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <button type="button" id="btnChooseSchoolPhotos" class="sr-action-btn sr-action-btn-primary sr-btn-choose">Choose Files</button>
+              <span id="schoolFilesLabel" class="sr-mono small text-muted">No file chosen</span>
+            </div>
+          </div>
+          <input id="schoolPhotoInput" type="file" accept="image/*" style="display:none" />
+        </div>
+
+        <div class="row g-2 align-items-end mt-3 no-print">
+          <div class="col-md-7">
+            <label class="form-label mb-1 sr-mono" style="font-size:12px;color:#6B7280">Category</label>
+            <select id="schoolPhotoTag" class="form-select">
+              <option value="gate">Gate / Security</option>
+              <option value="electrical">Electrical Board</option>
+              <option value="strongroom">Admin / Server / Strong Room</option>
+            </select>
+            <div class="sr-category-badges mt-2" id="schoolUploadedCategories"></div>
+          </div>
+          <div class="col-md-5 d-grid">
+            <button id="btnAddSchoolPhotos" class="sr-action-btn sr-action-btn-primary sr-btn-add">Add</button>
+          </div>
+        </div>
+
+        <div id="schoolPhotoList" class="mt-3 readiness-grid"></div>
+  </div></div>
+
+  <div class="card sr-page-break"><div class="card-body">
+        <h5 class="mb-3">Checklist</h5>
+        <div class="mb-3">
+          <div class="sr-stats-grid">
+            <div class="sr-stat-cell"><div class="sr-stat-label">Total</div><div id="statTotal" class="sr-stat-value">0</div></div>
+            <div class="sr-stat-cell"><div class="sr-stat-label">Available</div><div id="statAvailable" class="sr-stat-value"><span class="sr-stat-chip sr-chip-green">0</span></div></div>
+            <div class="sr-stat-cell"><div class="sr-stat-label">Partial</div><div id="statPartial" class="sr-stat-value"><span class="sr-stat-chip sr-chip-amber">0</span></div></div>
+            <div class="sr-stat-cell"><div class="sr-stat-label">Not Available</div><div id="statNotAvailable" class="sr-stat-value"><span class="sr-stat-chip sr-chip-red">0</span></div></div>
+            <div class="sr-stat-cell"><div class="sr-stat-label">Blocked</div><div id="statBlocked" class="sr-stat-value"><span class="sr-stat-chip sr-chip-red">0</span></div></div>
+          </div>
+          <div id="criticalProgress" class="small mt-2 text-danger">Critical: 0/6 assessed</div>
+        </div>
+        <div class="table-responsive sr-table-scroll">
+          <table id="readinessTable" class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Issue</th>
+                <th>Evidence</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+      </div>
+    </div></div>
+
+  <div class="card mt-3"><div class="card-body">
+      <button id="recommendationsToggle" class="btn btn-sm btn-light d-flex align-items-center gap-2">
+        <i class="bi bi-chevron-down" id="recommendationsChevron"></i>
+        Recommendations
+      </button>
+      <div id="recommendationsPanel" style="display:none" class="mt-3"></div>
+  </div></div>
+
+    <div id="summaryBar" class="sr-sticky-footer">
+      <div>
+        <div><strong>Score:</strong> <span id="scorePct">0%</span></div>
+        <div class="sr-progress-track mt-1"><div id="scoreProgress" class="sr-progress-fill"></div></div>
+      </div>
+      <div id="decisionText" class="sr-decision-pill sr-dec-red">Decision: ❌ NOT READY</div>
+      <div class="sr-gates-wrap">
+        <button id="btnSubmit" class="sr-action-btn sr-action-btn-primary" disabled>Submit</button>
+        <div id="gatesPopover" class="sr-gates-popover"></div>
+      </div>
+    </div>
+    <div class="text-xs text-gray-400 fst-italic mt-1">Submit is enabled when evidence gates are satisfied.</div>
+
+  <div class="mt-3 text-muted" id="statusMsg"></div>
+    </div>
+    </main>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/phase0.api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+  // Keep original file handles for upload
+  let pendingFiles = [];
+  let currentReportId = null;
+
+  const defaultItems = [
+    'PPN Certificate/Number of Teachers',
+    'No. Of Classrooms',
+    'Computer Lab',
+    'Conference/Media Room',
+    'Plug Points',
+    'Electricity in Classrooms',
+    'WiFi/Connectivity',
+    'Furniture',
+    'Burglar Bars On Doors',
+    'Burglar Bars On Windows',
+    'School Security',
+    'Lock Up Gate',
+    'Server Room',
+    'Electrical Board',
+    'Admin Office',
+    'Strong Room'
+  ];
+  const CRITICAL_ITEM_NAMES = new Set([
+    'Electricity in Classrooms',
+    'WiFi/Connectivity',
+    'School Security',
+    'Server Room',
+    'Electrical Board',
+    'Lock Up Gate'
+  ]);
+
+  // P0 states and model
+  const STATES = ['Available','Partial','Not Available','N/A','Blocked'];
+  const BAD_STATES = new Set(['Partial','Not Available','Blocked']);
+  const requiredSchoolPhotoTags = ['gate','electrical','strongroom'];
+  const schoolPhotoTagLabel = {
+    gate: 'Gate/Security',
+    electrical: 'Electrical Board',
+    strongroom: 'Admin/Server/Strong Room'
+  };
+
+  const model = {
+    school: { name: '', emis: '', visitAt: '', inspector: '' },
+    schoolPhotos: [], // { dataUrl, tag }
+    items: defaultItems.map((d, i) => ({
+      key: slugify(d),
+      description: d,
+      state: null,
+      isCritical: CRITICAL_ITEM_NAMES.has(d),
+      issue: null,
+      photos: []
+    }))
+  };
+  let currentRole = 'inspector';
+
+  const STATUS_META = {
+    'Available': { label: 'Available', color: '#16A34A' },
+    'Partial': { label: 'Partial', color: '#D97706' },
+    'Not Available': { label: 'Not Available', color: '#DC2626' },
+    'N/A': { label: 'N/A', color: '#6B7280' },
+    'Blocked': { label: 'Blocked', color: '#991B1B' },
+  };
+
+  function buildPill(value) {
+    const mk = (state) => {
+      const meta = STATUS_META[state];
+      const active = value === state ? 'sr-active' : '';
+      return `<button type="button" class="sr-status-pill ${active}" style="--sr-pill-color:${meta.color}" data-state="${state}">${meta.label}</button>`;
+    };
+    return ['Available','Partial','Not Available','N/A','Blocked'].map(mk).join('');
+  }
+
+  // --- Components (modular UI pieces) ---
+  function StatusToggle(state) {
+    return `<div class="sr-status-group" role="group">${buildPill(state)}</div>`;
+  }
+
+  function EvidenceUpload(idx, photosCount) {
+    return `
+      <div class="sr-evidence-zone d-flex align-items-center gap-2" data-evidence-zone="${idx}">
+        <input type="file" accept="image/*" class="form-control form-control-sm no-print" data-item-file="${idx}" style="max-width:220px">
+        <button type="button" class="btn btn-outline-primary btn-sm no-print" data-add-photo="${idx}">Add photo</button>
+        <span class="badge bg-secondary sr-mono" data-evidence-count="${idx}">${photosCount || 0}</span>
+      </div>
+      <div class="mt-2 d-flex flex-wrap gap-2" data-photo-strip="${idx}"></div>
+    `;
+  }
+
+  function IssuePanel(idx, issue, open) {
+    const safeIssue = issue || { severity:'Low', owner:'', target:'', detail:'', followup:false };
+    const dotColor = safeIssue.severity === 'Low' ? '#D97706' : (safeIssue.severity === 'Med' ? '#DC2626' : (safeIssue.severity === 'High' ? '#991B1B' : '#D97706'));
+    return `
+      <div class="sr-issue-panel mt-2 ${open ? 'open' : ''}">
+        <div class="sr-issue-box">
+          <div class="row g-2">
+            <div class="col-12">
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="sr-sev-dot" style="--sr-sev-color:${dotColor}"></span>
+                <label class="form-label mb-0 sr-mono" style="font-size:12px;color:#6B7280">Severity</label>
+              </div>
+              <select class="form-select form-select-sm" data-issue="severity">
+                <option ${safeIssue.severity === 'Low' ? 'selected' : ''} value="Low">Low</option>
+                <option ${safeIssue.severity === 'Med' ? 'selected' : ''} value="Med">Med</option>
+                <option ${safeIssue.severity === 'High' ? 'selected' : ''} value="High">High</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label mb-1 sr-mono" style="font-size:12px;color:#6B7280">Owner</label>
+              <input class="form-control form-control-sm" data-issue="owner" placeholder="Owner" value="${safeIssue.owner || ''}"/>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label mb-1 sr-mono" style="font-size:12px;color:#6B7280">Target Date</label>
+              <input type="date" class="form-control form-control-sm" data-issue="target" value="${safeIssue.target || ''}"/>
+            </div>
+            <div class="col-12">
+              <label class="form-label mb-1 sr-mono" style="font-size:12px;color:#6B7280">Detail</label>
+              <textarea class="form-control form-control-sm" data-issue="detail" rows="2" placeholder="Detail">${safeIssue.detail || ''}</textarea>
+            </div>
+            <div class="col-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" data-issue="followup" id="fu_${idx}" ${safeIssue.followup ? 'checked' : ''}>
+                <label class="form-check-label" for="fu_${idx}">Mark follow-up</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function ChecklistRow(idx, item) {
+    const safeIssue = item.issue || { severity:'Low', owner:'', target:'', detail:'', followup:false };
+    const issueOpen = BAD_STATES.has(item.state);
+    const issueSummary = (item.state === 'Available' || item.state === 'N/A')
+      ? ''
+      : `${safeIssue.severity||'Low'} · ${safeIssue.owner||'—'} · ${safeIssue.target||''}`;
+    return `
+      <td>${item.description}${item.isCritical ? '<span class="sr-critical-badge">CRITICAL</span>' : ''}</td>
+      <td>${StatusToggle(item.state)}</td>
+      <td>
+        <div class="issue-cell">
+          <div class="sr-issue-summary text-muted small">${issueSummary}</div>
+          ${IssuePanel(idx, safeIssue, issueOpen)}
+        </div>
+      </td>
+      <td>
+        ${EvidenceUpload(idx, item.photos?.length || 0)}
+      </td>
+    `;
+  }
+
+  function renderChecklist(items) {
+    const tbody = document.querySelector('#readinessTable tbody');
+    tbody.innerHTML = '';
+    items.forEach((desc, idx) => {
+      const it = model.items[idx];
+      const tr = document.createElement('tr');
+      tr.dataset.index = String(idx);
+      tr.innerHTML = ChecklistRow(idx, it);
+      tbody.appendChild(tr);
+    });
+
+    // state pill events
+    tbody.querySelectorAll('button[data-state]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const b = e.currentTarget; const tr = b.closest('tr'); const idx = Number(tr.dataset.index);
+        const val = b.getAttribute('data-state');
+        model.items[idx].state = val;
+
+        // Update pill active styling
+        const group = tr.querySelector('.sr-status-group');
+        if(group){
+          group.querySelectorAll('button[data-state]').forEach(x=>{
+            x.classList.toggle('sr-active', x.getAttribute('data-state') === val);
+          });
+        }
+
+        const panel = tr.querySelector('.sr-issue-panel');
+        const summary = tr.querySelector('.sr-issue-summary');
+        if(val !== 'Available') {
+          // Keep N/A lightweight: do not auto-create issue data (so submit can skip it unless edited)
+          if(val === 'N/A'){
+            model.items[idx].issue = null;
+          } else if(!model.items[idx].issue){
+            model.items[idx].issue = { severity:'Low', owner:'', target:'', detail:'', followup:false };
+          }
+          panel.classList.add('open');
+          if(val === 'N/A'){
+            summary.textContent = '';
+          } else {
+            const issue = model.items[idx].issue;
+            summary.textContent = `${issue.severity||'Low'} · ${issue.owner||'—'} · ${issue.target||''}`;
+          }
+        } else {
+          panel.classList.remove('open');
+          summary.textContent = '';
+          model.items[idx].issue = null;
+        }
+        recomputeSummaryAndGates();
+      });
+    });
+
+    // issue editors
+    tbody.querySelectorAll('[data-issue]').forEach(ctrl => {
+      ctrl.addEventListener('input', e => {
+        const el = e.currentTarget; const tr = el.closest('tr'); const idx = Number(tr.dataset.index);
+        const issue = model.items[idx].issue || { severity:'Low', owner:'', target:'', detail:'', followup:false };
+        const key = el.getAttribute('data-issue');
+        issue[key] = (el.type==='checkbox') ? el.checked : el.value;
+        model.items[idx].issue = issue;
+        const summary = tr.querySelector('.sr-issue-summary');
+        summary.textContent = `${issue.severity||'Low'} · ${issue.owner||'—'} · ${issue.target||''}`;
+
+        // Update severity dot color
+        const dot = tr.querySelector('.sr-sev-dot');
+        if(dot){
+          const sevColor = issue.severity === 'Low' ? '#D97706' : (issue.severity === 'Med' ? '#DC2626' : (issue.severity === 'High' ? '#991B1B' : '#D97706'));
+          dot.style.setProperty('--sr-sev-color', sevColor);
+        }
+      });
+    });
+
+    // per-item photos
+    tbody.querySelectorAll('button[data-add-photo]').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        const idx = Number(e.currentTarget.getAttribute('data-add-photo'));
+        const input = document.querySelector(`input[data-item-file="${idx}"]`);
+        const files = Array.from(input.files||[]);
+        for(const f of files){
+          const url = await readAsDataUrl(f);
+          model.items[idx].photos.push({ dataUrl: url, file: f });
+        }
+        input.value = '';
+        renderItemPhotos(idx);
+        recomputeSummaryAndGates();
+      });
+    });
+  }
+
+  function readForm() {
+    // kept for compatibility: return current model snapshot
+    return JSON.parse(JSON.stringify(model));
+  }
+
+  function saveLocal() {
+    model.school.name = PHASE0.v('#schoolName');
+    model.school.emis = PHASE0.v('#emis');
+    model.school.visitAt = PHASE0.v('#visitAt');
+    model.school.inspector = PHASE0.v('#inspector');
+    const key = `readiness:${model.school.emis || model.school.name || 'unknown'}`;
+    localStorage.setItem(key, JSON.stringify(model));
+    setStatus(`Saved locally as ${key}`);
+  }
+  function loadLocal() {
+    const key = prompt('Enter key to load (e.g., readiness:700123)');
+    if (!key) return;
+    const raw = localStorage.getItem(key);
+    if (!raw) return setStatus('No saved data for that key');
+    const data = JSON.parse(raw);
+    Object.assign(model, data);
+    document.getElementById('schoolName').value = model.school.name || '';
+    document.getElementById('emis').value = model.school.emis || '';
+    document.getElementById('visitAt').value = model.school.visitAt || '';
+    document.getElementById('inspector').value = model.school.inspector || '';
+    renderChecklist(defaultItems);
+    renderSchoolPhotos();
+    model.items.forEach((it, idx) => renderItemPhotos(idx));
+    recomputeSummaryAndGates();
+    setStatus(`Loaded ${key}`);
+  }
+
+  function slugify(text){
+    return (text||'').toLowerCase()
+      .replace(/[^a-z0-9]+/g,'-')
+      .replace(/(^-|-$)/g,'')
+      || 'item';
+  }
+
+  function exportCsv() {
+    const rows = [['Description','State','Severity','Owner','Target','Detail','Follow-up','EvidenceCount']]
+      .concat(model.items.map(i=>[
+        i.description, i.state,
+        i.issue?.severity||'', i.issue?.owner||'', i.issue?.target||'', i.issue?.detail||'', i.issue?.followup? 'Yes':'',
+        i.photos?.length||0
+      ]));
+    const csv = rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const name = `readiness_${model.school.emis || model.school.name || 'school'}_${(model.school.visitAt||'date').replace(/[:T]/g,'-')}.csv`;
+    a.href = url; a.download = name; a.click();
+    setStatus(`Exported CSV (${name})`);
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  }
+
+  function setStatus(msg) { document.getElementById('statusMsg').textContent = msg; }
+
+  function updatePrintHeader(){
+    const el = document.getElementById('srPrintMeta');
+    if(!el) return;
+    const name = document.getElementById('schoolName')?.value?.trim() || '';
+    const emis = document.getElementById('emis')?.value?.trim() || '';
+    const visitAt = document.getElementById('visitAt')?.value?.trim() || '';
+    const inspector = document.getElementById('inspector')?.value?.trim() || '';
+    const visit = visitAt ? visitAt.replace('T',' ') : '';
+    el.textContent = `School: ${name || '—'} | EMIS: ${emis || '—'} | Visit: ${visit || '—'} | Inspector: ${inspector || '—'}`;
+  }
+
+  function readAsDataUrl(file){ return new Promise(res=>{ const r = new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(file); }); }
+
+  function renderSchoolPhotos(){
+    const wrap = document.getElementById('schoolPhotoList');
+    wrap.innerHTML = model.schoolPhotos.map(p=>`<div><img class="readiness-photo" src="${p.dataUrl}"><div class="small text-muted text-center mt-1">${schoolPhotoTagLabel[p.tag] || p.tag}</div></div>`).join('');
+    const have = new Set(model.schoolPhotos.map(p=>p.tag));
+    const count = requiredSchoolPhotoTags.filter(t=>have.has(t)).length;
+    const prog = document.getElementById('schoolEvidenceProgress');
+    if(prog){
+      const label = `${count}/3 — Upload one photo per required category`;
+      if(count === 3){
+        prog.innerHTML = `&#10003; <span>${label}</span>`;
+        prog.classList.add('sr-progress-ok');
+      } else {
+        prog.textContent = label;
+        prog.classList.remove('sr-progress-ok');
+      }
+    }
+
+    // Uploaded category pills (with remove)
+    const badgeWrap = document.getElementById('schoolUploadedCategories');
+    if(badgeWrap){
+      badgeWrap.innerHTML = requiredSchoolPhotoTags
+        .filter(t => have.has(t))
+        .map(t => {
+          const full = schoolPhotoTagLabel[t] || t;
+          return `<span class="sr-category-badge" data-cat="${t}">
+            <span>${full}</span>
+            <button type="button" class="sr-cat-remove" data-remove-cat="${t}" aria-label="Remove ${full}">✕</button>
+          </span>`;
+        })
+        .join('');
+    }
+    recomputeSummaryAndGates();
+  }
+
+  async function addSchoolPhotosFromInput(){
+    const tag = document.getElementById('schoolPhotoTag').value;
+    const input = document.getElementById('schoolPhotoInput');
+    const files = (pendingFiles && pendingFiles.length) ? pendingFiles : Array.from(input.files||[]);
+    if(!files.length){
+      setStatus('Choose a photo first.');
+      return;
+    }
+
+    // Replace the existing photo for this category (1 photo per required category)
+    model.schoolPhotos = model.schoolPhotos.filter(p => p.tag !== tag);
+    const f = files[0];
+    const url = await readAsDataUrl(f);
+    model.schoolPhotos.push({ dataUrl: url, file: f, tag });
+
+    pendingFiles = [];
+    input.value = '';
+    const label = document.getElementById('schoolFilesLabel');
+    if(label) label.textContent = 'No file chosen';
+    renderSchoolPhotos();
+    setStatus(`Added photo for ${schoolPhotoTagLabel[tag] || tag}`);
+  }
+
+  function renderItemPhotos(idx){
+    const strip = document.querySelector(`[data-photo-strip="${idx}"]`);
+    const it = model.items[idx];
+    strip.innerHTML = (it.photos||[]).map(p=>`<img class="readiness-photo" src="${p.dataUrl}">`).join('');
+    const badge = document.querySelector(`[data-evidence-count="${idx}"]`);
+    badge.textContent = `${it.photos?.length||0}`;
+  }
+
+  function toUtcIsoFromLocal(local) {
+    if(!local) return null;
+    const d = new Date(local);
+    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes())).toISOString();
+  }
+
+  function pointValue(state){
+    if(state === 'Available') return 1;
+    if(state === 'Partial') return 0.5;
+    if(state === 'Not Available') return 0;
+    if(state === 'Blocked') return 0;
+    return null;
+  }
+
+  function computeScoreAndDecision(){
+    const scorable = model.items.filter(i => i.state !== 'N/A' && i.state !== null);
+    const totalPoints = scorable.reduce((sum, i) => sum + (pointValue(i.state) ?? 0), 0);
+    const maxPoints = scorable.length;
+    const pct = maxPoints > 0 ? Math.round((totalPoints / maxPoints) * 100) : 0;
+    const criticalFail = model.items.some(i => i.isCritical && (i.state === 'Not Available' || i.state === 'Blocked'));
+    let decision = '❌ NOT READY';
+    let decisionClass = 'sr-dec-red';
+    if(criticalFail){
+      decision = '❌ NOT READY — Critical Infrastructure Missing';
+    } else if (pct >= 85){
+      decision = '✅ READY';
+      decisionClass = 'sr-dec-green';
+    } else if (pct >= 60){
+      decision = '⚠️ CONDITIONALLY READY — Fixes Required';
+      decisionClass = 'sr-dec-amber';
+    }
+    return { pct, decision, decisionClass, criticalFail };
+  }
+
+  // Soft gating helpers
+  function hasMinimumMeta(){
+    const name = document.querySelector('#schoolName')?.value?.trim();
+    const emis = document.querySelector('#emis')?.value?.trim();
+    const visitAt = document.querySelector('#visitAt')?.value?.trim();
+    const inspector = document.querySelector('#inspector')?.value?.trim();
+    return !!(name && emis && visitAt && inspector);
+  }
+
+  function gatingSummary(){
+    const have = new Set(model.schoolPhotos.map(p=>p.tag));
+    const requiredPhotosOk = requiredSchoolPhotoTags.every(t=>have.has(t));
+    const missingCriticalStatus = (model.items||[]).filter(it => it.isCritical && it.state === null);
+    const missingEvidenceItems = (model.items||[]).filter(it =>
+      (it.state==='Partial' || it.state==='Not Available' || it.state==='Blocked') &&
+      (!it.photos || it.photos.length < 1)
+    );
+    const metaOk = hasMinimumMeta();
+    return {
+      requiredPhotosOk,
+      missingCriticalStatus,
+      missingEvidenceItems,
+      metaOk,
+      pass: metaOk && requiredPhotosOk && missingCriticalStatus.length === 0 && missingEvidenceItems.length === 0
+    };
+  }
+
+  function updateSubmitState(){
+    const btn = document.getElementById('btnSubmit');
+    const btnRooms = document.getElementById('btnRooms');
+    const btnContinueRooms = document.getElementById('btnContinueRooms');
+    if(!btn) return;
+
+    const g = gatingSummary();
+    btn.disabled = !g.pass || currentRole !== 'inspector';
+    btn.title = btn.disabled ? 'Complete all critical items + upload required photos' : '';
+    if(btnRooms) btnRooms.disabled = !currentReportId;
+    if(btnContinueRooms) btnContinueRooms.disabled = !g.pass;
+    renderGatesPopover(g);
+  }
+
+  function recomputeSummaryAndGates(){
+    const { pct, decision, decisionClass } = computeScoreAndDecision();
+    const sEl = document.getElementById('scorePct'); if (sEl) sEl.textContent = `${pct}%`;
+    const dEl = document.getElementById('decisionText');
+    if (dEl){
+      dEl.textContent = `Decision: ${decision}`;
+      dEl.classList.remove('sr-dec-green','sr-dec-amber','sr-dec-red');
+      dEl.classList.add(decisionClass);
+    }
+    const progress = document.getElementById('scoreProgress');
+    if(progress){
+      progress.style.width = `${pct}%`;
+      progress.style.background = decisionClass === 'sr-dec-green' ? '#16a34a' : (decisionClass === 'sr-dec-amber' ? '#d97706' : '#dc2626');
+    }
+    updateLiveStats();
+    renderRecommendations();
+    updateSubmitState();
+  }
+
+  function updateLiveStats(){
+    const total = model.items.length;
+    const available = model.items.filter(i => i.state === 'Available').length;
+    const partial = model.items.filter(i => i.state === 'Partial').length;
+    const notAvailable = model.items.filter(i => i.state === 'Not Available').length;
+    const blocked = model.items.filter(i => i.state === 'Blocked').length;
+    const critical = model.items.filter(i => i.isCritical);
+    const criticalAssessed = critical.filter(i => i.state !== null).length;
+    PHASE0.q('#statTotal').textContent = String(total);
+    PHASE0.q('#statAvailable').innerHTML = `<span class="sr-stat-chip sr-chip-green">${available}</span>`;
+    PHASE0.q('#statPartial').innerHTML = `<span class="sr-stat-chip sr-chip-amber">${partial}</span>`;
+    PHASE0.q('#statNotAvailable').innerHTML = `<span class="sr-stat-chip sr-chip-red">${notAvailable}</span>`;
+    PHASE0.q('#statBlocked').innerHTML = `<span class="sr-stat-chip sr-chip-red">${blocked}</span>`;
+    const cp = PHASE0.q('#criticalProgress');
+    cp.textContent = `Critical: ${criticalAssessed}/${critical.length} assessed`;
+    cp.className = `small mt-2 ${criticalAssessed === critical.length ? 'text-success' : 'text-danger'}`;
+  }
+
+  function renderGatesPopover(g){
+    const pop = document.getElementById('gatesPopover');
+    if(!pop) return;
+    const evidenceLine = g.missingEvidenceItems.length === 0
+      ? `<div class="sr-gate-ok">✓ Evidence attached for Partial/Not Available items</div>`
+      : `<div class="sr-gate-bad">✗ Missing evidence on ${g.missingEvidenceItems.length} items</div>`;
+    const photoHave = new Set(model.schoolPhotos.map(p=>p.tag));
+    const photoCount = requiredSchoolPhotoTags.filter(t=>photoHave.has(t)).length;
+    pop.innerHTML = `
+      <div class="${g.missingCriticalStatus.length===0 ? 'sr-gate-ok' : 'sr-gate-bad'}">${g.missingCriticalStatus.length===0 ? '✓' : '✗'} Critical items assessed</div>
+      ${evidenceLine}
+      <div class="${g.requiredPhotosOk ? 'sr-gate-ok' : 'sr-gate-bad'}">${g.requiredPhotosOk ? '✓' : '✗'} Required photos ${g.requiredPhotosOk ? 'complete' : `incomplete (${photoCount}/3)`}</div>
+      <div class="${g.metaOk ? 'sr-gate-ok' : 'sr-gate-bad'}">${g.metaOk ? '✓' : '✗'} School Name, EMIS, Inspector and visit time provided</div>
+    `;
+  }
+
+  function jumpToChecklistRow(itemKey){
+    const idx = model.items.findIndex(x => x.key === itemKey);
+    if(idx < 0) return;
+    const row = document.querySelector(`#readinessTable tbody tr[data-index="${idx}"]`);
+    if(!row) return;
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    row.classList.add('sr-row-highlight');
+    setTimeout(() => row.classList.remove('sr-row-highlight'), 1800);
+  }
+
+  function renderRecommendations(){
+    const panel = document.getElementById('recommendationsPanel');
+    if(!panel) return;
+    const items = [];
+    model.items.forEach(i => {
+      if(i.state === 'Not Available'){
+        if(i.isCritical) items.push({ grp: 1, text: `🚨 CRITICAL: ${i.description} must be resolved before installation`, key: i.key });
+        items.push({ grp: 3, text: `Install ${i.description}`, key: i.key });
+      } else if(i.state === 'Blocked'){
+        const txt = i.isCritical
+          ? `🚨 CRITICAL: Resolve blocker on ${i.description} before installation`
+          : `⚠️ Resolve blocker on ${i.description} before proceeding`;
+        items.push({ grp: i.isCritical ? 1 : 2, text: txt, key: i.key });
+      } else if(i.state === 'Partial'){
+        items.push({ grp: 2, text: `⚠️ Improve ${i.description} - currently insufficient`, key: i.key });
+      }
+      if((i.state === 'Partial' || i.state === 'Not Available') && (!i.photos || i.photos.length === 0)){
+        items.push({ grp: 3, text: `📋 Upload missing evidence for ${i.description}`, key: i.key });
+      }
+    });
+    items.sort((a,b)=>a.grp-b.grp);
+    if(items.length === 0){
+      panel.innerHTML = `<div class="small text-muted">No recommendations. Checklist looks installation ready.</div>`;
+      return;
+    }
+    panel.innerHTML = `<ul class="mb-0">${items.map(x => `<li>${x.text} <a href="#" data-jump-item="${x.key}">→ Jump to item</a></li>`).join('')}</ul>`;
+    panel.querySelectorAll('[data-jump-item]').forEach(a => a.addEventListener('click', (e) => {
+      e.preventDefault();
+      jumpToChecklistRow(e.currentTarget.getAttribute('data-jump-item'));
+    }));
+  }
+
+  async function submitToServer(){
+    const btn = document.getElementById('btnSubmit');
+    btn.disabled = true; setStatus('Submitting to server...');
+    try {
+      // read latest form fields
+      model.school.name = PHASE0.v('#schoolName');
+      model.school.emis = PHASE0.v('#emis');
+      model.school.visitAt = PHASE0.v('#visitAt');
+      model.school.inspector = PHASE0.v('#inspector') || 'anonymous';
+      const emis = model.school.emis; const school = model.school.name;
+      if(!emis || !school){ throw new Error('EMIS and School Name are required'); }
+
+      // 1) Create report
+      const report = await PHASE0.fetchJson(`${PHASE0.API_BASE}/readiness/reports`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ EmisCode: emis, SchoolName: school, District: '', SubmittedByUserId: model.school.inspector, VisitAtUtc: toUtcIsoFromLocal(model.school.visitAt) })
+      });
+      const reportId = report.id;
+      currentReportId = reportId;
+
+      // 2) Add a default room representing whole-school checklist
+      const room = await PHASE0.fetchJson(`${PHASE0.API_BASE}/readiness/reports/${reportId}/rooms`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ RoomCode: 'SCHOOL', RoomName: 'Whole School', Index: 0 })
+      });
+      const roomId = room.id;
+
+      // 3) Upsert checklist items with issue notes
+      for(const it of model.items){
+        if(it.state === 'N/A' && !it.issue && (!it.photos || it.photos.length===0)) continue;
+        const value = it.state === 'Available';
+        const payload = { ChecklistKey: it.key, Value: value };
+
+        // Persist severity/issue fields into Notes + IssueSeverity (when issue exists)
+        if(it.issue && !value){
+          const mapIssueSeverity = (sev) => {
+            if(!sev) return null;
+            if(sev === 'Low') return 1;   // Minor
+            if(sev === 'Med') return 2;   // Major
+            if(sev === 'High') return 3;  // Critical
+            return null;
+          };
+
+          const formatTarget = (d) => {
+            if(!d) return '';
+            // <input type="date"> gives yyyy-mm-dd
+            return d.includes('-') ? d.split('-').join('/') : d;
+          };
+
+          const parts = [];
+          if(it.issue.severity) parts.push(`Severity: ${it.issue.severity}`);
+          if(it.issue.owner) parts.push(`Owner: ${it.issue.owner}`);
+          if(it.issue.target) parts.push(`Target: ${formatTarget(it.issue.target)}`);
+          if(it.issue.detail) parts.push(it.issue.detail);
+          if(it.issue.followup) parts.push('Follow-up: Yes');
+
+          const notes = parts.filter(Boolean).join(' | ');
+          payload.Notes = notes || null;
+
+          const severity = mapIssueSeverity(it.issue.severity);
+          if(severity !== null) payload.Severity = severity;
+        }
+
+        await PHASE0.fetchJson(`${PHASE0.API_BASE}/readiness/rooms/${roomId}/items`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+      }
+
+      // 4) Upload school-level evidence
+      for(const p of model.schoolPhotos){
+        const fd = new FormData();
+        fd.append('kind', '0');
+        fd.append('caption', `school-${p.tag}`);
+        fd.append('file', p.file, `school-${p.tag}-${p.file.name}`);
+        await PHASE0.fetchJson(`${PHASE0.API_BASE}/readiness/reports/${reportId}/evidence`, { method:'POST', body: fd });
+      }
+      // 5) Upload per-item evidence
+      for(const it of model.items){
+        for(const p of it.photos||[]){
+          const fd = new FormData();
+          fd.append('kind','0');
+          fd.append('caption', it.key);
+          fd.append('file', p.file, `${it.key}-${p.file.name}`);
+          await PHASE0.fetchJson(`${PHASE0.API_BASE}/readiness/reports/${reportId}/evidence`, { method:'POST', body: fd });
+        }
+      }
+
+      // 6) Route inspector submission to admin review queue
+      await PHASE0.fetchJson(`${PHASE0.API_BASE}/readiness/reports/${reportId}`, {
+        method:'PATCH', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ state: 1, submittedAt: new Date().toISOString() }) // ReadinessState.Submitted
+      });
+
+      setStatus(`Submitted to admin review queue. Report ID: ${reportId}`);
+      document.getElementById('btnRooms').disabled = false;
+    } catch(err){
+      console.error(err);
+      setStatus(`Error: ${err.message||err}`);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function init() {
+    // brandbar and sidebar already injected above
+    if(window.lucide && typeof window.lucide.createIcons === 'function'){
+      window.lucide.createIcons();
+    }
+    // prefill local datetime
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const local = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const dt = document.getElementById('visitAt'); if (dt && !dt.value) dt.value = local;
+
+    // Validate required fields (red border + tooltip on blur)
+    const requiredIds = ['schoolName', 'emis', 'visitAt', 'inspector'];
+    requiredIds.forEach(id => {
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.addEventListener('blur', () => {
+        const empty = !el.value || !String(el.value).trim();
+        if(!empty){
+          el.classList.remove('sr-invalid');
+          el.removeAttribute('title');
+          return;
+        }
+        el.classList.add('sr-invalid');
+        const msg = 'This field is required.';
+        el.setAttribute('title', msg);
+        try{
+          if(window.bootstrap && window.bootstrap.Tooltip){
+            const tip = window.bootstrap.Tooltip.getInstance(el) || new window.bootstrap.Tooltip(el, { title: msg, trigger: 'manual', placement:'top' });
+            tip.show();
+            setTimeout(()=>{ try{ tip.hide(); } catch{} }, 1600);
+          }
+        } catch {}
+      });
+      el.addEventListener('input', () => {
+        el.classList.remove('sr-invalid');
+        el.removeAttribute('title');
+        try { updateSubmitState(); } catch {}
+      });
+    });
+
+    // Drag + drop photo upload
+    const dropZone = document.getElementById('schoolDropZone');
+    const fileInput = document.getElementById('schoolPhotoInput');
+    const chooseBtn = document.getElementById('btnChooseSchoolPhotos');
+    const filesLabel = document.getElementById('schoolFilesLabel');
+    const updateFilesLabel = () => {
+      if(!filesLabel) return;
+      if(pendingFiles && pendingFiles.length){
+        const first = pendingFiles[0]?.name || 'file';
+        filesLabel.textContent = pendingFiles.length > 1 ? `${first} (+${pendingFiles.length-1})` : first;
+      } else {
+        filesLabel.textContent = 'No file chosen';
+      }
+    };
+
+    if(dropZone && fileInput && chooseBtn){
+      dropZone.addEventListener('click', () => fileInput.click());
+      dropZone.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('sr-dropzone-active');
+      });
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('sr-dropzone-active');
+      });
+      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('sr-dropzone-active'));
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('sr-dropzone-active');
+        const files = Array.from(e.dataTransfer?.files || []);
+        pendingFiles = files.slice(0, 1);
+        fileInput.value = '';
+        updateFilesLabel();
+      });
+      chooseBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        fileInput.click();
+      });
+      fileInput.addEventListener('change', () => {
+        pendingFiles = Array.from(fileInput.files || []).slice(0, 1);
+        updateFilesLabel();
+      });
+    }
+
+    // Remove uploaded category photo pills
+    const badgeWrap = document.getElementById('schoolUploadedCategories');
+    badgeWrap?.addEventListener('click', (e) => {
+      const target = e.target;
+      const tag = target?.getAttribute?.('data-remove-cat');
+      if(!tag) return;
+      model.schoolPhotos = model.schoolPhotos.filter(p => p.tag !== tag);
+      renderSchoolPhotos();
+      setStatus(`Removed ${schoolPhotoTagLabel[tag] || tag}`);
+    });
+
+    renderChecklist(defaultItems);
+    document.getElementById('btnSaveLocal').onclick = saveLocal;
+    document.getElementById('btnLoadLocal').onclick = loadLocal;
+    document.getElementById('btnExportCsv').onclick = exportCsv;
+    document.getElementById('btnRooms')?.addEventListener('click', () => {
+      if(!currentReportId) return;
+      window.location.href = `readiness-rooms.html?reportId=${currentReportId}`;
+    });
+    document.getElementById('btnContinueRooms')?.addEventListener('click', () => {
+      if(!currentReportId){
+        setStatus('Submit first to create a report record.');
+        return;
+      }
+      window.location.href = `readiness-rooms.html?reportId=${currentReportId}`;
+    });
+    const btnSubmit = document.getElementById('btnSubmit');
+    btnSubmit.addEventListener('click', async () => {
+      // Clear previous validation styles
+      document.getElementById('schoolName')?.classList.remove('sr-invalid');
+      document.getElementById('emis')?.classList.remove('sr-invalid');
+      document.getElementById('visitAt')?.classList.remove('sr-invalid');
+      document.getElementById('inspector')?.classList.remove('sr-invalid');
+      document.querySelectorAll('[data-evidence-zone]').forEach(z=>z.classList.remove('sr-invalid-zone'));
+
+      if(!hasMinimumMeta()){
+        ['schoolName','emis','visitAt','inspector'].forEach(id => {
+          const el = document.getElementById(id);
+          const empty = !el?.value || !String(el.value).trim();
+          if(empty) el.classList.add('sr-invalid');
+        });
+        alert('Please fill all required fields.');
+        return;
+      }
+      const g = gatingSummary();
+      if(!g.pass){
+        model.items.forEach((it, idx)=>{
+          const missing = (it.state==='Partial' || it.state==='Not Available' || it.state==='Blocked') && (!it.photos || it.photos.length < 1);
+          if(missing){
+            const zone = document.querySelector(`[data-evidence-zone="${idx}"]`);
+            if(zone) zone.classList.add('sr-invalid-zone');
+          }
+        });
+        setStatus('Complete all evidence gates before submit.');
+        return;
+      }
+      await submitToServer();
+    });
+    document.getElementById('btnPrint').onclick = () => { updatePrintHeader(); window.print(); };
+    try{
+      window.addEventListener('beforeprint', () => updatePrintHeader());
+    } catch {}
+    document.getElementById('btnAddSchoolPhotos').onclick = addSchoolPhotosFromInput;
+    document.getElementById('recommendationsToggle')?.addEventListener('click', () => {
+      const panel = document.getElementById('recommendationsPanel');
+      const chev = document.getElementById('recommendationsChevron');
+      const open = panel.style.display !== 'none';
+      panel.style.display = open ? 'none' : 'block';
+      if(chev) chev.className = open ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
+    });
+    recomputeSummaryAndGates();
+  }
+  document.addEventListener('DOMContentLoaded', init);
+  
+  function useRole(roleName){
+    return String(currentRole || '').toLowerCase() === String(roleName || '').toLowerCase();
+  }
+
+  function RoleGuard(roleName, onAllowed, onDenied){
+    if(useRole(roleName)) return onAllowed?.();
+    return onDenied?.();
+  }
+
+  async function loadProfile() {
+    try {
+      const response = await fetch('/api/auth/current-user');
+      if (response.ok) {
+        const user = await response.json();
+        const initials = user.fullName ? user.fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'U';
+        currentRole = String(user.role || 'inspector').toLowerCase();
+        document.getElementById('profileInitials').textContent = initials;
+        document.getElementById('profileName').textContent = user.fullName || 'User';
+        document.getElementById('profileRole').textContent = user.role || 'User';
+        RoleGuard('inspector',
+          () => setStatus('Inspector mode: fill checklist, upload evidence, save/load/export, and submit to admin review queue.'),
+          () => {
+            const submit = document.getElementById('btnSubmit');
+            if(submit) submit.disabled = true;
+            setStatus("You don't have permission to submit this checklist from your current role.");
+          }
+        );
+        recomputeSummaryAndGates();
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    }
+  }
+  document.addEventListener('DOMContentLoaded', loadProfile);
+</script>
+</body>
+</html>

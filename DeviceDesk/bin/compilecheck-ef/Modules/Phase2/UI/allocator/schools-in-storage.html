@@ -1,0 +1,279 @@
+<div class="container-fluid py-4">
+    <h2 class="mb-3">Schools in Storage</h2>
+    <small class="text-muted d-block mb-3">
+        Schools that currently have devices stored in the ICT centre. Click on a school to view device details.
+    </small>
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped align-middle" id="schoolsTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;"></th>
+                            <th>School</th>
+                            <th class="text-end">Devices in Storage</th>
+                            <th>By Stage</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div id="schoolsEmptyState" class="text-center text-muted py-4 d-none">
+                No schools currently have devices in storage.
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .school-row {
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    .school-row:hover {
+        background-color: #f8f9fa !important;
+    }
+    .school-row.expanded {
+        background-color: #e7f3ff !important;
+    }
+    .device-details-row {
+        background-color: #f8f9fa;
+    }
+    .device-details-row td {
+        padding-left: 60px !important;
+        border-top: 1px solid #dee2e6;
+    }
+    .device-details-table {
+        width: 100%;
+        margin: 0;
+    }
+    .device-details-table td {
+        padding: 8px 12px;
+        border: none;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .device-details-table td:first-child {
+        font-weight: 600;
+        width: 120px;
+        color: #6c757d;
+    }
+    .expand-icon {
+        transition: transform 0.2s;
+    }
+    .expand-icon.expanded {
+        transform: rotate(90deg);
+    }
+    .loading-devices {
+        padding: 20px;
+        text-align: center;
+        color: #6c757d;
+    }
+</style>
+
+<script>
+(function() {
+    'use strict';
+    const apiBase = '/api/phase2/allocation';
+
+    function showLoading() {
+        const tbody = document.querySelector('#schoolsTable tbody');
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4"><div class="spinner-border spinner-border-sm me-2"></div>Loading...</td></tr>';
+        document.getElementById('schoolsEmptyState').classList.add('d-none');
+    }
+
+    function showError(message) {
+        const tbody = document.querySelector('#schoolsTable tbody');
+        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle me-2"></i>${message}</td></tr>`;
+        document.getElementById('schoolsEmptyState').classList.add('d-none');
+    }
+
+    async function loadSchoolsInStorage() {
+        showLoading();
+        
+        try {
+            const timestamp = new Date().getTime();
+            const resp = await fetch(`${apiBase}/schools-in-storage?t=${timestamp}`, {
+                cache: 'no-cache',
+                headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+            });
+            
+            if (!resp.ok) {
+                throw new Error(`Failed to load: ${resp.status} ${resp.statusText}`);
+            }
+            
+            const data = await resp.json();
+            const tbody = document.querySelector('#schoolsTable tbody');
+            const empty = document.getElementById('schoolsEmptyState');
+            tbody.innerHTML = '';
+
+            if (!data || data.length === 0) {
+                empty.classList.remove('d-none');
+                return;
+            }
+
+            empty.classList.add('d-none');
+
+            data.forEach(x => {
+                const schoolId = x.schoolId || 0;
+                const schoolName = x.schoolName || '-';
+                
+                // Main school row
+                const tr = document.createElement('tr');
+                tr.className = 'school-row';
+                tr.dataset.schoolId = schoolId;
+                tr.dataset.schoolName = schoolName;
+                
+                // Format stage breakdown
+                const stageBadges = Object.entries(x.byStage || {})
+                    .map(([stage, count]) => `<span class="badge bg-secondary me-1">${stage}: ${count}</span>`)
+                    .join('') || '<span class="text-muted">-</span>';
+                
+                tr.innerHTML = `
+                    <td class="text-center">
+                        <i class="bi bi-chevron-right expand-icon"></i>
+                    </td>
+                    <td><strong>${schoolName}</strong></td>
+                    <td class="text-end"><span class="badge bg-primary">${x.totalDevices ?? 0}</span></td>
+                    <td>${stageBadges}</td>
+                `;
+                
+                // Add click handler
+                tr.addEventListener('click', function(e) {
+                    // Don't toggle if clicking on badges or other interactive elements
+                    if (e.target.closest('.badge') || e.target.closest('a')) {
+                        return;
+                    }
+                    
+                    toggleSchoolRow(this);
+                });
+                
+                tbody.appendChild(tr);
+            });
+        } catch (error) {
+            console.error('Error loading schools in storage:', error);
+            showError(`Error loading schools in storage: ${error.message}`);
+        }
+    }
+
+    async function toggleSchoolRow(row) {
+        const schoolId = row.dataset.schoolId;
+        const schoolName = row.dataset.schoolName;
+        const isExpanded = row.classList.contains('expanded');
+        const expandIcon = row.querySelector('.expand-icon');
+        
+        // Find the details row if it exists
+        let detailsRow = row.nextElementSibling;
+        if (detailsRow && detailsRow.classList.contains('device-details-row')) {
+            // Collapse
+            row.classList.remove('expanded');
+            expandIcon.classList.remove('expanded');
+            detailsRow.remove();
+        } else {
+            // Expand - show loading first
+            row.classList.add('expanded');
+            expandIcon.classList.add('expanded');
+            
+            const loadingRow = document.createElement('tr');
+            loadingRow.className = 'device-details-row';
+            loadingRow.innerHTML = `
+                <td colspan="4" class="loading-devices">
+                    <div class="spinner-border spinner-border-sm me-2"></div>
+                    Loading device details...
+                </td>
+            `;
+            row.insertAdjacentElement('afterend', loadingRow);
+            
+            try {
+                const resp = await fetch(`${apiBase}/schools-in-storage/${schoolId}/devices`);
+                if (!resp.ok) {
+                    throw new Error(`Failed to load devices: ${resp.status}`);
+                }
+                
+                const devices = await resp.json();
+                loadingRow.remove();
+                
+                if (!devices || devices.length === 0) {
+                    const emptyRow = document.createElement('tr');
+                    emptyRow.className = 'device-details-row';
+                    emptyRow.innerHTML = `
+                        <td colspan="4" class="text-center text-muted py-3">
+                            No device details available
+                        </td>
+                    `;
+                    row.insertAdjacentElement('afterend', emptyRow);
+                    return;
+                }
+                
+                // Create details row with device table
+                const detailsRow = document.createElement('tr');
+                detailsRow.className = 'device-details-row';
+                detailsRow.innerHTML = `
+                    <td colspan="4">
+                        <div class="p-3">
+                            <h6 class="mb-3">
+                                <i class="bi bi-device-hdd me-2"></i>
+                                Device Details (${devices.length} device${devices.length !== 1 ? 's' : ''})
+                            </h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover device-details-table">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Serial</th>
+                                            <th>Model</th>
+                                            <th>Stage</th>
+                                            <th>Location</th>
+                                            <th>Allocated</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${devices.map(device => {
+                                            const location = [
+                                                device.building,
+                                                device.room,
+                                                device.rack,
+                                                device.shelf,
+                                                device.bin
+                                            ].filter(Boolean).join(' / ') || 'Not specified';
+                                            
+                                            const allocatedDate = device.allocatedAt 
+                                                ? new Date(device.allocatedAt).toLocaleDateString()
+                                                : 'Unknown';
+                                            
+                                            return `
+                                                <tr>
+                                                    <td><code class="text-primary">${device.serial || '-'}</code></td>
+                                                    <td>${device.model || 'Unknown'}</td>
+                                                    <td><span class="badge bg-info">${device.stage || '-'}</span></td>
+                                                    <td><small class="text-muted">${location}</small></td>
+                                                    <td><small class="text-muted">${allocatedDate}</small></td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </td>
+                `;
+                
+                row.insertAdjacentElement('afterend', detailsRow);
+            } catch (error) {
+                console.error('Error loading school devices:', error);
+                loadingRow.innerHTML = `
+                    <td colspan="4" class="text-center text-danger py-3">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Error loading device details: ${error.message}
+                    </td>
+                `;
+            }
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadSchoolsInStorage);
+    } else {
+        loadSchoolsInStorage();
+    }
+})();
+</script>
+
