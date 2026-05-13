@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Device Scanning - Phase 1</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .workflow-progress {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 2rem 0;
+            gap: 1rem;
+        }
+        .workflow-step {
+            text-align: center;
+            flex: 1;
+            max-width: 150px;
+        }
+        .workflow-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e9ecef;
+            border: 2px solid #dee2e6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 0.5rem;
+            font-weight: bold;
+            color: #6c757d;
+        }
+        .workflow-step.active .workflow-circle {
+            background: #dc3545;
+            border-color: #dc3545;
+            color: white;
+        }
+        .workflow-step.completed .workflow-circle {
+            background: #198754;
+            border-color: #198754;
+            color: white;
+        }
+        .workflow-label {
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+        .workflow-step.active .workflow-label {
+            color: #dc3545;
+            font-weight: 600;
+        }
+        .scan-input { 
+            font-size: 1.3rem; 
+            padding: 1.2rem; 
+            border: 3px solid #dc3545; 
+            border-radius: 8px;
+        }
+        .scan-input:focus {
+            border-color: #b02a37;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+        }
+        .progress-card { 
+            background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%); 
+            color: white; 
+            border-radius: 15px; 
+            padding: 2rem; 
+            margin-bottom: 2rem; 
+        }
+        .progress-number { 
+            font-size: 3rem; 
+            font-weight: 700; 
+        }
+        .emergency-info {
+            background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+            border-left: 4px solid #fd7e14;
+            padding: 1.5rem;
+            border-radius: 8px;
+        }
+        .loan-info {
+            background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+            border-left: 4px solid #4caf50;
+            padding: 1.5rem;
+            border-radius: 8px;
+        }
+        .device-status {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+        .status-emergency {
+            background: #f8d7da;
+            color: #842029;
+        }
+        .status-validated {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+        .status-error {
+            background: #f8d7da;
+            color: #842029;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-danger mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/phase1/dashboard.html">
+                <i class="bi bi-exclamation-triangle"></i> DeviceDesk - Emergency Scanning
+            </a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Emergency R&R Workflow Progress -->
+        <div class="workflow-progress">
+            <div class="workflow-step completed">
+                <div class="workflow-circle">✓</div>
+                <div class="workflow-label">Emergency + Loan</div>
+            </div>
+            <div class="workflow-step active">
+                <div class="workflow-circle">2</div>
+                <div class="workflow-label">Device Scanning</div>
+            </div>
+            <div class="workflow-step">
+                <div class="workflow-circle">3</div>
+                <div class="workflow-label">Verification</div>
+            </div>
+            <div class="workflow-step">
+                <div class="workflow-circle">4</div>
+                <div class="workflow-label">Emergency GRV</div>
+            </div>
+        </div>
+
+        <!-- Emergency & Loan Information -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="emergency-info">
+                    <h5 class="text-warning mb-3">
+                        <i class="bi bi-exclamation-triangle"></i> Emergency Details
+                    </h5>
+                    <div id="emergencyDetails">Loading emergency information...</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="loan-info">
+                    <h5 class="text-success mb-3">
+                        <i class="bi bi-laptop"></i> Assigned Loan Unit
+                    </h5>
+                    <div id="loanDetails">Loading loan unit information...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scanning Progress -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="progress-card text-center">
+                    <h3><i class="bi bi-exclamation-triangle"></i> Emergency Devices Scanned</h3>
+                    <div class="progress-number">
+                        <span id="scannedCount">0</span>
+                    </div>
+                    <p class="mb-0">faulty devices received for emergency repair</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scanning Interface -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card border-danger">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-upc-scan"></i> Scan Faulty Device
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-warning">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Emergency Scanning:</strong> Scan the faulty device that was replaced by the loan unit.
+                            System will validate device ownership and link to emergency batch.
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-8">
+                                <label class="form-label">Faulty Device Barcode/Serial Number</label>
+                                <input type="text" class="form-control scan-input" id="deviceScanInput" 
+                                       placeholder="Scan faulty device barcode or enter serial number..." autofocus>
+                                <div class="form-text">
+                                    <i class="bi bi-shield-check"></i> 
+                                    System validates: Device exists → Belongs to school → Not in active repair → Links to loan unit
+                                </div>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button type="button" class="btn btn-danger btn-lg w-100" id="scanBtn">
+                                    <i class="bi bi-check-circle"></i> Confirm Emergency Scan
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scanned Devices List -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-list-check"></i> Scanned Emergency Devices
+                        </h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Serial/IMEI</th>
+                                    <th>Device Info</th>
+                                    <th>Loan Unit Link</th>
+                                    <th>Status</th>
+                                    <th>Scanned At</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="deviceList">
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        No faulty devices scanned yet. Scan the device that was replaced by the loan unit.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Complete Emergency Scanning -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card border-success">
+                    <div class="card-body text-center">
+                        <h5 class="card-title text-success">
+                            <i class="bi bi-check-circle"></i> Complete Emergency Scanning
+                        </h5>
+                        <p class="card-text">
+                            When the faulty device has been scanned and linked to the loan unit, 
+                            proceed to verification and emergency GRV generation.
+                        </p>
+                        <button type="button" class="btn btn-success btn-lg" id="completeScanBtn">
+                            <i class="bi bi-arrow-right-circle"></i> Complete Scanning & Proceed to Verification
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/phase1/js/emergency-scanning.js"></script>
+</body>
+</html>

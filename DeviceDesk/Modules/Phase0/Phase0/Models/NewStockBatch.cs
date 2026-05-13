@@ -86,6 +86,24 @@ namespace DeviceDesk.Modules.Phase0.Models
         public string? GRVNumber { get; set; }
 
         /// <summary>
+        /// Procurement order (Phase 0) that produced this batch, when the batch was
+        /// auto-generated from a procurement order. Null for legacy/standalone batches.
+        /// </summary>
+        public Guid? ProcurementOrderId { get; set; }
+
+        /// <summary>PO Number copied from the procurement order, surfaced in receiving UIs.</summary>
+        [MaxLength(100)]
+        public string? PoNumber { get; set; }
+
+        /// <summary>Project name copied from the procurement order.</summary>
+        [MaxLength(200)]
+        public string? ProjectName { get; set; }
+
+        /// <summary>Financial year copied from the procurement order.</summary>
+        [MaxLength(20)]
+        public string? FinancialYear { get; set; }
+
+        /// <summary>
         /// Item lines in this batch (descriptions only)
         /// </summary>
         public virtual ICollection<NewStockBatchItem> Items { get; set; } = new List<NewStockBatchItem>();
@@ -189,6 +207,20 @@ namespace DeviceDesk.Modules.Phase0.Models
         /// </summary>
         [MaxLength(50)]
         public string Zone { get; set; } = "New Stock";
+
+        /// <summary>
+        /// Unit price copied from the procurement order line. Stored on the item so
+        /// the receiving side can show pricing without joining back to the order.
+        /// </summary>
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal UnitPrice { get; set; }
+
+        /// <summary>
+        /// JSON array of per-school allocations for this (Brand/Model/DeviceType) line.
+        /// Each element is { schoolName, qtyOrdered, deliveryStatus }.
+        /// Used by the receiving and model-scanning UIs to show the school breakdown.
+        /// </summary>
+        public string? SchoolBreakdownJson { get; set; }
     }
 
     /// <summary>

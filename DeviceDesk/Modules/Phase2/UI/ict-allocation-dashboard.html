@@ -102,7 +102,7 @@
             try {
                 const response = await fetch('/api/auth/current-user');
                 if (!response.ok) {
-                    window.location.href = '/login.html';
+                    window.location.href = '/login.html?logout=1';
                     return;
                 }
                 currentUser = await response.json();
@@ -115,7 +115,7 @@
                 document.getElementById('profileRole').textContent = currentUser.role || 'User';
             } catch (error) {
                 console.error('Error loading user:', error);
-                window.location.href = '/login.html';
+                window.location.href = '/login.html?logout=1';
             }
         }
 
@@ -125,7 +125,7 @@
             } catch (e) {
                 console.warn('Logout request aborted or failed:', e);
             } finally {
-                window.location.href = '/login.html';
+                window.location.href = '/login.html?logout=1';
             }
         }
 

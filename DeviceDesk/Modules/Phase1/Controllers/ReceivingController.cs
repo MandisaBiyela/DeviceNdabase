@@ -101,22 +101,62 @@ namespace DeviceDesk.Modules.Phase1.Controllers
         {
             try
             {
-                // Get batches that are pending scan (ready for Phase 1)
-                var batches = await _newStockBatchService.GetBatchesAsync(
-                    Modules.Phase0.Models.NewStockBatchStatus.PendingScan, 
-                    ct);
-                
-                // Transform to match the expected order format for frontend compatibility
-                var orders = batches.Select(b => new
+                // Pull PendingScan batches with their items so the receiving UI can show
+                // PO/Project/Financial Year + school breakdown without an extra round-trip.
+                var batches = await _coreDb.NewStockBatches
+                    .AsNoTracking()
+                    .Where(b => b.Status == Modules.Phase0.Models.NewStockBatchStatus.PendingScan)
+                    .Include(b => b.Items)
+                    .OrderByDescending(b => b.CreatedAt)
+                    .ToListAsync(ct);
+
+                var orders = batches.Select(b =>
                 {
-                    orderId = b.BatchId,
-                    orderNumber = b.BatchNumber,
-                    invoiceNumber = b.InvoiceNumber,
-                    supplierName = b.SupplierName,
-                    orderDate = b.CreatedAt,
-                    status = b.StatusText,
-                    totalQuantity = b.TotalQuantityExpected,
-                    receivedQuantity = b.TotalQuantityScanned
+                    var schoolNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var item in b.Items)
+                    {
+                        if (string.IsNullOrWhiteSpace(item.SchoolBreakdownJson)) continue;
+                        try
+                        {
+                            using var doc = System.Text.Json.JsonDocument.Parse(item.SchoolBreakdownJson);
+                            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array) continue;
+                            foreach (var el in doc.RootElement.EnumerateArray())
+                            {
+                                if (el.TryGetProperty("schoolName", out var n) && n.ValueKind == System.Text.Json.JsonValueKind.String)
+                                {
+                                    var name = n.GetString();
+                                    if (!string.IsNullOrWhiteSpace(name)) schoolNames.Add(name);
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // ignore malformed JSON; surface what we can
+                        }
+                    }
+
+                    var summary = schoolNames.Count > 0
+                        ? $"{schoolNames.Count} school{(schoolNames.Count == 1 ? "" : "s")}, {b.TotalQuantityExpected} device{(b.TotalQuantityExpected == 1 ? "" : "s")}"
+                        : $"{b.TotalQuantityExpected} device{(b.TotalQuantityExpected == 1 ? "" : "s")}";
+
+                    return new
+                    {
+                        orderId = b.BatchId,
+                        orderNumber = b.BatchNumber,
+                        invoiceNumber = b.InvoiceNumber,
+                        supplierName = b.SupplierName,
+                        orderDate = b.CreatedAt,
+                        status = b.Status.ToString(),
+                        totalQuantity = b.TotalQuantityExpected,
+                        receivedQuantity = b.TotalQuantityScanned,
+                        poNumber = b.PoNumber,
+                        projectName = b.ProjectName,
+                        financialYear = b.FinancialYear,
+                        procurementOrderId = b.ProcurementOrderId,
+                        schoolCount = schoolNames.Count,
+                        schoolNames = schoolNames.OrderBy(x => x).ToArray(),
+                        breakdownSummary = summary
+                    };
                 }).ToList();
 
                 return Ok(orders);

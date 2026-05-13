@@ -15,6 +15,9 @@ namespace DeviceDesk.Infrastructure.Data
         public DbSet<GoodsReceivedNote> GoodsReceivedNotes => Set<GoodsReceivedNote>();
         public DbSet<RnrExpectedItem> RnrExpectedItems => Set<RnrExpectedItem>();
         public DbSet<ReceivingBatchScan> ReceivingBatchScans => Set<ReceivingBatchScan>();
+        public DbSet<DocumentTypeRegistry> DocumentTypeRegistries => Set<DocumentTypeRegistry>();
+        public DbSet<UploadAuditLog> UploadAuditLogs => Set<UploadAuditLog>();
+        public DbSet<ReceivingGenericDocument> ReceivingGenericDocuments => Set<ReceivingGenericDocument>();
 
         protected override void OnModelCreating(ModelBuilder b)
         {
@@ -104,6 +107,32 @@ namespace DeviceDesk.Infrastructure.Data
                 e.Property(x => x.Status).HasConversion<int>();
                 e.Property(x => x.ScannedAt).HasColumnType("datetimeoffset(7)").HasDefaultValueSql("SYSUTCDATETIME()");
                 e.ToTable("ReceivingBatchScans");
+            });
+
+            b.Entity<DocumentTypeRegistry>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasIndex(x => x.DocumentTypeKey).IsUnique();
+                e.Property(x => x.CreatedAt).HasColumnType("datetimeoffset(7)").HasDefaultValueSql("SYSUTCDATETIME()");
+                e.ToTable("document_type_registry");
+            });
+
+            b.Entity<UploadAuditLog>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasIndex(x => x.FileSha256);
+                e.HasIndex(x => x.UploadedAt);
+                e.Property(x => x.UploadedAt).HasColumnType("datetimeoffset(7)").HasDefaultValueSql("SYSUTCDATETIME()");
+                e.ToTable("upload_audit_log");
+            });
+
+            b.Entity<ReceivingGenericDocument>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasIndex(x => x.DocumentKind);
+                e.HasIndex(x => x.LinkedProcurementOrderId);
+                e.Property(x => x.CreatedAt).HasColumnType("datetimeoffset(7)").HasDefaultValueSql("SYSUTCDATETIME()");
+                e.ToTable("receiving_generic_documents");
             });
         }
     }

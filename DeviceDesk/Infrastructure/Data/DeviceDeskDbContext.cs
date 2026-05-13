@@ -179,7 +179,12 @@ namespace DeviceDesk.Infrastructure.Data
                 e.HasIndex(x => x.BatchNumber).IsUnique();
                 e.HasIndex(x => x.Status);
                 e.HasIndex(x => x.CreatedAt);
+                e.HasIndex(x => x.ProcurementOrderId);
+                e.HasIndex(x => x.PoNumber);
                 e.Property(x => x.Status).HasConversion<int>();
+                e.Property(x => x.PoNumber).HasMaxLength(100);
+                e.Property(x => x.ProjectName).HasMaxLength(200);
+                e.Property(x => x.FinancialYear).HasMaxLength(20);
                 e.ToTable("NewStockBatches");
             });
 
@@ -187,6 +192,8 @@ namespace DeviceDesk.Infrastructure.Data
             {
                 e.HasKey(x => x.ItemId);
                 e.HasIndex(x => x.BatchId);
+                e.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
+                e.Property(x => x.SchoolBreakdownJson).HasColumnType("nvarchar(max)");
                 e.ToTable("NewStockBatchItems");
             });
 
@@ -206,7 +213,9 @@ namespace DeviceDesk.Infrastructure.Data
                 e.HasIndex(x => x.OrderID);
                 e.Property(x => x.ModelName).HasMaxLength(200);
                 e.Property(x => x.Status).HasMaxLength(20);
-                e.HasOne<NewStockBatch>()
+                // Bind navigation "Order" to FK OrderID so EF does not create a shadow FK "OrderBatchId"
+                // (principal key on NewStockBatch is BatchId, not Id).
+                e.HasOne(x => x.Order)
                     .WithMany()
                     .HasForeignKey(x => x.OrderID)
                     .OnDelete(DeleteBehavior.Cascade);
@@ -220,11 +229,11 @@ namespace DeviceDesk.Infrastructure.Data
                 e.HasIndex(x => x.ModelID);
                 e.HasIndex(x => x.DeviceSerial).IsUnique();
                 e.Property(x => x.DeviceSerial).HasMaxLength(200);
-                e.HasOne<NewStockBatch>()
+                e.HasOne(x => x.Order)
                     .WithMany()
                     .HasForeignKey(x => x.OrderID)
                     .OnDelete(DeleteBehavior.Cascade);
-                e.HasOne<OrderModelList>()
+                e.HasOne(x => x.Model)
                     .WithMany(x => x.ScannedSerials)
                     .HasForeignKey(x => x.ModelID)
                     .OnDelete(DeleteBehavior.Cascade);
@@ -238,12 +247,17 @@ namespace DeviceDesk.Infrastructure.Data
                 e.Property(x => x.PoNumber).HasMaxLength(100).IsRequired();
                 e.Property(x => x.ProjectName).HasMaxLength(200).IsRequired();
                 e.Property(x => x.FinancialYear).HasMaxLength(20).IsRequired();
+                e.Property(x => x.SupplierName).HasMaxLength(200);
+                e.Property(x => x.ExpectedDeliveryDate).HasColumnType("datetimeoffset(7)");
                 e.Property(x => x.TotalOrderValue).HasColumnType("decimal(18,2)");
                 e.Property(x => x.TotalInvoicedToDepartment).HasColumnType("decimal(18,2)");
                 e.Property(x => x.TotalPaidByDepartment).HasColumnType("decimal(18,2)");
                 e.Property(x => x.TotalPaidToSuppliers).HasColumnType("decimal(18,2)");
+                e.Property(x => x.TimelineNotes).HasColumnType("nvarchar(max)");
+                e.Property(x => x.ScopeNotes).HasColumnType("nvarchar(max)");
                 e.Property(x => x.CreatedAt).HasColumnType("datetimeoffset(7)").HasDefaultValueSql("SYSUTCDATETIME()");
                 e.Property(x => x.UpdatedAt).HasColumnType("datetimeoffset(7)").HasDefaultValueSql("SYSUTCDATETIME()");
+                e.HasIndex(x => x.NewStockBatchId);
                 e.HasMany(x => x.Schools)
                     .WithOne(x => x.ProcurementOrder)
                     .HasForeignKey(x => x.ProcurementOrderId)
@@ -269,6 +283,9 @@ namespace DeviceDesk.Infrastructure.Data
                 e.HasKey(x => x.ProcurementOrderItemId);
                 e.HasIndex(x => x.ProcurementOrderSchoolId);
                 e.Property(x => x.Description).HasMaxLength(300).IsRequired();
+                e.Property(x => x.Brand).HasMaxLength(100);
+                e.Property(x => x.Model).HasMaxLength(100);
+                e.Property(x => x.DeviceType).HasMaxLength(50);
                 e.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
                 e.Property(x => x.TotalPrice).HasColumnType("decimal(18,2)");
                 e.Property(x => x.DeliveryStatus).HasConversion<int>();

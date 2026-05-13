@@ -88,7 +88,7 @@ namespace DeviceDesk.Controllers
                 "DispatchClerk" => "/dispatch/index.html",
                 "ReceivingClerk" => "/phase1/dashboard.html",
                 "IctClerk" => "/phase2/index.html", // All ICT roles go to phase2
-                "OrdersClerk" => "/phase0/new.html",
+                "OrdersClerk" => "/phase0/orders.html",
                 _ => "/login.html"
             };
 
@@ -121,7 +121,8 @@ namespace DeviceDesk.Controllers
         public async Task<IActionResult> LogoutGet()
         {
             await _signInManager.SignOutAsync();
-            return Redirect("/login.html");
+            // ?logout=1 tells login.html not to auto-redirect to "/" (avoids bounce when cookie clears slowly or browser caches auth check)
+            return Redirect("/login.html?logout=1");
         }
 
         [HttpGet("current-user")]

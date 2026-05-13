@@ -185,10 +185,15 @@
   </div>
 
   <script>
+    // After explicit sign-out, do not redirect "already logged in" users to "/" — stale cookies can send them back into the app or a cached legacy page.
+    const qs = new URLSearchParams(window.location.search);
+    const skipAutoRedirectHome = qs.has('logout') || qs.has('signedOut');
+
     async function checkAuth() {
+      if (skipAutoRedirectHome) return;
       try {
-        const res = await fetch('/api/auth/current-user', { credentials: 'include' });
-        if (res.ok) { window.location.href = '/'; }
+        const res = await fetch('/api/auth/current-user', { credentials: 'include', cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+        if (res.ok) { window.location.replace('/'); }
       } catch {}
     }
     checkAuth();

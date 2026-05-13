@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storage Label</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            padding: 10mm;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            @page {
+                size: 100mm 63mm;
+                margin: 0;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+        }
+
+        .label-container {
+            width: 100mm;
+            height: 63mm;
+            border: 1px solid #000;
+            padding: 3mm;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .label-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 2mm;
+        }
+
+        .serial-number {
+            font-size: 14pt;
+            font-weight: bold;
+            flex: 1;
+        }
+
+        .qr-code {
+            width: 25mm;
+            height: 25mm;
+            border: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .label-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 9pt;
+        }
+
+        .label-row {
+            display: flex;
+            margin-bottom: 1mm;
+        }
+
+        .label-label {
+            font-weight: bold;
+            min-width: 25mm;
+            margin-right: 2mm;
+        }
+
+        .label-value {
+            flex: 1;
+        }
+
+        .storage-location {
+            font-size: 8pt;
+            line-height: 1.3;
+        }
+
+        .date-allocated {
+            font-size: 8pt;
+            color: #666;
+        }
+
+        .no-print {
+            margin: 20px;
+            padding: 20px;
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+        }
+
+        .no-print button {
+            padding: 10px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <h3>Storage Label Preview</h3>
+        <p>This label will be printed automatically. Click "Print" to test, or wait for auto-print after allocation.</p>
+        <button onclick="window.print()">Print Label</button>
+        <button onclick="window.close()">Close</button>
+    </div>
+
+    <div class="label-container" id="labelContainer">
+        <div class="label-header">
+            <div class="serial-number" id="serialNumber">SERIAL_NUMBER</div>
+            <div class="qr-code" id="qrCode"></div>
+        </div>
+        <div class="label-body">
+            <div class="label-row">
+                <span class="label-label">School:</span>
+                <span class="label-value" id="schoolName">SCHOOL_NAME</span>
+            </div>
+            <div class="label-row">
+                <span class="label-label">Location:</span>
+                <div class="label-value storage-location" id="storageLocation">BUILDING / ROOM / RACK / SHELF / BIN</div>
+            </div>
+            <div class="label-row">
+                <span class="label-label">Date:</span>
+                <span class="label-value date-allocated" id="dateAllocated">DATE_ALLOCATED</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // Get data from URL parameters or localStorage
+            function getLabelData() {
+                const params = new URLSearchParams(window.location.search);
+                const serial = params.get('serial') || localStorage.getItem('label_serial') || 'N/A';
+                const school = params.get('school') || localStorage.getItem('label_school') || 'No School Linked';
+                const building = params.get('building') || localStorage.getItem('label_building') || '';
+                const room = params.get('room') || localStorage.getItem('label_room') || '';
+                const rack = params.get('rack') || localStorage.getItem('label_rack') || '';
+                const shelf = params.get('shelf') || localStorage.getItem('label_shelf') || '';
+                const bin = params.get('bin') || localStorage.getItem('label_bin') || '';
+                const date = params.get('date') || localStorage.getItem('label_date') || new Date().toLocaleDateString();
+
+                return {
+                    serial,
+                    school,
+                    building,
+                    room,
+                    rack,
+                    shelf,
+                    bin,
+                    date
+                };
+            }
+
+            function formatStorageLocation(building, room, rack, shelf, bin) {
+                const parts = [];
+                if (building) parts.push(building);
+                if (room) parts.push(room);
+                if (rack) parts.push(rack);
+                if (shelf) parts.push(shelf);
+                if (bin) parts.push(bin);
+                return parts.length > 0 ? parts.join(' / ') : 'Not specified';
+            }
+
+            function generateQRCode(data) {
+                const qrContainer = document.getElementById('qrCode');
+                if (!qrContainer || !window.QRCode) {
+                    console.error('QRCode library not loaded');
+                    return;
+                }
+
+                // Generate QR code with device serial and storage location
+                const qrData = JSON.stringify({
+                    serial: data.serial,
+                    location: {
+                        building: data.building,
+                        room: data.room,
+                        rack: data.rack,
+                        shelf: data.shelf,
+                        bin: data.bin
+                    }
+                });
+
+                QRCode.toCanvas(qrContainer, qrData, {
+                    width: 90,
+                    height: 90,
+                    margin: 1
+                }, function (error) {
+                    if (error) {
+                        console.error('QR Code generation error:', error);
+                        qrContainer.innerHTML = '<span style="font-size: 8pt;">QR Error</span>';
+                    }
+                });
+            }
+
+            function populateLabel() {
+                const data = getLabelData();
+
+                document.getElementById('serialNumber').textContent = data.serial;
+                document.getElementById('schoolName').textContent = data.school;
+                document.getElementById('storageLocation').textContent = formatStorageLocation(
+                    data.building, data.room, data.rack, data.shelf, data.bin
+                );
+                document.getElementById('dateAllocated').textContent = data.date;
+
+                generateQRCode(data);
+            }
+
+            // Populate label when page loads
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', populateLabel);
+            } else {
+                populateLabel();
+            }
+        })();
+    </script>
+</body>
+</html>
+

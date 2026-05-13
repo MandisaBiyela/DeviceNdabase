@@ -1,0 +1,344 @@
+<div class="container-fluid py-4">
+    <h2 class="mb-3">Unallocated Devices</h2>
+    <small class="text-muted d-block mb-3">
+        Phase 2 devices that do not have an active storage location recorded.
+    </small>
+    
+    <!-- Batch Actions Bar -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <button class="btn btn-success btn-sm" id="batchAllocateBtn" style="display:none;">
+                <i class="bi bi-box-seam me-1"></i>Batch Allocate (<span id="selectedCount">0</span>)
+            </button>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm" id="btnRefresh">
+            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+        </button>
+    </div>
+    
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="unallocatedTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">
+                                <input type="checkbox" id="selectAllCheckbox" title="Select All">
+                            </th>
+                            <th>Serial</th>
+                            <th>Model</th>
+                            <th>School</th>
+                            <th>Stage</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div id="unallocatedEmptyState" class="text-center text-muted py-4 d-none">
+                No unallocated devices at this time.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    'use strict';
+    const apiBase = '/api/phase2/allocation';
+    let isLoading = false;
+    let currentUnallocatedDevices = []; // Store device data
+
+    function showLoading() {
+        const tbody = document.querySelector('#unallocatedTable tbody');
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4"><div class="spinner-border spinner-border-sm me-2"></div>Loading...</td></tr>';
+        document.getElementById('unallocatedEmptyState').classList.add('d-none');
+    }
+
+    function showError(message) {
+        const tbody = document.querySelector('#unallocatedTable tbody');
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle me-2"></i>${message}</td></tr>`;
+        document.getElementById('unallocatedEmptyState').classList.add('d-none');
+    }
+
+    function updateBatchButton() {
+        const checked = document.querySelectorAll('.device-checkbox:checked').length;
+        const batchBtn = document.getElementById('batchAllocateBtn');
+        const countSpan = document.getElementById('selectedCount');
+        
+        if (batchBtn) {
+            batchBtn.style.display = checked > 0 ? 'block' : 'none';
+            if (countSpan) {
+                countSpan.textContent = checked;
+            }
+        }
+    }
+
+    function updateSelectAllCheckbox() {
+        const selectAll = document.getElementById('selectAllCheckbox');
+        const checkboxes = document.querySelectorAll('.device-checkbox');
+        const checked = document.querySelectorAll('.device-checkbox:checked').length;
+        
+        if (selectAll && checkboxes.length > 0) {
+            selectAll.checked = checked === checkboxes.length;
+            selectAll.indeterminate = checked > 0 && checked < checkboxes.length;
+        }
+    }
+
+    async function loadUnallocatedDevices() {
+        if (isLoading) return; // Prevent concurrent loads
+        isLoading = true;
+        showLoading();
+
+        try {
+            // Add cache-busting to prevent stale data
+            const timestamp = new Date().getTime();
+            const resp = await fetch(`${apiBase}/unallocated?t=${timestamp}`, {
+                cache: 'no-cache',
+                headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+            });
+            
+            if (!resp.ok) {
+                throw new Error(`Failed to load: ${resp.status} ${resp.statusText}`);
+            }
+            
+            const data = await resp.json();
+            const tbody = document.querySelector('#unallocatedTable tbody');
+            const empty = document.getElementById('unallocatedEmptyState');
+            tbody.innerHTML = '';
+            currentUnallocatedDevices = data || [];
+
+            if (!data || data.length === 0) {
+                empty.classList.remove('d-none');
+                isLoading = false;
+                updateBatchButton();
+                return;
+            }
+
+            empty.classList.add('d-none');
+
+            data.forEach((x, index) => {
+                const tr = document.createElement('tr');
+                const checkboxId = `deviceCheckbox_${index}`;
+                const serial = x.serial || x.serialNumber || '';
+                tr.innerHTML = `
+                    <td>
+                        <input type="checkbox" 
+                               class="device-checkbox" 
+                               id="${checkboxId}"
+                               data-phase2-id="${x.phase2DeviceId || ''}"
+                               data-serial="${serial.replace(/"/g, '&quot;')}"
+                               data-school-id="${x.schoolId || ''}"
+                               data-school-name="${(x.schoolName || '').replace(/"/g, '&quot;')}"
+                               data-model="${(x.model || '').replace(/"/g, '&quot;')}">
+                    </td>
+                    <td>${serial}</td>
+                    <td>${x.model || '-'}</td>
+                    <td>${x.schoolName || '-'}</td>
+                    <td><span class="badge bg-secondary">${x.stage || '-'}</span></td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-primary"
+                                onclick="if (typeof openAllocateForSerial === 'function') { 
+                                             openAllocateForSerial('${serial.replace(/'/g, "\\'")}'); 
+                                         } else if (typeof loadAllocationView === 'function') { 
+                                             loadAllocationView('${serial.replace(/'/g, "\\'")}'); 
+                                         } else { 
+                                             window.location.href = '/phase2/index.html'; 
+                                         }">
+                            Allocate
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Attach event listeners to checkboxes
+            document.querySelectorAll('.device-checkbox').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    updateBatchButton();
+                    updateSelectAllCheckbox();
+                });
+            });
+
+            updateBatchButton();
+            updateSelectAllCheckbox();
+        } catch (error) {
+            console.error('Error loading unallocated devices:', error);
+            showError(`Error loading unallocated devices: ${error.message}`);
+        } finally {
+            isLoading = false;
+        }
+    }
+
+    // Select All checkbox handler
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('.device-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = e.target.checked;
+            });
+            updateBatchButton();
+        });
+    }
+
+    // Batch allocate button handler - Navigate to bulk allocation page
+    function setupBatchAllocateButton() {
+        const batchAllocateBtn = document.getElementById('batchAllocateBtn');
+        if (!batchAllocateBtn) {
+            setTimeout(setupBatchAllocateButton, 100);
+            return;
+        }
+        
+        const parent = batchAllocateBtn.parentNode;
+        const newBatchBtn = batchAllocateBtn.cloneNode(true);
+        parent.removeChild(batchAllocateBtn);
+        parent.appendChild(newBatchBtn);
+        
+        newBatchBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('[UnallocatedDevices] Batch allocate button clicked');
+            
+            const checked = Array.from(document.querySelectorAll('.device-checkbox:checked'))
+                .map(cb => ({
+                    phase2DeviceId: parseInt(cb.getAttribute('data-phase2-id')) || null,
+                    serial: cb.getAttribute('data-serial') || '',
+                    schoolId: cb.getAttribute('data-school-id') ? parseInt(cb.getAttribute('data-school-id')) : null,
+                    schoolName: cb.getAttribute('data-school-name') || '',
+                    model: cb.getAttribute('data-model') || 'Unknown Model'
+                }))
+                .filter(d => d.phase2DeviceId != null);
+
+            console.log('[UnallocatedDevices] Selected devices:', checked.length);
+
+            if (checked.length === 0) {
+                alert('Please select at least one device to allocate.');
+                return;
+            }
+
+            // Check if all devices belong to the same school
+            const schools = [...new Set(checked.map(d => d.schoolId).filter(id => id != null))];
+            if (schools.length > 1) {
+                alert('Selected devices belong to different schools. Please select devices from the same school for bulk allocation.');
+                return;
+            }
+
+            // Store selected devices for bulk allocation page
+            const devicesForBulk = checked.map(d => ({
+                serial: d.serial,
+                phase2Id: d.phase2DeviceId,
+                model: d.model,
+                schoolId: d.schoolId,
+                schoolName: d.schoolName
+            }));
+
+            console.log('[UnallocatedDevices] Storing devices for bulk allocation:', devicesForBulk);
+
+            // Store in localStorage to pass to bulk allocation page
+            window.localStorage.setItem('bulkAllocationDevices', JSON.stringify(devicesForBulk));
+            if (schools.length === 1) {
+                window.localStorage.setItem('bulkAllocationSchoolId', schools[0].toString());
+            }
+
+            // Navigate to bulk allocation page
+            console.log('[UnallocatedDevices] Attempting navigation to bulk allocation...');
+            
+            let navigated = false;
+            
+            // Method 1: Use window.loadBulkAllocationView if available
+            if (typeof window.loadBulkAllocationView === 'function') {
+                console.log('[UnallocatedDevices] Using window.loadBulkAllocationView function');
+                try {
+                    window.loadBulkAllocationView();
+                    navigated = true;
+                } catch (err) {
+                    console.error('[UnallocatedDevices] Error calling loadBulkAllocationView:', err);
+                }
+            }
+            
+            // Method 2: Direct fetch and render
+            if (!navigated) {
+                console.log('[UnallocatedDevices] Using direct fetch and render');
+                try {
+                    const links = document.querySelectorAll('#sidebar .sidebar-link');
+                    links.forEach(l => l.classList.remove('active'));
+                    if (links[6]) links[6].classList.add('active');
+                    
+                    const r = await fetch('allocator/bulk-allocation.html');
+                    const html = await r.text();
+                    const container = document.getElementById('mainContent');
+                    if (container) {
+                        const temp = document.createElement('div');
+                        temp.innerHTML = html;
+                        
+                        container.querySelectorAll('script[data-view-script]').forEach(s => s.remove());
+                        
+                        const scripts = Array.from(temp.querySelectorAll('script'));
+                        temp.querySelectorAll('script').forEach(s => s.remove());
+                        
+                        container.innerHTML = temp.innerHTML;
+                        
+                        for (const oldScript of scripts) {
+                            const newScript = document.createElement('script');
+                            newScript.setAttribute('data-view-script', 'true');
+                            if (oldScript.type) newScript.type = oldScript.type;
+                            if (oldScript.src) {
+                                newScript.src = oldScript.src;
+                                newScript.async = false;
+                                await new Promise(resolve => {
+                                    newScript.onload = () => resolve();
+                                    newScript.onerror = () => resolve();
+                                    container.appendChild(newScript);
+                                });
+                            } else {
+                                newScript.textContent = oldScript.textContent;
+                                container.appendChild(newScript);
+                            }
+                        }
+                    }
+                    navigated = true;
+                } catch (err) {
+                    console.error('[UnallocatedDevices] Error with direct fetch:', err);
+                }
+            }
+            
+            // Method 3: Fallback - trigger sidebar link click
+            if (!navigated) {
+                console.log('[UnallocatedDevices] Using sidebar link fallback');
+                const sidebarLink = document.querySelector('#sidebar .sidebar-link[onclick*="loadBulkAllocationView"]');
+                if (sidebarLink) {
+                    sidebarLink.click();
+                    navigated = true;
+                }
+            }
+            
+            if (!navigated) {
+                console.error('[UnallocatedDevices] All navigation methods failed');
+                alert('Failed to navigate to bulk allocation page. Please use the sidebar menu to navigate to "Bulk Allocation".');
+            }
+        });
+    }
+
+    // Refresh button handler
+    const refreshBtn = document.getElementById('btnRefresh');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            loadUnallocatedDevices();
+        });
+    }
+
+    // Setup batch button when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            setupBatchAllocateButton();
+            loadUnallocatedDevices();
+        });
+    } else {
+        setupBatchAllocateButton();
+        loadUnallocatedDevices();
+    }
+})();
+</script>
+

@@ -54,6 +54,22 @@ namespace DeviceDesk.Modules.Phase0.Models
         [Column(TypeName = "datetimeoffset(7)")]
         public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
+        /// <summary>Optional narrative for Close-Out report Section 6 (timeline).</summary>
+        public string? TimelineNotes { get; set; }
+
+        /// <summary>Optional narrative for Close-Out report Section 7 (scope changes).</summary>
+        public string? ScopeNotes { get; set; }
+
+        /// <summary>Supplier responsible for delivering the devices for this order.</summary>
+        [MaxLength(200)]
+        public string? SupplierName { get; set; }
+
+        /// <summary>Expected delivery date for the order (Phase 1 uses this on the receiving batch).</summary>
+        public DateTimeOffset? ExpectedDeliveryDate { get; set; }
+
+        /// <summary>Back-link to the NewStockBatch generated for this order (Phase 1 receiving).</summary>
+        public Guid? NewStockBatchId { get; set; }
+
         public virtual ICollection<ProcurementOrderSchool> Schools { get; set; } = new List<ProcurementOrderSchool>();
     }
 
@@ -92,6 +108,18 @@ namespace DeviceDesk.Modules.Phase0.Models
         [Required]
         [MaxLength(300)]
         public string Description { get; set; } = string.Empty;
+
+        /// <summary>Optional device brand (e.g. "Asus") parsed from the order line.</summary>
+        [MaxLength(100)]
+        public string? Brand { get; set; }
+
+        /// <summary>Optional device model (e.g. "Vivobook").</summary>
+        [MaxLength(100)]
+        public string? Model { get; set; }
+
+        /// <summary>Optional device type (e.g. "Laptop", "Tablet").</summary>
+        [MaxLength(50)]
+        public string? DeviceType { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal UnitPrice { get; set; }

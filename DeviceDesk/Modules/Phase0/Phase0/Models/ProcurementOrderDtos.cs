@@ -8,7 +8,9 @@ namespace DeviceDesk.Modules.Phase0.Models
         decimal TotalInvoicedToDepartment,
         decimal TotalPaidByDepartment,
         decimal TotalPaidToSuppliers,
-        List<CreateProcurementOrderSchoolRequest> Schools
+        List<CreateProcurementOrderSchoolRequest> Schools,
+        string? SupplierName = null,
+        DateTimeOffset? ExpectedDeliveryDate = null
     );
 
     public record CreateProcurementOrderSchoolRequest(
@@ -22,6 +24,9 @@ namespace DeviceDesk.Modules.Phase0.Models
         decimal UnitPrice,
         int QtyOrdered,
         decimal TotalPrice,
-        SchoolItemDeliveryStatus DeliveryStatus
+        SchoolItemDeliveryStatus DeliveryStatus,
+        string? Brand = null,
+        string? Model = null,
+        string? DeviceType = null
     );
 }

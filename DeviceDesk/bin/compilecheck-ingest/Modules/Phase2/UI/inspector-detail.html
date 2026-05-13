@@ -1,0 +1,245 @@
+<script>
+(function() {
+  // If this fragment is opened directly, redirect to dashboard index with params
+  if (!document.getElementById('mainContent')) {
+    const qs = new URLSearchParams(location.search);
+    const deviceId = qs.get('deviceId') || '';
+    const search = deviceId
+      ? `?view=inspector-detail&deviceId=${encodeURIComponent(deviceId)}&readOnly=1`
+      : `?view=inspector-detail&readOnly=1`;
+    location.replace(`/phase2/index.html${search}`);
+    return;
+  }
+})();
+</script>
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-eye"></i> Inspector Device Detail</h3>
+    <button class="btn btn-outline-secondary" onclick="goBackToInspectorMyWork()">
+      <i class="bi bi-arrow-left"></i> Back to My Work
+    </button>
+  </div>
+
+  <div id="detailStatus" class="text-muted small mb-2">&nbsp;</div>
+
+  <div id="detailContent"></div>
+</div>
+
+<script>
+// Utility to navigate back to inspector history within the dashboard
+function goBackToInspectorMyWork() {
+  try {
+    if (typeof loadInspectorMyWorkView === 'function') {
+      loadInspectorMyWorkView();
+      return;
+    }
+  } catch {}
+  // Fallback to landing page
+  location.href = '/phase2/index.html';
+}
+
+(async function init() {
+  const statusEl = document.getElementById('detailStatus');
+  const container = document.getElementById('detailContent');
+
+  function getQueryParam(name) {
+    const m = new RegExp('(?:\\?|&)' + name + '=([^&]*)').exec(location.search);
+    return m && decodeURIComponent(m[1].replace(/\+/g, ' '));
+  }
+
+  const idFromQuery = getQueryParam('deviceId');
+  const deviceId = idFromQuery || (window.currentDetailedDeviceId || '');
+  const readOnly = window.currentDetailedReadOnly === true;
+
+  if (!deviceId) {
+    statusEl.textContent = 'No device selected. Use My Work to open a device.';
+    return;
+  }
+
+  statusEl.textContent = 'Loading device details…';
+  try {
+    // Use the actual Phase 2 device endpoint which accepts integer IDs
+    const res = await fetch(`/api/phase2/devices/${encodeURIComponent(deviceId)}`, { credentials: 'include', headers: { 'Accept': 'application/json' } });
+    if (!res.ok) {
+      statusEl.textContent = `Failed to load details (HTTP ${res.status})`;
+      return;
+    }
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      statusEl.textContent = 'Unexpected response: not JSON.';
+      return;
+    }
+    const d = await res.json();
+    renderDetail(d, readOnly);
+    statusEl.textContent = '';
+  } catch (err) {
+    statusEl.textContent = `Error: ${err.message}`;
+  }
+
+  function renderDetail(d, readOnly) {
+    // Support both the earlier stub shape and the actual Phase2Device shape
+    const isPhase2Device = typeof d.Serial !== 'undefined' || typeof d.Stage !== 'undefined';
+    if (isPhase2Device) {
+      const serial = d.Serial || '';
+      const stage = d.Stage || '';
+      const zone = d.Zone || '';
+      const technicianId = d.TechnicianId || '';
+      const inspectionDate = d.InspectionDate || '';
+      const repairCategory = d.RepairCategory || '';
+      const underWarranty = d.UnderWarranty === true ? 'Yes' : (d.UnderWarranty === false ? 'No' : '');
+      const disposalRequested = d.DisposalRequested === true ? 'Yes' : (d.DisposalRequested === false ? 'No' : '');
+      const qaPassed = d.QaPassed === true ? 'Yes' : (d.QaPassed === false ? 'No' : '');
+      const reworkCount = typeof d.ReworkCount === 'number' ? d.ReworkCount : '';
+      const updatedAt = d.UpdatedAt || '';
+      const preAssessmentNotes = d.PreAssessmentNotes || '';
+      const receiptId = typeof d.ReceiptId === 'number' ? d.ReceiptId : '';
+
+      container.innerHTML = `
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <div class="row g-3 mb-3">
+              <div class="col-md-3">
+                <div class="text-muted small">Serial</div>
+                <div class="fw-semibold">${escapeHtml(serial)}</div>
+              </div>
+              <div class="col-md-3">
+                <div class="text-muted small">Stage</div>
+                <div class="fw-semibold">${escapeHtml(String(stage))}</div>
+              </div>
+              <div class="col-md-3">
+                <div class="text-muted small">Zone</div>
+                <div class="fw-semibold">${escapeHtml(String(zone))}</div>
+              </div>
+              <div class="col-md-3">
+                <div class="text-muted small">Device ID</div>
+                <div>${escapeHtml(String(d.Id || deviceId))}</div>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-md-3">
+                <div class="text-muted small">Technician</div>
+                <div>${escapeHtml(technicianId)}</div>
+              </div>
+              <div class="col-md-3">
+                <div class="text-muted small">Inspection Date</div>
+                <div>${formatLocalTime(inspectionDate)}</div>
+              </div>
+              <div class="col-md-3">
+              <div class="text-muted small">Repair Category</div>
+              <div>${escapeHtml(repairCategory)}</div>
+            </div>
+              <div class="col-md-3 text-end"></div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-md-3">
+                <div class="text-muted small">Under Warranty</div>
+                <div>${underWarranty}</div>
+              </div>
+              <div class="col-md-3">
+                <div class="text-muted small">Disposal Requested</div>
+                <div>${disposalRequested}</div>
+              </div>
+              <div class="col-md-3">
+                <div class="text-muted small">QA Passed</div>
+                <div>${qaPassed}</div>
+              </div>
+              <div class="col-md-3">
+                <div class="text-muted small">Rework Count</div>
+                <div>${escapeHtml(String(reworkCount))}</div>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-md-3">
+                <div class="text-muted small">Receipt ID</div>
+                <div>${escapeHtml(String(receiptId))}</div>
+              </div>
+              <div class="col-md-3">
+                <div class="text-muted small">Last Updated</div>
+                <div>${formatLocalTime(updatedAt)}</div>
+              </div>
+              <div class="col-md-6">
+                <div class="text-muted small">Notes</div>
+                ${preAssessmentNotes ? `<div>${escapeHtml(preAssessmentNotes)}</div>` : '<div class="text-muted">No notes available.</div>'}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // Fallback to the earlier stub mapping if present
+    const notes = Array.isArray(d.notes) ? d.notes : [];
+    container.innerHTML = `
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="row g-3 mb-3">
+            <div class="col-md-3">
+              <div class="text-muted small">Brand</div>
+              <div class="fw-semibold">${escapeHtml(d.brand || '')}</div>
+            </div>
+            <div class="col-md-3">
+              <div class="text-muted small">Model</div>
+              <div class="fw-semibold">${escapeHtml(d.model || '')}</div>
+            </div>
+            <div class="col-md-3">
+              <div class="text-muted small">Serial</div>
+              <div class="fw-semibold">${escapeHtml(d.serialNumber || '')}</div>
+            </div>
+            <div class="col-md-3">
+              <div class="text-muted small">Status</div>
+              <div class="fw-semibold">${escapeHtml(d.currentStatus || '')}</div>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-3">
+              <div class="text-muted small">Device ID</div>
+              <div>${escapeHtml(String(d.deviceId || deviceId))}</div>
+            </div>
+            <div class="col-md-3">
+              <div class="text-muted small">Assigned On</div>
+              <div>${formatLocalTime(d.assignedOn)}</div>
+            </div>
+            <div class="col-md-6 text-end">
+              
+            </div>
+          </div>
+
+          <h6 class="mt-2">Notes</h6>
+          ${notes.length ? notes.map(n => noteCard(n)).join('') : '<div class="text-muted">No notes available.</div>'}
+        </div>
+      </div>
+    `;
+  }
+
+  function noteCard(n) {
+    const type = escapeHtml(n.noteType || 'Note');
+    const createdAt = formatLocalTime(n.createdAt);
+    const summary = escapeHtml(n.summary || '');
+    const details = escapeHtml(n.details || '');
+    return `
+      <div class="border rounded p-2 mb-2">
+        <div class="small text-muted">${type} • ${createdAt}</div>
+        ${summary ? `<div class="fw-semibold">${summary}</div>` : ''}
+        ${details ? `<div class="small">${details}</div>` : ''}
+      </div>
+    `;
+  }
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+})();
+</script>
+
+<!-- Shared Phase 2 utilities -->
+<script src="/phase2/js/phase2-utils.js"></script>

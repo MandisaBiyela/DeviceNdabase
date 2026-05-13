@@ -288,7 +288,18 @@
                             <!-- Step 3: Additional Information -->
                             <div id="step3" class="mb-4" style="display: none;">
                                 <h5 class="mb-3">Step 3: Additional Information</h5>
-                                
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label for="supplierName" class="form-label">Supplier Name</label>
+                                        <input type="text" class="form-control" id="supplierName" placeholder="Pre-filled from Phase 0">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="invoiceNumber" class="form-label">Invoice Number</label>
+                                        <input type="text" class="form-control" id="invoiceNumber" placeholder="Set on receipt if not yet known">
+                                    </div>
+                                </div>
+
                                 <div class="mb-3">
                                     <label for="receivedBy" class="form-label">Received By</label>
                                     <input type="text" class="form-control" id="receivedBy" placeholder="Enter clerk name">
@@ -336,9 +347,9 @@
             e.preventDefault();
             try {
                 await fetch('/api/auth/logout', { method: 'POST' });
-                window.location.href = '/index.html';
+                window.location.href = '/login.html?logout=1';
             } catch (error) {
-                window.location.href = '/index.html';
+                window.location.href = '/login.html?logout=1';
             }
         });
     </script>
@@ -348,7 +359,7 @@
 <script>
 async function logout(){
   try{ await fetch('/api/auth/logout', { method:'POST' }); }
-  finally{ window.location.href = '/login.html'; }
+  finally{ window.location.href = '/login.html?logout=1'; }
 }
 </script>
 </html>

@@ -1,0 +1,162 @@
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">Unallocated Devices</h2>
+            <small class="text-muted">
+                Phase 2 devices without active storage allocation.
+            </small>
+        </div>
+        <button class="btn btn-outline-primary" id="btnRefresh">
+            <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+        </button>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <input type="text" id="searchInput" class="form-control" 
+                   placeholder="Search by serial, school..." />
+        </div>
+        <div class="col-md-4">
+            <select id="filterStage" class="form-select">
+                <option value="">All Stages</option>
+                <option value="Received">Received</option>
+                <option value="PreAssessment">Pre-Assessment</option>
+                <option value="DetailedInspection">Detailed Inspection</option>
+                <option value="QualityAssessment">Quality Assessment</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="unallocatedTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Serial</th>
+                            <th>Stage</th>
+                            <th>School</th>
+                            <th>Model</th>
+                            <th>Received</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                Loading unallocated devices...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let allData = [];
+
+    async function loadUnallocatedDevices() {
+        const tbody = document.querySelector('#unallocatedTable tbody');
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm me-2"></div>Loading...</td></tr>';
+
+        try {
+            const response = await fetch('/api/phase2/allocation/unallocated');
+            if (!response.ok) {
+                throw new Error('Failed to load unallocated devices');
+            }
+
+            allData = await response.json();
+            applyFilters();
+        } catch (error) {
+            console.error('Error loading unallocated devices:', error);
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-danger py-4">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Error loading unallocated devices: ${error.message}
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    function applyFilters() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const stageFilter = document.getElementById('filterStage').value;
+
+        let filtered = allData;
+
+        if (searchTerm) {
+            filtered = filtered.filter(item =>
+                (item.serial || '').toLowerCase().includes(searchTerm) ||
+                (item.schoolName || '').toLowerCase().includes(searchTerm) ||
+                (item.model || '').toLowerCase().includes(searchTerm)
+            );
+        }
+
+        if (stageFilter) {
+            filtered = filtered.filter(item => item.stage === stageFilter);
+        }
+
+        renderTable(filtered);
+    }
+
+    function renderTable(data) {
+        const tbody = document.querySelector('#unallocatedTable tbody');
+        
+        if (data.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">
+                        <i class="bi bi-check-circle me-2"></i>
+                        No unallocated devices found.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = '';
+        data.forEach(item => {
+            const tr = document.createElement('tr');
+            const receivedDate = item.receivingDate 
+                ? new Date(item.receivingDate).toLocaleDateString()
+                : 'N/A';
+            
+            tr.innerHTML = `
+                <td><strong>${item.serial || ''}</strong></td>
+                <td><span class="badge bg-secondary">${item.stage || ''}</span></td>
+                <td>${item.schoolName || 'N/A'}</td>
+                <td>${item.model || 'N/A'}</td>
+                <td>${receivedDate}</td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="allocateDevice('${item.serial}', ${item.phase2DeviceId})">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> Allocate
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function allocateDevice(serial, phase2DeviceId) {
+        if (typeof loadAllocationView === 'function') {
+            loadAllocationView();
+            window.pendingAllocationSerial = serial;
+            window.pendingAllocationPhase2Id = phase2DeviceId;
+        } else {
+            window.location.href = `/phase2/ict-allocation-dashboard.html?serial=${encodeURIComponent(serial)}`;
+        }
+    }
+
+    document.getElementById('btnRefresh').addEventListener('click', loadUnallocatedDevices);
+    document.getElementById('searchInput').addEventListener('input', applyFilters);
+    document.getElementById('filterStage').addEventListener('change', applyFilters);
+
+    // Initial load
+    loadUnallocatedDevices();
+</script>
+
