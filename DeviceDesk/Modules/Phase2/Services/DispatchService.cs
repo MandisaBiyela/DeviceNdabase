@@ -66,7 +66,7 @@ public class DispatchService
         _logger.LogInformation("[ScanOut] Starting scan-out for device {DeviceId} (Serial: {Serial}) by user {UserId}", 
             device.Id, device.Serial, userId);
 
-        var scannedOutAt = DateTime.UtcNow;
+        var scannedOutAt = DateTimeOffset.UtcNow;
         device.Stage = Phase2Stage.Dispatch;
         device.ScannedOutAt = scannedOutAt;
         device.ScannedOutByUserId = userId;

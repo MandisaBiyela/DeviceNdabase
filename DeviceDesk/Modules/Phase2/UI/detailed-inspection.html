@@ -49,81 +49,184 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="inspectionForm">
-                        <input type="hidden" id="deviceId">
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Device Serial</label>
-                            <input type="text" class="form-control" id="deviceSerial" readonly>
-                        </div>
+                    <input type="hidden" id="deviceId">
+                    
+                    <!-- 1. Device info -->
+                    <div class="mb-3">
+                        <label class="form-label">Device Serial</label>
+                        <input type="text" id="inspectionDeviceSerial" class="form-control" readonly>
+                    </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Warranty Status *</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="warranty" id="warrantyYes" value="true" required onchange="toggleWarrantyFields()">
-                                <label class="form-check-label" for="warrantyYes">
-                                    Under Warranty
-                                </label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="warranty" id="warrantyNo" value="false" required onchange="toggleWarrantyFields()">
-                                <label class="form-check-label" for="warrantyNo">
-                                    Not Under Warranty
-                                </label>
-                            </div>
+                    <!-- 2. Warranty & route -->
+                    <h6 class="text-uppercase text-muted mb-2">Warranty & Route</h6>
+                    <div class="mb-2">
+                        <label class="form-label d-block">Warranty Status *</label>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="warrantyStatus" id="warrantyUnder" value="UnderWarranty">
+                            <label class="form-check-label" for="warrantyUnder">Under Warranty</label>
                         </div>
-
-                        <div id="warrantyFields" style="display: none;">
-                            <div class="alert alert-info">
-                                <i class="bi bi-info-circle"></i> Device will be sent to manufacturer. No internal repair.
-                            </div>
-                            <div class="mb-3">
-                                <label for="warrantyDoc" class="form-label">Warranty Document Reference</label>
-                                <input type="text" class="form-control" id="warrantyDoc" placeholder="RMA-123456">
-                            </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="warrantyStatus" id="warrantyNotUnder" value="OutOfWarranty">
+                            <label class="form-check-label" for="warrantyNotUnder">Not Under Warranty</label>
                         </div>
+                    </div>
 
-                        <div id="nonWarrantyFields" style="display: none;">
-                            <div class="mb-3">
-                                <label class="form-label">Repairable? *</label>
+                    <!-- 3. Inspection category -->
+                    <h6 class="text-uppercase text-muted mb-2">Inspection Category</h6>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="inspectionCategory" id="catHardware" value="HardwareFailure">
+                            <label class="form-check-label" for="catHardware">
+                                Hardware Failure <small class="text-muted">(Physical component issues)</small>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="inspectionCategory" id="catSoftware" value="SoftwareIssue">
+                            <label class="form-check-label" for="catSoftware">
+                                Software Issue <small class="text-muted">(OS / software problems)</small>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="inspectionCategory" id="catNoIssues" value="NoIssues">
+                            <label class="form-check-label" for="catNoIssues">
+                                No Issues <small class="text-muted">(Ready for allocation/dispatch)</small>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="inspectionCategory" id="catQuarantine" value="Quarantine">
+                            <label class="form-check-label" for="catQuarantine">
+                                Quarantine <small class="text-muted">(Awaiting parts / repair)</small>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="inspectionCategory" id="catWarrantyReturn" value="WarrantyReturn">
+                            <label class="form-check-label" for="catWarrantyReturn">
+                                Warranty Return <small class="text-muted">(Send to manufacturer)</small>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 4. Fault details -->
+                    <h6 class="text-uppercase text-muted mb-2">Fault Description</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6 mb-3 mb-md-0">
+                            <label class="form-label">Symptoms (reported by user)</label>
+                            <textarea id="symptoms" class="form-control" rows="3"
+                                      placeholder="e.g. Device not powering on, beeping on startup..."></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Technician Findings</label>
+                            <textarea id="findings" class="form-control" rows="3"
+                                      placeholder="e.g. Power LED on, fan spins, no display, suspected motherboard/CPU issue..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- 5. Hardware checklist (for hardware / quarantine categories) -->
+                    <div id="hardwareChecklistSection" class="border rounded p-3 mb-3 d-none">
+                        <h6 class="mb-2">Hardware Checks</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Power &amp; Boot</strong><br>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="repairable" id="repairableYes" value="true">
-                                    <label class="form-check-label" for="repairableYes">Yes</label>
+                                    <input class="form-check-input" type="checkbox" name="faultChecklist" value="NoPower" id="faultNoPower">
+                                    <label class="form-check-label" for="faultNoPower">No power (no lights)</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="repairable" id="repairableNo" value="false">
-                                    <label class="form-check-label" for="repairableNo">No</label>
+                                    <input class="form-check-input" type="checkbox" name="faultChecklist" value="PowersOnNoDisplay" id="faultPowersOnNoDisplay">
+                                    <label class="form-check-label" for="faultPowersOnNoDisplay">Powers on, no display</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="faultChecklist" value="RandomShutdown" id="faultRandomShutdown">
+                                    <label class="form-check-label" for="faultRandomShutdown">Random shutdown / restart</label>
+                                </div>
+
+                                <strong class="mt-2 d-block">Display</strong>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="faultChecklist" value="CrackedScreen" id="faultCrackedScreen">
+                                    <label class="form-check-label" for="faultCrackedScreen">Cracked / broken screen</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="faultChecklist" value="LinesOnScreen" id="faultLinesOnScreen">
+                                    <label class="form-check-label" for="faultLinesOnScreen">Lines / artifacts on screen</label>
                                 </div>
                             </div>
 
-                            <div class="mb-3">
-                                <label for="category" class="form-label">Inspection Category *</label>
-                                <select class="form-select" id="category">
-                                    <option value="">Select Category</option>
-                                    <option value="0">Hardware Failure</option>
-                                    <option value="1">Software Issue/Upgrade</option>
-                                    <option value="2">No Issues Found</option>
-                                    <option value="3">Quarantine</option>
-                                    <option value="4">Disposal</option>
-                                </select>
-                            </div>
+                            <div class="col-md-6">
+                                <strong>Battery &amp; Charging</strong><br>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="faultChecklist" value="NotCharging" id="faultNotCharging">
+                                    <label class="form-check-label" for="faultNotCharging">Battery not charging</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="faultChecklist" value="BatteryNotDetected" id="faultBatteryNotDetected">
+                                    <label class="form-check-label" for="faultBatteryNotDetected">Battery not detected</label>
+                                </div>
 
-                            <div id="destinationField" style="display: none;">
-                                <div class="mb-3">
-                                    <label for="destination" class="form-label">Destination</label>
-                                    <select class="form-select" id="destination">
-                                        <option value="">Default (Dispatch)</option>
-                                        <option value="17">School Allocation (R&R)</option>
-                                    </select>
+                                <strong class="mt-2 d-block">Ports &amp; Chassis</strong>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="faultChecklist" value="ChargingPortDamaged" id="faultChargingPortDamaged">
+                                    <label class="form-check-label" for="faultChargingPortDamaged">Charging port damaged / loose</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="faultChecklist" value="BrokenHinges" id="faultBrokenHinges">
+                                    <label class="form-check-label" for="faultBrokenHinges">Broken hinges / cracked casing</label>
+                                </div>
+
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" name="faultChecklist" value="Other" id="faultOther">
+                                    <label class="form-check-label" for="faultOther">Other (see findings)</label>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="mb-3">
-                            <label for="notes" class="form-label">Notes</label>
-                            <textarea class="form-control" id="notes" rows="3" placeholder="Enter inspection details..."></textarea>
+                    <!-- 6. Parts required (for hardware / quarantine categories) -->
+                    <div id="partsSection" class="border rounded p-3 mb-3 d-none">
+                        <h6 class="mb-2">Parts Required for Repair</h6>
+                        <table class="table table-sm mb-2" id="partsTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 30%;">Part Name</th>
+                                    <th style="width: 20%;">Part Code</th>
+                                    <th style="width: 10%;">Qty</th>
+                                    <th>Notes</th>
+                                    <th style="width: 5%;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- rows added via JS -->
+                            </tbody>
+                        </table>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnAddPart">
+                            <i class="bi bi-plus-circle"></i> Add Part
+                        </button>
+                    </div>
+
+                    <!-- 7. Recommendation & priority -->
+                    <h6 class="text-uppercase text-muted mb-2">Recommendation</h6>
+                    <div class="row mb-2">
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">Recommended Action</label>
+                            <select id="recommendedAction" class="form-select">
+                                <option value="ProceedRepair">Proceed with internal repair (after approval)</option>
+                                <option value="WarrantyReturn">Return to manufacturer (warranty)</option>
+                                <option value="NoAction">No repair needed</option>
+                                <option value="Scrap">Scrap / write-off</option>
+                            </select>
                         </div>
-                    </form>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label">Priority</label>
+                            <select id="priority" class="form-select">
+                                <option value="Normal">Normal</option>
+                                <option value="High">High</option>
+                                <option value="Critical">Critical (teacher / lab critical)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label">Estimated Labour (hours)</label>
+                            <input type="number" step="0.5" min="0" id="estimatedLabourHours" class="form-control">
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -142,24 +245,10 @@
         const el = document.getElementById('inspectionModal');
         if (el && !el._initialized) {
             el._initialized = true;
-        }
-
-        // Wire up change handler once
-        const categoryEl = document.getElementById('category');
-        if (categoryEl && !categoryEl._changeWired) {
-            categoryEl.addEventListener('change', (e) => {
-                const destinationField = document.getElementById('destinationField');
-                destinationField.style.display = e.target.value === '2' ? 'block' : 'none';
-            });
-            categoryEl._changeWired = true;
+            // Wire event listeners for the new structured modal
+            wireInspectionEventListeners();
         }
     })();
-
-    function toggleWarrantyFields() {
-        const underWarranty = document.querySelector('input[name="warranty"]:checked')?.value === 'true';
-        document.getElementById('warrantyFields').style.display = underWarranty ? 'block' : 'none';
-        document.getElementById('nonWarrantyFields').style.display = underWarranty ? 'none' : 'block';
-    }
 
     // Technician queue: show count and allow scan to open inspection
     async function updateAwaitingCount() {
@@ -261,59 +350,123 @@
     }
 
     function openInspection(deviceId, serial) {
+        // Set device info
         document.getElementById('deviceId').value = deviceId;
-        document.getElementById('deviceSerial').value = serial;
-        document.getElementById('inspectionForm').reset();
-        document.getElementById('deviceId').value = deviceId;
-        document.getElementById('deviceSerial').value = serial;
-        document.getElementById('warrantyFields').style.display = 'none';
-        document.getElementById('nonWarrantyFields').style.display = 'none';
-        document.getElementById('destinationField').style.display = 'none';
+        const serialInput = document.getElementById("inspectionDeviceSerial");
+        if (serialInput) {
+            serialInput.value = serial || "";
+        }
+
+        // Reset basic fields
+        if (document.getElementById("symptoms")) document.getElementById("symptoms").value = "";
+        if (document.getElementById("findings")) document.getElementById("findings").value = "";
+        if (document.getElementById("estimatedLabourHours")) document.getElementById("estimatedLabourHours").value = "";
+
+        // Clear parts table
+        const partsBody = document.querySelector("#partsTable tbody");
+        if (partsBody) {
+            partsBody.innerHTML = "";
+        }
+
+        // Clear selected radios/checkboxes
+        document.querySelectorAll('input[name="warrantyStatus"]').forEach(r => (r.checked = false));
+        document.querySelectorAll('input[name="inspectionCategory"]').forEach(r => (r.checked = false));
+        document.querySelectorAll('input[name="faultChecklist"]').forEach(cb => (cb.checked = false));
+
+        // Default dropdowns
+        if (document.getElementById("recommendedAction")) document.getElementById("recommendedAction").value = "ProceedRepair";
+        if (document.getElementById("priority")) document.getElementById("priority").value = "Normal";
+
+        // Wire event listeners for this modal instance
+        wireInspectionEventListeners();
+
+        // Ensure hardware sections start hidden
+        updateHardwareSectionsVisibility();
+
+        // Show modal
         const el = document.getElementById('inspectionModal');
         if (!el) return;
         const modal = bootstrap.Modal.getOrCreateInstance(el);
         modal.show();
     }
 
-    async function submitInspection() {
+    // Build structured inspection payload
+    function buildInspectionPayload() {
         const deviceId = parseInt(document.getElementById('deviceId').value);
-        const underWarranty = document.querySelector('input[name="warranty"]:checked')?.value === 'true';
+        const deviceSerial = document.getElementById("inspectionDeviceSerial")?.value || "";
+
+        const warrantyStatus = document.querySelector('input[name="warrantyStatus"]:checked')?.value || null;
+        const inspectionCategory = document.querySelector('input[name="inspectionCategory"]:checked')?.value || null;
+
+        const symptoms = document.getElementById("symptoms")?.value?.trim() || "";
+        const findings = document.getElementById("findings")?.value?.trim() || "";
+
+        const faultChecklist = Array.from(
+            document.querySelectorAll('input[name="faultChecklist"]:checked')
+        ).map(cb => cb.value);
+
+        const parts = collectPartsFromTable();
+
+        const recommendedAction = document.getElementById("recommendedAction")?.value || "ProceedRepair";
+        const priority = document.getElementById("priority")?.value || "Normal";
+        const estimatedLabourHours = parseFloat(document.getElementById("estimatedLabourHours")?.value || "0") || 0;
+
+        return {
+            deviceId,
+            deviceSerial,
+            warrantyStatus,
+            inspectionCategory,
+            symptoms,
+            findings,
+            faultChecklist,
+            parts,
+            recommendedAction,
+            priority,
+            estimatedLabourHours
+        };
+    }
+
+    // Map category string values to InspectionCategory enum
+    function mapCategoryToEnum(categoryStr) {
+        const categoryMap = {
+            "HardwareFailure": 0,
+            "SoftwareIssue": 1,
+            "NoIssues": 2,
+            "Quarantine": 3,
+            "WarrantyReturn": 5
+        };
+        return categoryMap[categoryStr] ?? 2; // default to NoIssues
+    }
+
+    async function submitInspection() {
+        const payload = buildInspectionPayload();
         
-        if (underWarranty === undefined) {
-            showAlert('Please select warranty status', 'warning');
+        // Validation
+        if (!payload.deviceSerial) {
+            showAlert('Device serial is missing.', 'warning');
+            return;
+        }
+        if (!payload.warrantyStatus) {
+            showAlert('Please select a warranty status.', 'warning');
+            return;
+        }
+        if (!payload.inspectionCategory) {
+            showAlert('Please select an inspection category.', 'warning');
             return;
         }
 
+        // Build backend request matching existing API
+        const underWarranty = payload.warrantyStatus === 'UnderWarranty';
         let requestData = {
-            DeviceId: deviceId,
+            DeviceId: payload.deviceId,
             TechnicianId: currentUser.email,
             UnderWarranty: underWarranty,
-            Notes: document.getElementById('notes').value
+            Repairable: !underWarranty, // Default to repairable for non-warranty
+            Category: mapCategoryToEnum(payload.inspectionCategory),
+            Notes: `Symptoms: ${payload.symptoms}\n\nFindings: ${payload.findings}\n\nFaults: ${payload.faultChecklist.join(', ')}\n\nParts: ${JSON.stringify(payload.parts)}\n\nRecommended Action: ${payload.recommendedAction}\nPriority: ${payload.priority}\nLabour Hours: ${payload.estimatedLabourHours}`,
+            DocumentRef: null,
+            Destination: null
         };
-
-        if (underWarranty) {
-            requestData.Repairable = null;
-            requestData.Category = 5; // WarrantyReturn
-            requestData.DocumentRef = document.getElementById('warrantyDoc').value;
-        } else {
-            const repairable = document.querySelector('input[name="repairable"]:checked')?.value;
-            const category = document.getElementById('category').value;
-            
-            if (!category) {
-                showAlert('Please select inspection category', 'warning');
-                return;
-            }
-
-            requestData.Repairable = repairable === 'true';
-            requestData.Category = parseInt(category);
-            
-            if (category === '2') { // No Issues Found
-                const destination = document.getElementById('destination').value;
-                if (destination) {
-                    requestData.Destination = parseInt(destination);
-                }
-            }
-        }
 
         try {
             const response = await fetch('/api/phase2/assessment/detailed', {
@@ -331,7 +484,7 @@
                 }
                 updateAwaitingCount();
             } else {
-                const error = await response.json();
+                const error = await response.json().catch(() => ({}));
                 showAlert(error.message || 'Failed to submit inspection', 'danger');
             }
         } catch (error) {
@@ -350,6 +503,78 @@
         setTimeout(() => {
             alertContainer.innerHTML = '';
         }, 5000);
+    }
+
+    // Show/hide hardware sections based on selected category
+    function updateHardwareSectionsVisibility() {
+        const selectedCategory = document.querySelector('input[name="inspectionCategory"]:checked')?.value;
+        const isHardwareCategory = selectedCategory === "HardwareFailure" || selectedCategory === "Quarantine";
+
+        const hardwareSection = document.getElementById("hardwareChecklistSection");
+        const partsSection = document.getElementById("partsSection");
+
+        if (hardwareSection && partsSection) {
+            hardwareSection.classList.toggle("d-none", !isHardwareCategory);
+            partsSection.classList.toggle("d-none", !isHardwareCategory);
+        }
+    }
+
+    // Add a new part row to the parts table
+    function addPartRow(part = { partName: "", partCode: "", quantity: 1, notes: "" }) {
+        const tableBody = document.querySelector("#partsTable tbody");
+        if (!tableBody) return;
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>
+                <input type="text" class="form-control form-control-sm part-name" value="${part.partName || ""}" placeholder="e.g. LCD Screen">
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm part-code" value="${part.partCode || ""}" placeholder="e.g. HP-15-LCD">
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm part-qty" value="${part.quantity || 1}" min="1">
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm part-notes" value="${part.notes || ""}" placeholder="Any notes">
+            </td>
+            <td class="text-end">
+                <button type="button" class="btn btn-link btn-sm text-danger btn-remove-part">&times;</button>
+            </td>
+        `;
+
+        tableBody.appendChild(tr);
+
+        const removeBtn = tr.querySelector(".btn-remove-part");
+        removeBtn.addEventListener("click", () => {
+            tr.remove();
+        });
+    }
+
+    // Collect all parts from the table
+    function collectPartsFromTable() {
+        const rows = Array.from(document.querySelectorAll("#partsTable tbody tr"));
+        return rows.map(row => ({
+            partName: row.querySelector(".part-name")?.value?.trim() || "",
+            partCode: row.querySelector(".part-code")?.value?.trim() || "",
+            quantity: parseInt(row.querySelector(".part-qty")?.value || "1", 10) || 1,
+            notes: row.querySelector(".part-notes")?.value?.trim() || ""
+        })).filter(p => p.partName || p.partCode); // ignore empty rows
+    }
+
+    // Wire event listeners for category changes and add part button
+    function wireInspectionEventListeners() {
+        // Category change listener
+        document.querySelectorAll('input[name="inspectionCategory"]').forEach(radio => {
+            radio.addEventListener("change", updateHardwareSectionsVisibility);
+        });
+
+        // Add Part button listener
+        const btnAddPart = document.getElementById("btnAddPart");
+        if (btnAddPart && !btnAddPart._wired) {
+            btnAddPart.addEventListener("click", () => addPartRow());
+            btnAddPart._wired = true;
+        }
     }
 </script>
 

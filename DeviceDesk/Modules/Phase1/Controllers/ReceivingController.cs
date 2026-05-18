@@ -6,7 +6,6 @@ using DeviceDesk.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Text;
 
 namespace DeviceDesk.Modules.Phase1.Controllers
 {
@@ -101,62 +100,22 @@ namespace DeviceDesk.Modules.Phase1.Controllers
         {
             try
             {
-                // Pull PendingScan batches with their items so the receiving UI can show
-                // PO/Project/Financial Year + school breakdown without an extra round-trip.
-                var batches = await _coreDb.NewStockBatches
-                    .AsNoTracking()
-                    .Where(b => b.Status == Modules.Phase0.Models.NewStockBatchStatus.PendingScan)
-                    .Include(b => b.Items)
-                    .OrderByDescending(b => b.CreatedAt)
-                    .ToListAsync(ct);
-
-                var orders = batches.Select(b =>
+                // Get batches that are pending scan (ready for Phase 1)
+                var batches = await _newStockBatchService.GetBatchesAsync(
+                    Modules.Phase0.Models.NewStockBatchStatus.PendingScan, 
+                    ct);
+                
+                // Transform to match the expected order format for frontend compatibility
+                var orders = batches.Select(b => new
                 {
-                    var schoolNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    foreach (var item in b.Items)
-                    {
-                        if (string.IsNullOrWhiteSpace(item.SchoolBreakdownJson)) continue;
-                        try
-                        {
-                            using var doc = System.Text.Json.JsonDocument.Parse(item.SchoolBreakdownJson);
-                            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array) continue;
-                            foreach (var el in doc.RootElement.EnumerateArray())
-                            {
-                                if (el.TryGetProperty("schoolName", out var n) && n.ValueKind == System.Text.Json.JsonValueKind.String)
-                                {
-                                    var name = n.GetString();
-                                    if (!string.IsNullOrWhiteSpace(name)) schoolNames.Add(name);
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            // ignore malformed JSON; surface what we can
-                        }
-                    }
-
-                    var summary = schoolNames.Count > 0
-                        ? $"{schoolNames.Count} school{(schoolNames.Count == 1 ? "" : "s")}, {b.TotalQuantityExpected} device{(b.TotalQuantityExpected == 1 ? "" : "s")}"
-                        : $"{b.TotalQuantityExpected} device{(b.TotalQuantityExpected == 1 ? "" : "s")}";
-
-                    return new
-                    {
-                        orderId = b.BatchId,
-                        orderNumber = b.BatchNumber,
-                        invoiceNumber = b.InvoiceNumber,
-                        supplierName = b.SupplierName,
-                        orderDate = b.CreatedAt,
-                        status = b.Status.ToString(),
-                        totalQuantity = b.TotalQuantityExpected,
-                        receivedQuantity = b.TotalQuantityScanned,
-                        poNumber = b.PoNumber,
-                        projectName = b.ProjectName,
-                        financialYear = b.FinancialYear,
-                        procurementOrderId = b.ProcurementOrderId,
-                        schoolCount = schoolNames.Count,
-                        schoolNames = schoolNames.OrderBy(x => x).ToArray(),
-                        breakdownSummary = summary
-                    };
+                    orderId = b.BatchId,
+                    orderNumber = b.BatchNumber,
+                    invoiceNumber = b.InvoiceNumber,
+                    supplierName = b.SupplierName,
+                    orderDate = b.CreatedAt,
+                    status = b.StatusText,
+                    totalQuantity = b.TotalQuantityExpected,
+                    receivedQuantity = b.TotalQuantityScanned
                 }).ToList();
 
                 return Ok(orders);
@@ -603,102 +562,6 @@ namespace DeviceDesk.Modules.Phase1.Controllers
             {
                 return StatusCode(500, new { error = "Failed to fetch recent activity", details = ex.Message });
             }
-        }
-
-        /// <summary>
-        /// Export dashboard batch data as CSV with date filter.
-        /// range: today | week | month | all | custom
-        /// </summary>
-        [HttpGet("dashboard/export")]
-        [AllowAnonymous]
-        public async Task<IActionResult> ExportDashboardCsv(
-            [FromQuery] string? range = "today",
-            [FromQuery] DateTimeOffset? fromDate = null,
-            [FromQuery] DateTimeOffset? toDate = null,
-            CancellationToken ct = default)
-        {
-            var now = DateTimeOffset.UtcNow;
-            var selectedRange = (range ?? "today").Trim().ToLowerInvariant();
-
-            DateTimeOffset from;
-            DateTimeOffset to;
-            switch (selectedRange)
-            {
-                case "today":
-                    from = new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, TimeSpan.Zero);
-                    to = from.AddDays(1).AddTicks(-1);
-                    break;
-                case "week":
-                    var dayOffset = ((int)now.DayOfWeek + 6) % 7;
-                    var weekStart = now.Date.AddDays(-dayOffset);
-                    from = new DateTimeOffset(weekStart, TimeSpan.Zero);
-                    to = from.AddDays(7).AddTicks(-1);
-                    break;
-                case "month":
-                    from = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero);
-                    to = from.AddMonths(1).AddTicks(-1);
-                    break;
-                case "custom":
-                    if (!fromDate.HasValue || !toDate.HasValue)
-                        return BadRequest(new { error = "fromDate and toDate are required when range=custom" });
-                    from = fromDate.Value;
-                    to = toDate.Value;
-                    break;
-                case "all":
-                default:
-                    from = DateTimeOffset.MinValue;
-                    to = DateTimeOffset.MaxValue;
-                    break;
-            }
-
-            var rows = await _phase1Db.ReceivingBatches
-                .Include(b => b.CollectionSlip)
-                .Include(b => b.Order)
-                .Where(b => b.CreatedAt >= from && b.CreatedAt <= to)
-                .OrderByDescending(b => b.CreatedAt)
-                .Select(b => new
-                {
-                    b.ReceivingBatchId,
-                    SourceType = b.SourceType == ReceivingSourceType.NewStock ? "New Stock"
-                        : b.SourceType == ReceivingSourceType.RnrNormal ? "RnR Normal"
-                        : "RnR Emergency",
-                    Status = b.Status.ToString(),
-                    SupplierOrSchool = b.SourceType == ReceivingSourceType.NewStock
-                        ? (b.Order != null ? b.Order.SupplierName : "")
-                        : (b.CollectionSlip != null ? b.CollectionSlip.SchoolName : ""),
-                    DocumentNumber = b.SourceType == ReceivingSourceType.NewStock
-                        ? (b.Order != null ? b.Order.InvoiceNumber ?? b.Order.OrderNumber : "")
-                        : (b.CollectionSlip != null ? b.CollectionSlip.SlipNumber : ""),
-                    DeviceCount = b.ActualCount > 0 ? b.ActualCount : b.ExpectedCount,
-                    b.CreatedAt
-                })
-                .ToListAsync(ct);
-
-            var csv = new StringBuilder();
-            csv.AppendLine("BatchId,SourceType,Status,SupplierOrSchool,DocumentNumber,DeviceCount,CreatedAtUtc");
-            foreach (var row in rows)
-            {
-                csv.AppendLine(
-                    $"{EscapeCsv(row.ReceivingBatchId.ToString())}," +
-                    $"{EscapeCsv(row.SourceType)}," +
-                    $"{EscapeCsv(row.Status)}," +
-                    $"{EscapeCsv(row.SupplierOrSchool)}," +
-                    $"{EscapeCsv(row.DocumentNumber)}," +
-                    $"{row.DeviceCount}," +
-                    $"{row.CreatedAt:O}"
-                );
-            }
-
-            var fileName = $"phase1_dashboard_{selectedRange}_{DateTime.UtcNow:yyyyMMddHHmmss}.csv";
-            return File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", fileName);
-        }
-
-        private static string EscapeCsv(string? raw)
-        {
-            var value = raw ?? string.Empty;
-            if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
-                return $"\"{value.Replace("\"", "\"\"")}\"";
-            return value;
         }
     }
 }

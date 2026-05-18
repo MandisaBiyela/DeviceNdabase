@@ -1,207 +1,266 @@
 (() => {
-  const API_BASE = `${location.origin}/api/phase1`;
-  const DATE_LABEL = { today: 'Today', week: 'This Week', month: 'This Month', all: 'All Time' };
-  let selectedRange = 'today';
-  let allActivity = [];
-  let visibleActivityCount = 10;
+    const API_BASE = `${location.origin}/api/phase1`;
 
-  document.addEventListener('DOMContentLoaded', async () => {
-    wireDateFilter();
-    wireRoutes();
-    wireExport();
-    await loadProfile();
-    await Promise.all([loadDashboardStats(), loadRecentActivity()]);
-    renderActivityList();
-    if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
-  });
-
-  function wireRoutes() {
-    const goto = (url) => { window.location.href = url; };
-    document.getElementById('btnCreateBatch')?.addEventListener('click', () => goto('/phase1/receiving-create.html'));
-    document.getElementById('btnViewAllBatches')?.addEventListener('click', () => goto('/phase1/receiving-list.html'));
-    document.getElementById('navNewBatch')?.addEventListener('click', (e) => { e.preventDefault(); goto('/phase1/receiving-create.html'); });
-    document.getElementById('navAllBatches')?.addEventListener('click', (e) => { e.preventDefault(); goto('/phase1/receiving-list.html'); });
-  }
-
-  function wireDateFilter() {
-    const btn = document.getElementById('dateFilterBtn');
-    const menu = document.getElementById('dateFilterMenu');
-    btn?.addEventListener('click', (e) => {
-      e.preventDefault();
-      menu?.classList.toggle('open');
+    // Load dashboard data on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDashboardStats();
+        loadRecentActivity();
     });
-    menu?.querySelectorAll('[data-range]').forEach((opt) => {
-      opt.addEventListener('click', async () => {
-        selectedRange = opt.getAttribute('data-range') || 'today';
-        document.getElementById('phase1-date-range').textContent = DATE_LABEL[selectedRange] || 'Today';
-        menu.querySelectorAll('[data-range]').forEach((x) => x.classList.remove('active'));
-        opt.classList.add('active');
-        menu.classList.remove('open');
-        await Promise.all([loadDashboardStats(), loadRecentActivity()]);
-        visibleActivityCount = 10;
-        renderActivityList();
-      });
-    });
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.date-wrap')) menu?.classList.remove('open');
-    });
-  }
 
-  function wireExport() {
-    document.getElementById('btnExportPhase1')?.addEventListener('click', async () => {
-      const btn = document.getElementById('btnExportPhase1');
-      const txt = document.getElementById('exportBtnText');
-      if (!btn || !txt) return;
-      btn.disabled = true;
-      txt.textContent = 'Exporting...';
-      try {
-        const url = `${API_BASE}/receiving/dashboard/export?range=${encodeURIComponent(selectedRange)}`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`Export failed (${res.status})`);
-        const blob = await res.blob();
-        const fileName = getFileName(res.headers.get('content-disposition')) || `phase1_dashboard_${selectedRange}.csv`;
-        const objectUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = objectUrl;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        txt.textContent = 'Export';
-        btn.disabled = false;
-      }
-    });
-  }
-
-  async function loadDashboardStats() {
-    try {
-      const response = await fetch(`${API_BASE}/receiving/dashboard/stats`);
-      const stats = response.ok ? await response.json() : {};
-      updateStats({
-        totalBatches: stats.totalBatches || 0,
-        completedBatches: stats.completedBatches || 0,
-        inProgressBatches: stats.inProgressBatches || 0,
-        totalDevices: stats.totalDevices || 0,
-        newStockCount: stats.newStockCount || 0,
-        rnrNormalCount: stats.rnrNormalCount || 0,
-        rnrEmergencyCount: stats.rnrEmergencyCount || 0
-      });
-    } catch (err) {
-      console.error('Error loading dashboard stats:', err);
-      updateStats({ totalBatches: 0, completedBatches: 0, inProgressBatches: 0, totalDevices: 0, newStockCount: 0, rnrNormalCount: 0, rnrEmergencyCount: 0 });
-    }
-  }
-
-  function updateStats(stats) {
-    document.getElementById('totalBatches').textContent = numberFmt(stats.totalBatches);
-    document.getElementById('completedBatches').textContent = numberFmt(stats.completedBatches);
-    document.getElementById('inProgressBatches').textContent = numberFmt(stats.inProgressBatches);
-    document.getElementById('totalDevices').textContent = numberFmt(stats.totalDevices);
-    document.getElementById('completedBatchesSub').textContent = numberFmt(stats.completedBatches);
-    document.getElementById('inProgressSub').textContent = `${numberFmt(stats.inProgressBatches)} active`;
-    document.getElementById('newStockCount').textContent = numberFmt(stats.newStockCount);
-    document.getElementById('rnrNormalCount').textContent = numberFmt(stats.rnrNormalCount);
-    document.getElementById('rnrEmergencyCount').textContent = numberFmt(stats.rnrEmergencyCount);
-
-    const total = Math.max(1, stats.totalBatches || (stats.newStockCount + stats.rnrNormalCount + stats.rnrEmergencyCount));
-    document.getElementById('newStockBar').style.width = `${(stats.newStockCount / total) * 100}%`;
-    document.getElementById('rnrNormalBar').style.width = `${(stats.rnrNormalCount / total) * 100}%`;
-    document.getElementById('rnrEmergencyBar').style.width = `${(stats.rnrEmergencyCount / total) * 100}%`;
-  }
-
-  async function loadRecentActivity() {
-    try {
-      const response = await fetch(`${API_BASE}/receiving/dashboard/recent`);
-      const rows = response.ok ? await response.json() : [];
-      allActivity = rows.filter((row) => inSelectedRange(row.createdAt));
-    } catch (err) {
-      console.error('Error loading recent activity:', err);
-      allActivity = [];
-    }
-  }
-
-  function renderActivityList() {
-    const wrap = document.getElementById('recentActivity');
-    const loadMore = document.getElementById('loadMoreActivity');
-    if (!wrap || !loadMore) return;
-
-    const visible = allActivity.slice(0, visibleActivityCount);
-    if (visible.length === 0) {
-      wrap.innerHTML = `<div class="text-center py-5 text-muted"><i data-lucide="inbox" style="width:40px;height:40px"></i><div class="mt-2">No recent activity yet</div></div>`;
-      loadMore.style.display = 'none';
-      if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
-      return;
+    async function loadDashboardStats() {
+        try {
+            const response = await fetch(`${API_BASE}/receiving/dashboard/stats`);
+            if (response.ok) {
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('Expected JSON but got:', contentType, text.substring(0, 200));
+                    throw new Error(`Server returned ${contentType} instead of JSON`);
+                }
+                const stats = await response.json();
+                updateStats({
+                    totalBatches: stats.totalBatches || 0,
+                    completedBatches: stats.completedBatches || 0,
+                    inProgressBatches: stats.inProgressBatches || 0,
+                    totalDevices: stats.totalDevices || 0,
+                    newStockCount: stats.newStockCount || 0,
+                    rnrNormalCount: stats.rnrNormalCount || 0,
+                    rnrEmergencyCount: stats.rnrEmergencyCount || 0
+                });
+            } else {
+                const errorText = await response.text().catch(() => 'Unknown error');
+                console.error('Failed to load dashboard stats:', response.status, response.statusText, errorText.substring(0, 200));
+                // Show zeros on error
+                updateStats({
+                    totalBatches: 0,
+                    completedBatches: 0,
+                    inProgressBatches: 0,
+                    totalDevices: 0,
+                    newStockCount: 0,
+                    rnrNormalCount: 0,
+                    rnrEmergencyCount: 0
+                });
+            }
+        } catch (err) {
+            console.error('Error loading dashboard stats:', err);
+            // Show zeros on error
+            updateStats({
+                totalBatches: 0,
+                completedBatches: 0,
+                inProgressBatches: 0,
+                totalDevices: 0,
+                newStockCount: 0,
+                rnrNormalCount: 0,
+                rnrEmergencyCount: 0
+            });
+        }
     }
 
-    wrap.innerHTML = visible.map((b) => {
-      const sourceName = b.sourceTypeName || b.sourceType || '';
-      const sourceTagClass = sourceName === 'New Stock' ? 'tag-new' : (sourceName === 'RnR Normal' ? 'tag-rnr' : 'tag-emergency');
-      const statusClass = mapStatusClass(b.statusName || b.status);
-      return `
-        <div class="activity-item">
-          <span class="activity-tag ${sourceTagClass}">${sourceName} ${b.documentNumber ? `- ${b.documentNumber}` : ''}</span>
-          <div class="activity-meta"><strong>School/Supplier:</strong> ${escapeHtml(b.schoolName || 'N/A')}</div>
-          <div class="activity-meta"><strong>Devices:</strong> ${numberFmt(b.deviceCount || 0)}</div>
-          <div class="d-flex justify-content-between align-items-center mt-2">
-            <span class="activity-time">${new Date(b.createdAt).toLocaleString()}</span>
-            <span class="status-pill ${statusClass}">${escapeHtml(b.statusName || b.status || 'Pending')}</span>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    loadMore.style.display = visibleActivityCount < allActivity.length ? 'inline-block' : 'none';
-    loadMore.onclick = () => {
-      visibleActivityCount += 10;
-      renderActivityList();
-    };
-  }
-
-  function mapStatusClass(statusRaw) {
-    const s = String(statusRaw || '').toLowerCase();
-    if (s.includes('grvissued')) return 'st-grv';
-    if (s.includes('progress') || s.includes('scanning') || s.includes('verified') || s.includes('variance')) return 'st-progress';
-    if (s.includes('failed') || s.includes('cancel')) return 'st-failed';
-    return 'st-pending';
-  }
-
-  function inSelectedRange(iso) {
-    if (selectedRange === 'all') return true;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return false;
-    const now = new Date();
-    if (selectedRange === 'today') return d.toDateString() === now.toDateString();
-    if (selectedRange === 'week') {
-      const start = new Date(now);
-      const day = (start.getDay() + 6) % 7;
-      start.setDate(start.getDate() - day);
-      start.setHours(0, 0, 0, 0);
-      return d >= start && d <= now;
+    function updateStats(stats) {
+        document.getElementById('totalBatches').textContent = stats.totalBatches;
+        document.getElementById('completedBatches').textContent = stats.completedBatches;
+        document.getElementById('inProgressBatches').textContent = stats.inProgressBatches;
+        document.getElementById('totalDevices').textContent = stats.totalDevices;
+        
+        // Update source breakdown
+        document.getElementById('newStockCount').textContent = stats.newStockCount;
+        document.getElementById('rnrNormalCount').textContent = stats.rnrNormalCount;
+        document.getElementById('rnrEmergencyCount').textContent = stats.rnrEmergencyCount;
+        
+        const total = stats.newStockCount + stats.rnrNormalCount + stats.rnrEmergencyCount;
+        if (total > 0) {
+            document.getElementById('newStockBar').style.width = `${(stats.newStockCount / total) * 100}%`;
+            document.getElementById('rnrNormalBar').style.width = `${(stats.rnrNormalCount / total) * 100}%`;
+            document.getElementById('rnrEmergencyBar').style.width = `${(stats.rnrEmergencyCount / total) * 100}%`;
+        }
     }
-    if (selectedRange === 'month') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    return true;
-  }
 
-  async function loadProfile() {
-    try {
-      const response = await fetch('/api/auth/current-user');
-      if (!response.ok) return;
-      const user = await response.json();
-      document.getElementById('profileRoleSub').textContent = user.role || 'ReceivingClerk';
-    } catch (error) {
-      console.error('Error loading profile:', error);
+    async function loadRecentActivity() {
+        const activityContainer = document.getElementById('recentActivity');
+        if (!activityContainer) {
+            console.warn('Recent activity container not found');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/receiving/dashboard/recent`);
+            if (response.ok) {
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('Expected JSON but got:', contentType, text.substring(0, 200));
+                    throw new Error(`Server returned ${contentType} instead of JSON`);
+                }
+                const batches = await response.json();
+                
+                if (!batches || batches.length === 0) {
+                    activityContainer.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <i class="bi bi-inbox"></i>
+                            </div>
+                            <h5>No Recent Activity</h5>
+                            <p>Create your first receiving batch to see activity here</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Render batches with enhanced design
+                activityContainer.innerHTML = batches.map(batch => {
+                    const date = new Date(batch.createdAt);
+                    
+                    // Determine icon and styling based on source type
+                    let iconClass = 'new-stock';
+                    let icon = 'bi-box-seam';
+                    let typeName = batch.sourceTypeName || batch.sourceType;
+                    
+                    if (typeName.toLowerCase().includes('rnr emergency') || typeName.toLowerCase().includes('emergency')) {
+                        iconClass = 'rnr-emergency';
+                        icon = 'bi-lightning-fill';
+                    } else if (typeName.toLowerCase().includes('rnr') || typeName.toLowerCase().includes('normal')) {
+                        iconClass = 'rnr-normal';
+                        icon = 'bi-arrow-repeat';
+                    }
+                    
+                    // Determine status badge
+                    let statusClass = 'badge-pending';
+                    let statusText = batch.statusName || batch.status || 'Unknown';
+                    
+                    if (statusText.toLowerCase().includes('complet')) {
+                        statusClass = 'badge-completed';
+                    } else if (statusText.toLowerCase().includes('progress') || statusText.toLowerCase().includes('scanning') || statusText.toLowerCase().includes('verif')) {
+                        statusClass = 'badge-in-progress';
+                    } else if (statusText.toLowerCase().includes('cancel')) {
+                        statusClass = 'badge-cancelled';
+                    }
+                    
+                    // Format document number
+                    const documentNumber = batch.documentNumber || batch.batchNumber || 'N/A';
+                    
+                    return `
+                        <div class="activity-item">
+                            <div class="activity-header">
+                                <div class="activity-type">
+                                    <div class="activity-type-icon ${iconClass}">
+                                        <i class="bi ${icon}"></i>
+                                    </div>
+                                    <div>
+                                        <div style="font-weight: 600; color: #2c3e50;">${typeName}</div>
+                                        <div style="font-size: 0.85rem; color: #6c757d;">${documentNumber}</div>
+                                    </div>
+                                </div>
+                                <span class="activity-badge ${statusClass}">${statusText}</span>
+                            </div>
+                            
+                            <div class="activity-details">
+                                <div class="activity-detail-item">
+                                    <div class="activity-detail-label">School/Supplier</div>
+                                    <div class="activity-detail-value">${batch.schoolName || 'N/A'}</div>
+                                </div>
+                                <div class="activity-detail-item">
+                                    <div class="activity-detail-label">Devices</div>
+                                    <div class="activity-detail-value">
+                                        <i class="bi bi-box text-primary me-1"></i>${batch.deviceCount || 0}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="activity-timestamp">
+                                <i class="bi bi-clock"></i>
+                                <span>${formatDateTime(date)}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                const errorText = await response.text().catch(() => 'Unknown error');
+                console.error('Failed to load recent activity:', response.status, response.statusText, errorText.substring(0, 200));
+                activityContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">
+                            <i class="bi bi-exclamation-triangle text-warning"></i>
+                        </div>
+                        <h5>Failed to Load Activity</h5>
+                        <p class="small">Status: ${response.status} ${response.statusText}</p>
+                        <p class="small">Please refresh the page or check console for details</p>
+                    </div>
+                `;
+            }
+        } catch (err) {
+            console.error('Error loading recent activity:', err);
+            const errorMsg = err.message || 'Unknown error';
+            activityContainer.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="bi bi-exclamation-triangle text-danger"></i>
+                    </div>
+                    <h5>Error Loading Activity</h5>
+                    <p class="small">${errorMsg}</p>
+                    <p class="small">Check browser console for details</p>
+                </div>
+            `;
+        }
     }
-  }
 
-  function getFileName(disposition) {
-    if (!disposition) return null;
-    const match = /filename="?([^"]+)"?/.exec(disposition);
-    return match ? match[1] : null;
-  }
-  function numberFmt(v) { return Number(v || 0).toLocaleString(); }
-  function escapeHtml(v) { return String(v ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;'); }
+    function formatDateTime(date) {
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) {
+            return 'Just now';
+        } else if (diffMins < 60) {
+            return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+        } else if (diffHours < 24) {
+            return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+        } else if (diffDays < 7) {
+            return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+        } else {
+            return date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+    }
+
+    function showToast(title, message, type) {
+        // Create toast element
+        const toastHtml = `
+            <div class="toast align-items-center text-white bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <strong>${title}</strong><br>${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+
+        // Create container if it doesn't exist
+        let container = document.getElementById('toastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toastContainer';
+            container.className = 'toast-container position-fixed top-0 end-0 p-3';
+            container.style.zIndex = '9999';
+            document.body.appendChild(container);
+        }
+
+        // Add toast
+        container.insertAdjacentHTML('beforeend', toastHtml);
+        const toastElement = container.lastElementChild;
+        const toast = new bootstrap.Toast(toastElement, { delay: 4000 });
+        toast.show();
+
+        // Remove after hidden
+        toastElement.addEventListener('hidden.bs.toast', () => {
+            toastElement.remove();
+        });
+    }
 })();

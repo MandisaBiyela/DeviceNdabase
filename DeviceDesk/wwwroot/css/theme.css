@@ -314,15 +314,14 @@
 }
 
 /* ============================================
-   BUTTONS - White outline only on blue app header
-   (Global .btn-outline-secondary breaks light pages, e.g. Phase 0 orders.)
+   BUTTONS - Ensure visibility on blue header
    ============================================ */
-.app-header .btn-outline-secondary {
+.btn-outline-secondary {
     border-color: rgba(255, 255, 255, 0.3) !important;
     color: #ffffff !important;
 }
 
-.app-header .btn-outline-secondary:hover {
+.btn-outline-secondary:hover {
     background: rgba(255, 255, 255, 0.2) !important;
     border-color: rgba(255, 255, 255, 0.5) !important;
     color: #ffffff !important;

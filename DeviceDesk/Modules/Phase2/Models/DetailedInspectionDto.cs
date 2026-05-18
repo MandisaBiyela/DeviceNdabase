@@ -17,7 +17,7 @@ namespace DeviceDesk.Modules.Phase2.Models
         public bool? UnderWarranty { get; set; }
         public bool? Repairable { get; set; }
         public string? TechnicianId { get; set; }
-        public DateTime? InspectionDate { get; set; }
+        public DateTimeOffset? InspectionDate { get; set; }
         public string? RepairCategory { get; set; }
         public bool? DisposalRequested { get; set; }
 
@@ -26,6 +26,6 @@ namespace DeviceDesk.Modules.Phase2.Models
         public string? QaInspectorId { get; set; }
         public int ReworkCount { get; set; }
 
-        public DateTime UpdatedAt { get; set; }
+        public DateTimeOffset UpdatedAt { get; set; }
     }
 }

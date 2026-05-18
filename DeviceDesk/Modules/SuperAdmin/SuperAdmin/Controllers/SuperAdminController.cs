@@ -1,7 +1,5 @@
 using DeviceDesk.Infrastructure.Data;
-using DeviceDesk.Infrastructure.Data.Enums;
 using DeviceDesk.Infrastructure.Identity;
-using DeviceDesk.Modules.Phase0.Models;
 using DeviceDesk.Modules.Phase2.Data;
 using DeviceDesk.Modules.Phase3.Data;
 using DeviceDesk.Modules.SuperAdmin.Models;
@@ -241,140 +239,6 @@ public class SuperAdminController : ControllerBase
         return Ok(summary);
     }
 
-    [HttpGet("dashboard/provincial-analytics")]
-    public async Task<IActionResult> GetProvincialAnalytics([FromQuery] string? district = null)
-    {
-        try
-        {
-            // Get schools grouped by district (from Phase0Db)
-            var schoolsByDistrict = await _phase0Db.Schools
-                .AsNoTracking()
-                .GroupBy(s => s.District ?? "Unknown")
-                .Select(g => new { District = g.Key, Count = g.Count() })
-                .OrderByDescending(x => x.Count)
-                .ToListAsync();
-
-            // Get all schools with their districts (for in-memory join)
-            var schoolsLookup = await _phase0Db.Schools
-                .AsNoTracking()
-                .Select(s => new { s.SchoolId, s.District })
-                .ToDictionaryAsync(s => s.SchoolId, s => s.District ?? "Unknown");
-
-            _logger.LogInformation($"[Provincial] Loaded {schoolsLookup.Count} schools for lookup");
-
-            // Get all devices (from Phase2Db) - include those without SchoolId too
-            var allDevices = await _phase2Db.Devices
-                .AsNoTracking()
-                .Select(d => new { d.SchoolId, d.QaPassed, d.SchoolName })
-                .ToListAsync();
-
-            _logger.LogInformation($"[Provincial] Loaded {allDevices.Count} devices from Phase2");
-            _logger.LogInformation($"[Provincial] Devices with SchoolId: {allDevices.Count(d => d.SchoolId.HasValue)}");
-
-            // Join in memory and group by district
-            var devicesByDistrict = allDevices
-                .Where(d => d.SchoolId.HasValue && schoolsLookup.ContainsKey((long)d.SchoolId.Value))
-                .GroupBy(d => schoolsLookup[(long)d.SchoolId.Value])
-                .ToDictionary(g => g.Key, g => g.Count());
-
-            // For devices without SchoolId but with SchoolName, try to match by name
-            var devicesWithoutSchoolId = allDevices
-                .Where(d => !d.SchoolId.HasValue && !string.IsNullOrEmpty(d.SchoolName))
-                .ToList();
-
-            if (devicesWithoutSchoolId.Any())
-            {
-                _logger.LogInformation($"[Provincial] Found {devicesWithoutSchoolId.Count} devices without SchoolId");
-                
-                // Try to match by school name (simplified matching)
-                // Group by name to handle duplicates - take the first district for each school name
-                var schoolsByName = await _phase0Db.Schools
-                    .AsNoTracking()
-                    .Select(s => new { s.Name, s.District })
-                    .GroupBy(s => s.Name.ToLower().Trim())
-                    .ToDictionaryAsync(
-                        g => g.Key, 
-                        g => g.Select(s => s.District ?? "Unknown").FirstOrDefault() ?? "Unknown"
-                    );
-
-                foreach (var device in devicesWithoutSchoolId)
-                {
-                    var schoolNameKey = device.SchoolName!.ToLower().Trim();
-                    if (schoolsByName.TryGetValue(schoolNameKey, out var deviceDistrict))
-                    {
-                        if (devicesByDistrict.ContainsKey(deviceDistrict))
-                            devicesByDistrict[deviceDistrict]++;
-                        else
-                            devicesByDistrict[deviceDistrict] = 1;
-                    }
-                }
-            }
-
-            // Get processed devices by district (in memory)
-            var processedByDistrict = allDevices
-                .Where(d => d.QaPassed != null && d.SchoolId.HasValue && schoolsLookup.ContainsKey((long)d.SchoolId.Value))
-                .GroupBy(d => schoolsLookup[(long)d.SchoolId.Value])
-                .ToDictionary(g => g.Key, g => g.Count());
-
-            _logger.LogInformation($"[Provincial] Devices by district count: {devicesByDistrict.Count}");
-            _logger.LogInformation($"[Provincial] Processed by district count: {processedByDistrict.Count}");
-
-            return Ok(new
-            {
-                schoolsByDistrict = schoolsByDistrict.ToDictionary(x => x.District, x => x.Count),
-                devicesByDistrict = devicesByDistrict,
-                processedByDistrict = processedByDistrict,
-                totalDistricts = schoolsByDistrict.Count
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting provincial analytics");
-            return StatusCode(500, new { error = ex.Message, stackTrace = ex.StackTrace });
-        }
-    }
-
-    [HttpGet("dashboard/school-filter")]
-    public async Task<IActionResult> SearchSchools([FromQuery] string? query = null, [FromQuery] string? district = null)
-    {
-        try
-        {
-            var schoolsQuery = _phase0Db.Schools.AsQueryable();
-
-            if (!string.IsNullOrEmpty(query))
-            {
-                schoolsQuery = schoolsQuery.Where(s => 
-                    s.Name.Contains(query) || 
-                    s.EmisCode.Contains(query));
-            }
-
-            if (!string.IsNullOrEmpty(district))
-            {
-                schoolsQuery = schoolsQuery.Where(s => s.District == district);
-            }
-
-            var schools = await schoolsQuery
-                .OrderBy(s => s.Name)
-                .Take(100)
-                .Select(s => new
-                {
-                    schoolId = s.SchoolId,
-                    name = s.Name,
-                    emisCode = s.EmisCode,
-                    district = s.District,
-                    circuit = s.Circuit
-                })
-                .ToListAsync();
-
-            return Ok(schools);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error searching schools");
-            return StatusCode(500, new { error = ex.Message });
-        }
-    }
-
     [HttpGet("devices")]
     public async Task<IActionResult> GetDevices(
         [FromQuery] int page = 1,
@@ -484,33 +348,26 @@ public class SuperAdminController : ControllerBase
             devices.AddRange(phase2Devices);
         }
 
-        // Phase 3 devices (from PODs) - skip if table doesn't exist
+        // Phase 3 devices (from PODs)
         if (phase == null || phase == "Phase3")
         {
-            try
-            {
-                var phase3Pods = await _phase3Db.DispatchPODs
-                    .Where(p => (fromDate == null || p.CreatedAt >= fromDate) &&
-                               (toDate == null || p.CreatedAt <= toDate) &&
-                               (school == null || p.SchoolName.Contains(school)))
-                    .Select(p => new DeviceListItemDto
-                    {
-                        Id = 0,
-                        Serial = p.PODNumber,
-                        Phase = "Phase3",
-                        Stage = p.Status.ToString(),
-                        Zone = string.Empty,
-                        SchoolName = p.SchoolName,
-                        CreatedAt = p.CreatedAt.DateTime,
-                        UpdatedAt = null
-                    })
-                    .ToListAsync();
-                devices.AddRange(phase3Pods);
-            }
-            catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 208)
-            {
-                // Table doesn't exist - skip Phase3 devices
-            }
+            var phase3Pods = await _phase3Db.DispatchPODs
+                .Where(p => (fromDate == null || p.CreatedAt >= fromDate) &&
+                           (toDate == null || p.CreatedAt <= toDate) &&
+                           (school == null || p.SchoolName.Contains(school)))
+                .Select(p => new DeviceListItemDto
+                {
+                    Id = 0,
+                    Serial = p.PODNumber,
+                    Phase = "Phase3",
+                    Stage = p.Status.ToString(),
+                    Zone = string.Empty,
+                    SchoolName = p.SchoolName,
+                    CreatedAt = p.CreatedAt.DateTime,
+                    UpdatedAt = null
+                })
+                .ToListAsync();
+            devices.AddRange(phase3Pods);
         }
 
         var total = devices.Count;
@@ -879,61 +736,6 @@ public class SuperAdminController : ControllerBase
         return File(data, "text/csv", fileName);
     }
 
-    [HttpGet("export/grvs")]
-    public async Task<IActionResult> ExportGRVs(
-        [FromQuery] DateTime? fromDate = null,
-        [FromQuery] DateTime? toDate = null,
-        [FromQuery] string format = "CSV")
-    {
-        var data = await _exportService.ExportGRVsAsync(fromDate, toDate, format);
-        var fileName = $"grvs_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
-        return File(data, "text/csv", fileName);
-    }
-
-    [HttpGet("export/pods")]
-    public async Task<IActionResult> ExportPODs(
-        [FromQuery] DateTime? fromDate = null,
-        [FromQuery] DateTime? toDate = null,
-        [FromQuery] string format = "CSV")
-    {
-        var data = await _exportService.ExportPODsAsync(fromDate, toDate, format);
-        var fileName = $"pods_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
-        return File(data, "text/csv", fileName);
-    }
-
-    [HttpGet("export/trips")]
-    public async Task<IActionResult> ExportTrips(
-        [FromQuery] DateTime? fromDate = null,
-        [FromQuery] DateTime? toDate = null,
-        [FromQuery] string format = "CSV")
-    {
-        var data = await _exportService.ExportTripsAsync(fromDate, toDate, format);
-        var fileName = $"trips_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
-        return File(data, "text/csv", fileName);
-    }
-
-    [HttpGet("export/schools")]
-    public async Task<IActionResult> ExportSchools(
-        [FromQuery] string format = "CSV")
-    {
-        var data = await _exportService.ExportSchoolsAsync(format);
-        var fileName = $"schools_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
-        return File(data, "text/csv", fileName);
-    }
-
-    [HttpGet("export/auditlogs")]
-    public async Task<IActionResult> ExportAuditLogs(
-        [FromQuery] string? userId = null,
-        [FromQuery] string? action = null,
-        [FromQuery] DateTime? fromDate = null,
-        [FromQuery] DateTime? toDate = null,
-        [FromQuery] string format = "CSV")
-    {
-        var data = await _exportService.ExportAuditLogsAsync(userId, action, fromDate, toDate, format);
-        var fileName = $"auditlogs_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
-        return File(data, "text/csv", fileName);
-    }
-
     // User Management Endpoints
     [HttpGet("users")]
     public async Task<IActionResult> GetUsers([FromQuery] string? role = null, [FromQuery] string? search = null)
@@ -1263,275 +1065,61 @@ public class SuperAdminController : ControllerBase
         return Ok(result.OrderBy(r => r.Name));
     }
 
+    [HttpGet("imported-devices")]
+    public async Task<ActionResult<ImportedDevicesResultDto>> GetImportedDevices(
+        [FromQuery] ImportedDeviceFilterDto filter)
+    {
+        var result = await _service.GetImportedDevicesAsync(filter);
+        return Ok(result);
+    }
+
+    [HttpGet("school-devices")]
+    public async Task<ActionResult<SchoolDevicesDetailDto>> GetSchoolDevices(
+        [FromQuery] long? schoolId,
+        [FromQuery] string? emis)
+    {
+        if (!schoolId.HasValue && string.IsNullOrWhiteSpace(emis))
+        {
+            return BadRequest("Either schoolId or emis must be provided.");
+        }
+
+        var result = await _service.GetSchoolDevicesAsync(schoolId, emis);
+        return Ok(result);
+    }
+
+    [HttpGet("provincial-analytics")]
+    public async Task<ActionResult<ProvincialAnalyticsResultDto>> GetProvincialAnalytics()
+    {
+        var result = await _service.GetProvincialAnalyticsAsync();
+        return Ok(result);
+    }
+
+    [HttpPost("imported-devices/reseed")]
+    public async Task<IActionResult> ReseedImportedDevices(
+        [FromQuery] bool clearExisting = false)
+    {
+        try
+        {
+            var result = await _service.ReseedImportedDevicesAsync(clearExisting);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reseeding imported devices");
+            return StatusCode(500, new
+            {
+                error = ex.Message,
+                innerException = ex.InnerException?.Message
+            });
+        }
+    }
+
     private static string GenerateTempPassword()
     {
         var guid = Guid.NewGuid().ToString("N")[..10];
         return $"P@{guid}!";
     }
-
-    [HttpPost("import/devices-csv")]
-    public async Task<IActionResult> ImportDevicesFromCsv([FromBody] ImportDevicesCsvRequest request)
-    {
-        try
-        {
-            var lines = request.CsvContent.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            if (lines.Length < 2)
-                return BadRequest(new { error = "CSV file is empty or invalid" });
-
-            var imported = 0;
-            var skipped = 0;
-            var errors = new List<string>();
-            var importedSerials = new HashSet<string>(); // Track serials in this import session
-
-            // Skip header row
-            for (int i = 1; i < lines.Length; i++)
-            {
-                try
-                {
-                    var parts = lines[i].Split(',');
-                    if (parts.Length < 10) continue;
-
-                    var emis = parts[0].Trim().Replace(".0", "");
-                    var district = parts[1].Trim();
-                    var cmc = parts[2].Trim();
-                    var circuit = parts[3].Trim();
-                    var schoolName = parts[4].Trim();
-                    var podNumber = parts[6].Trim();
-                    var dateReceived = parts[7].Trim();
-                    var itemDescription = parts[8].Trim();
-                    var serialNumber = parts[9].Trim();
-
-                    // Skip if serial number is empty
-                    if (string.IsNullOrWhiteSpace(serialNumber))
-                    {
-                        skipped++;
-                        continue;
-                    }
-
-                    // Skip if already imported in this session
-                    if (importedSerials.Contains(serialNumber))
-                    {
-                        skipped++;
-                        continue;
-                    }
-
-                    // Find school by EMIS
-                    var school = await _phase0Db.Schools
-                        .FirstOrDefaultAsync(s => s.EmisCode == emis);
-
-                    // Check if device already exists in database
-                    var existing = await _phase0Db.Devices
-                        .FirstOrDefaultAsync(d => d.SerialNumber == serialNumber);
-
-                    if (existing != null)
-                    {
-                        skipped++;
-                        continue;
-                    }
-
-                    importedSerials.Add(serialNumber);
-
-                    // Parse date
-                    DateTime importedAt = DateTime.UtcNow;
-                    if (DateTime.TryParse(dateReceived, out var parsedDate))
-                    {
-                        importedAt = parsedDate.ToUniversalTime();
-                    }
-
-                    // Create device
-                    var device = new Device
-                    {
-                        Id = Guid.NewGuid(),
-                        SerialNumber = serialNumber,
-                        DeviceType = itemDescription,
-                        Description = itemDescription,
-                        Source = "NEW",
-                        SchoolId = school?.SchoolId,
-                        SchoolName = schoolName,
-                        ImportedAt = importedAt,
-                        Category = DeviceCategory.Other
-                    };
-
-                    _phase0Db.Devices.Add(device);
-                    imported++;
-
-                    // Batch save every 100 records
-                    if (imported % 100 == 0)
-                    {
-                        await _phase0Db.SaveChangesAsync();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    errors.Add($"Row {i + 1}: {ex.Message}");
-                }
-            }
-
-            // Save remaining
-            await _phase0Db.SaveChangesAsync();
-
-            _logger.LogInformation("CSV import completed. Imported: {Imported}, Skipped: {Skipped}, Errors: {ErrorCount}",
-                imported, skipped, errors.Count);
-
-            return Ok(new
-            {
-                imported,
-                skipped,
-                errors = errors.Take(10).ToList(), // Return first 10 errors
-                totalErrors = errors.Count
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to import CSV");
-            return StatusCode(500, new { error = "Import failed", message = ex.Message });
-        }
-    }
-
-    [HttpGet("import/devices-from-file")]
-    public async Task<IActionResult> ImportDevicesFromFile()
-    {
-        try
-        {
-            var downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-            var csvPath = Path.Combine(downloadsPath, "Schools_Populated_Siyanda_Fixed_Dates_Cleaned.csv");
-
-            if (!System.IO.File.Exists(csvPath))
-                return NotFound(new { error = "CSV file not found", path = csvPath });
-
-            var csvContent = await System.IO.File.ReadAllTextAsync(csvPath);
-            var lines = csvContent.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            
-            if (lines.Length < 2)
-                return BadRequest(new { error = "CSV file is empty or invalid" });
-
-            // Create a NewStockBatch for this import
-            var batch = new NewStockBatch
-            {
-                BatchId = Guid.NewGuid(),
-                BatchNumber = "CSV-IMPORT-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss"),
-                SupplierName = "CSV Import",
-                InvoiceNumber = "Schools_Populated_Siyanda",
-                TotalQuantityExpected = lines.Length - 1,
-                TotalQuantityScanned = 0,
-                Status = NewStockBatchStatus.PendingScan,
-                CreatedBy = "SuperAdmin",
-                CreatedAt = DateTime.UtcNow
-            };
-            _phase0Db.NewStockBatches.Add(batch);
-            await _phase0Db.SaveChangesAsync();
-
-            var imported = 0;
-            var skipped = 0;
-            var errors = new List<string>();
-            var importedSerials = new HashSet<string>();
-
-            // Skip header row
-            for (int i = 1; i < lines.Length; i++)
-            {
-                try
-                {
-                    var parts = lines[i].Split(',');
-                    if (parts.Length < 10) continue;
-
-                    var serialNumber = parts[9].Trim();
-
-                    // Skip if serial number is empty
-                    if (string.IsNullOrWhiteSpace(serialNumber))
-                    {
-                        skipped++;
-                        continue;
-                    }
-
-                    // Skip if already imported in this session
-                    if (importedSerials.Contains(serialNumber))
-                    {
-                        skipped++;
-                        continue;
-                    }
-
-                    // Check if device already exists in NewStockScannedDevices
-                    var existing = await _phase0Db.NewStockScannedDevices
-                        .FirstOrDefaultAsync(d => d.SerialNumber == serialNumber);
-
-                    if (existing != null)
-                    {
-                        skipped++;
-                        continue;
-                    }
-
-                    var itemDescription = parts[8].Trim();
-                    var dateReceived = parts[7].Trim();
-
-                    // Parse date
-                    DateTime scannedAt = DateTime.UtcNow;
-                    if (DateTime.TryParse(dateReceived, out var parsedDate))
-                    {
-                        scannedAt = parsedDate.ToUniversalTime();
-                    }
-
-                    // Create NewStockScannedDevice
-                    var device = new NewStockScannedDevice
-                    {
-                        ScanId = Guid.NewGuid(),
-                        BatchId = batch.BatchId,
-                        SerialNumber = serialNumber,
-                        IMEI = null,
-                        Brand = null,
-                        Model = itemDescription,
-                        ScannedAt = scannedAt
-                    };
-
-                    _phase0Db.NewStockScannedDevices.Add(device);
-                    importedSerials.Add(serialNumber);
-                    imported++;
-
-                    // Batch save every 500 records
-                    if (imported % 500 == 0)
-                    {
-                        await _phase0Db.SaveChangesAsync();
-                        _logger.LogInformation("Import progress: {Imported} devices saved", imported);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    errors.Add($"Row {i + 1}: {ex.Message}");
-                }
-            }
-
-            // Save remaining
-            await _phase0Db.SaveChangesAsync();
-
-            // Update batch counts
-            batch.TotalQuantityScanned = imported;
-            batch.Status = NewStockBatchStatus.Completed;
-            batch.ConfirmedAt = DateTime.UtcNow;
-            batch.ConfirmedBy = "SuperAdmin";
-            await _phase0Db.SaveChangesAsync();
-
-            _logger.LogInformation("CSV import completed. Imported: {Imported}, Skipped: {Skipped}, Errors: {ErrorCount}",
-                imported, skipped, errors.Count);
-
-            return Ok(new
-            {
-                batchId = batch.BatchId,
-                imported,
-                skipped,
-                errors = errors.Take(10).ToList(),
-                totalErrors = errors.Count
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to import from file");
-            return StatusCode(500, new { error = "Import from file failed", message = ex.Message });
-        }
-    }
 }
-
-public record ImportDevicesCsvRequest(
-    string CsvContent
-);
 
 public record ExportRequest(
     string Dataset,

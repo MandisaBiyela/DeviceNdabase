@@ -1,58 +1,45 @@
-# Device Tracking
+# DeviceDesk (DeviceNdabase)
 
-Device Tracking is a smart device tracking and stock management system designed for school readiness projects, ICT deployments, and warehouse operations.
+Unified device tracking and stock management for school readiness projects, ICT deployments, and warehouse operations.
+
+This repository contains the **DeviceDesk** application under the `DeviceDesk/` folder.
 
 ## Features
 
 - Stock receiving and registration
-- Bulk device imports using Excel
+- Bulk device imports (Excel / CSV)
 - Serial number and IMEI tracking
-- Blind transfers to storage
-- Device allocation and dispatch
-- Proof of delivery (POD) generation
-- School readiness assessment
-- Quality control (QC) tracking
-- Role-based dashboards
-- Reporting and analytics
+- Procurement orders and close-out reporting (Phase 0)
+- AI-assisted document ingest for receiving (Phase 1)
+- Blind transfers, allocation, picking slips, and repairs (Phase 2)
+- Dispatch, POD, and collection slips (Phase 3)
+- SuperAdmin imported-device management
+- Role-based dashboards and React admin shell at `/app`
 
 ## User Roles
 
+- SuperAdmin
 - Admin
-- Receiver
-- TechOps
-- Storage Manager
-- Dispatcher
+- Receiver / Receiving Clerk
+- TechOps / ICT roles
+- Storage Manager / Allocator
+- Dispatcher / Dispatch Clerk
+- Orders Clerk
 
-## Excel Import Formats
+## Tech Stack
 
-### New Stock Import
-Required headers:
+- ASP.NET Core (.NET 8)
+- SQL Server + Entity Framework Core
+- Static phase UIs + optional React frontend (`DeviceDesk/frontend`)
 
-```text
-OrderNumber
-Brand
-Model
-DeviceType
-Description
-Quantity
+## Getting Started
 
-Existing Device Import
+1. Open `DeviceDesk/DeviceDesk.netcore.sln` (or run from `DeviceDesk/`).
+2. Set the SQL Server connection string in `appsettings.Development.json`.
+3. Run `dotnet run` from `DeviceDesk/` — migrations apply on startup.
+4. For the React shell: `cd DeviceDesk/frontend && npm install && npm run build` (or publish with the csproj SPA target).
 
-Required headers:
+## Contributors
 
-Serial
-IMEI
-Brand
-Model
-DeviceType
-Status
-Technologies
-ASP.NET Core / .NET 8
-SQL Server
-React / Next.js
-Tailwind CSS
-Excel Import Processing
-QR & Barcode Scanning
-Project Goal
-
-The goal of this system is to improve visibility, accountability, and operational efficiency during large-scale device deployment projects.
+- Mandisa Biyela — [DeviceNdabase](https://github.com/MandisaBiyela/DeviceNdabase)
+- Thamsanqa Ndelu — [Ndelu-Blose/DeviceDesk](https://github.com/Ndelu-Blose/DeviceDesk)

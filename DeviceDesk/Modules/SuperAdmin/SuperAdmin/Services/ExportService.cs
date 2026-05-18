@@ -1,6 +1,7 @@
 using DeviceDesk.Infrastructure.Data;
 using DeviceDesk.Modules.Phase2.Data;
 using DeviceDesk.Modules.Phase3.Data;
+using DeviceDesk.Modules.SuperAdmin.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
 
@@ -12,17 +13,20 @@ public class ExportService
     private readonly Infrastructure.Data.Phase1DbContext _phase1Db;
     private readonly Phase2DbContext _phase2Db;
     private readonly Phase3DbContext _phase3Db;
+    private readonly SuperAdminDbContext _superAdminDb;
 
     public ExportService(
         DeviceDeskDbContext phase0Db,
         Infrastructure.Data.Phase1DbContext phase1Db,
         Phase2DbContext phase2Db,
-        Phase3DbContext phase3Db)
+        Phase3DbContext phase3Db,
+        SuperAdminDbContext superAdminDb)
     {
         _phase0Db = phase0Db;
         _phase1Db = phase1Db;
         _phase2Db = phase2Db;
         _phase3Db = phase3Db;
+        _superAdminDb = superAdminDb;
     }
 
     public async Task<byte[]> ExportDevicesAsync(
@@ -36,6 +40,32 @@ public class ExportService
         string format = "CSV")
     {
         var devices = new List<object>();
+
+        // Phase 0 devices (DeviceDeskDbContext.Devices table - NEW and RNR stock)
+        if (phase == null || phase == "Phase0")
+        {
+            var phase0Query = _phase0Db.Devices.AsNoTracking().AsQueryable();
+            if (fromDate != null) phase0Query = phase0Query.Where(d => d.ImportedAt >= fromDate);
+            if (toDate != null) phase0Query = phase0Query.Where(d => d.ImportedAt <= toDate);
+            if (serial != null) phase0Query = phase0Query.Where(d => d.SerialNumber != null && d.SerialNumber.Contains(serial));
+            if (school != null) phase0Query = phase0Query.Where(d => d.SchoolName != null && d.SchoolName.Contains(school));
+
+            var phase0Items = await phase0Query
+                .Select(d => new
+                {
+                    Serial = d.SerialNumber ?? "",
+                    Phase = "Phase0",
+                    Stage = d.Source ?? "Unknown",
+                    Zone = d.Source ?? "",
+                    SchoolName = d.SchoolName ?? "",
+                    IMEI = d.IMEI ?? "",
+                    Brand = d.Brand ?? "",
+                    Model = d.Model ?? "",
+                    CreatedAt = d.ImportedAt.DateTime
+                })
+                .ToListAsync();
+            devices.AddRange(phase0Items);
+        }
 
         // Phase 1 devices
         if (phase == null || phase == "Phase1")
@@ -92,37 +122,53 @@ public class ExportService
             devices.AddRange(phase2Devices);
         }
 
-        // Phase 3 devices (PODs) - skip if table doesn't exist
+        // Phase 3 devices (PODs)
         if (phase == null || phase == "Phase3")
         {
-            try
-            {
-                var phase3Query = _phase3Db.DispatchPODs.AsQueryable();
-                if (fromDate != null) phase3Query = phase3Query.Where(p => p.CreatedAt >= fromDate);
-                if (toDate != null) phase3Query = phase3Query.Where(p => p.CreatedAt <= toDate);
-                if (school != null) phase3Query = phase3Query.Where(p => p.SchoolName.Contains(school));
+            var phase3Query = _phase3Db.DispatchPODs.AsQueryable();
+            if (fromDate != null) phase3Query = phase3Query.Where(p => p.CreatedAt >= fromDate);
+            if (toDate != null) phase3Query = phase3Query.Where(p => p.CreatedAt <= toDate);
+            if (school != null) phase3Query = phase3Query.Where(p => p.SchoolName.Contains(school));
 
-                var phase3Pods = await phase3Query
-                    .Select(p => new
-                    {
-                        Serial = p.PODNumber,
-                        Phase = "Phase3",
-                        Stage = p.Status.ToString(),
-                        Zone = "",
-                        SchoolName = p.SchoolName,
-                        IMEI = "",
-                        Brand = "",
-                        Model = "",
-                        CreatedAt = p.CreatedAt
-                    })
-                    .ToListAsync();
-                devices.AddRange(phase3Pods);
-            }
-            catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 208)
-            {
-                // Table doesn't exist - skip Phase3 devices
-            }
+            var phase3Pods = await phase3Query
+                .Select(p => new
+                {
+                    Serial = p.PODNumber,
+                    Phase = "Phase3",
+                    Stage = p.Status.ToString(),
+                    Zone = "",
+                    SchoolName = p.SchoolName,
+                    IMEI = "",
+                    Brand = "",
+                    Model = "",
+                    CreatedAt = p.CreatedAt
+                })
+                .ToListAsync();
+            devices.AddRange(phase3Pods);
         }
+
+        // SuperAdmin Imported Devices (Siyanda)
+        var importedQuery = _superAdminDb.ImportedDevices.AsQueryable();
+        if (school != null) importedQuery = importedQuery.Where(d => d.SchoolName != null && d.SchoolName.Contains(school));
+        if (serial != null) importedQuery = importedQuery.Where(d => d.Serial.Contains(serial));
+        if (fromDate != null) importedQuery = importedQuery.Where(d => d.DateReceived >= fromDate || d.CreatedAt >= fromDate);
+        if (toDate != null) importedQuery = importedQuery.Where(d => (d.DateReceived != null && d.DateReceived <= toDate) || d.CreatedAt <= toDate);
+
+        var importedDevices = await importedQuery
+            .Select(d => new
+            {
+                Serial = d.Serial,
+                Phase = "Imported",
+                Stage = "Siyanda",
+                Zone = d.District ?? "",
+                SchoolName = d.SchoolName ?? "",
+                IMEI = "",
+                Brand = "",
+                Model = d.ItemDescription ?? "",
+                CreatedAt = d.DateReceived ?? d.CreatedAt
+            })
+            .ToListAsync();
+        devices.AddRange(importedDevices);
 
         return format.ToUpper() switch
         {
@@ -161,106 +207,92 @@ public class ExportService
     {
         var allPods = new List<object>();
 
-        // Export from DeviceDeskDbContext (DispatchPods)
-        var corePods = await _phase0Db.DispatchPods.AsNoTracking()
+        // Export Phase 3 PODs (newer system)
+        var phase3Query = _phase3Db.DispatchPODs.AsNoTracking().AsQueryable();
+        if (fromDate != null) phase3Query = phase3Query.Where(p => p.CreatedAt >= fromDate);
+        if (toDate != null) phase3Query = phase3Query.Where(p => p.CreatedAt <= toDate);
+
+        var phase3Pods = await phase3Query
             .Select(p => new
             {
-                PODNumber = p.PodNumber,
+                p.PODNumber,
                 p.DeliveryNoteNumber,
                 p.SchoolName,
                 p.District,
                 p.EmisCode,
                 p.StockType,
                 Status = p.Status.ToString(),
-                CreatedAt = (DateTime?)null,
-                Source = "DeviceDesk"
+                CreatedAt = p.CreatedAt.DateTime
             })
             .ToListAsync();
-        allPods.AddRange(corePods);
+        allPods.AddRange(phase3Pods);
 
-        // Export from Phase3DbContext (DispatchPODs) - skip if table doesn't exist
-        try
-        {
-            var phase3Query = _phase3Db.DispatchPODs.AsQueryable();
-            if (fromDate != null) phase3Query = phase3Query.Where(p => p.CreatedAt >= fromDate);
-            if (toDate != null) phase3Query = phase3Query.Where(p => p.CreatedAt <= toDate);
+        // Export Phase 0 PODs (legacy system)
+        var phase0Query = _phase0Db.DispatchPods.AsNoTracking().AsQueryable();
+        if (fromDate != null) phase0Query = phase0Query.Where(p => p.CreatedAt >= fromDate);
+        if (toDate != null) phase0Query = phase0Query.Where(p => p.CreatedAt <= toDate);
 
-            var phase3Pods = await phase3Query
-                .Select(p => new
-                {
-                    p.PODNumber,
-                    p.DeliveryNoteNumber,
-                    p.SchoolName,
-                    p.District,
-                    p.EmisCode,
-                    p.StockType,
-                    Status = p.Status.ToString(),
-                    CreatedAt = (DateTime?)p.CreatedAt.DateTime,
-                    Source = "Phase3"
-                })
-                .ToListAsync();
-            allPods.AddRange(phase3Pods);
-        }
-        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 208)
-        {
-            // Table doesn't exist - skip Phase3 PODs
-        }
+        var phase0Pods = await phase0Query
+            .Select(p => new
+            {
+                p.PodNumber,
+                p.DeliveryNoteNumber,
+                p.SchoolName,
+                p.District,
+                EmisCode = p.EmisCode ?? "",
+                StockType = p.StockType ?? "",
+                Status = p.Status.ToString(),
+                CreatedAt = p.CreatedAt.DateTime
+            })
+            .ToListAsync();
+        allPods.AddRange(phase0Pods);
 
-        return GenerateCsv(allPods, "PODNumber,DeliveryNoteNumber,SchoolName,District,EmisCode,StockType,Status,CreatedAt,Source");
+        return GenerateCsv(allPods, "PODNumber,DeliveryNoteNumber,SchoolName,District,EmisCode,StockType,Status,CreatedAt");
     }
 
     public async Task<byte[]> ExportTripsAsync(DateTime? fromDate = null, DateTime? toDate = null, string format = "CSV")
     {
         var allTrips = new List<object>();
 
-        // Export from DeviceDeskDbContext (DispatchTrips)
-        var coreQuery = _phase0Db.DispatchTrips.AsQueryable();
-        if (fromDate != null) coreQuery = coreQuery.Where(t => t.CreatedAt >= fromDate);
-        if (toDate != null) coreQuery = coreQuery.Where(t => t.CreatedAt <= toDate);
+        // Export Phase 3 Trips (newer system)
+        var phase3Query = _phase3Db.DispatchTrips.AsNoTracking().AsQueryable();
+        if (fromDate != null) phase3Query = phase3Query.Where(t => t.CreatedAt >= fromDate);
+        if (toDate != null) phase3Query = phase3Query.Where(t => t.CreatedAt <= toDate);
 
-        var coreTrips = await coreQuery
+        var phase3Trips = await phase3Query
+            .Select(t => new
+            {
+                t.TripRef,
+                t.DriverName,
+                t.VehicleReg,
+                Status = t.Status.ToString(),
+                t.DriverAccepted,
+                t.Completed,
+                CreatedAt = t.CreatedAt.DateTime
+            })
+            .ToListAsync();
+        allTrips.AddRange(phase3Trips);
+
+        // Export Phase 0 Trips (legacy system)
+        var phase0Query = _phase0Db.DispatchTrips.AsNoTracking().AsQueryable();
+        if (fromDate != null) phase0Query = phase0Query.Where(t => t.CreatedAt >= fromDate);
+        if (toDate != null) phase0Query = phase0Query.Where(t => t.CreatedAt <= toDate);
+
+        var phase0Trips = await phase0Query
             .Select(t => new
             {
                 t.TripRef,
                 t.DriverName,
                 t.VehicleReg,
                 t.Status,
-                DriverAccepted = "N/A",
-                Completed = t.CompletedAt.HasValue ? "Yes" : "No",
-                CreatedAt = t.CreatedAt.DateTime,
-                Source = "DeviceDesk"
+                DriverAccepted = false,
+                Completed = t.CompletedAt.HasValue,
+                CreatedAt = t.CreatedAt.DateTime
             })
             .ToListAsync();
-        allTrips.AddRange(coreTrips);
+        allTrips.AddRange(phase0Trips);
 
-        // Export from Phase3DbContext (DispatchTrips) - skip if table doesn't exist
-        try
-        {
-            var phase3Query = _phase3Db.DispatchTrips.AsQueryable();
-            if (fromDate != null) phase3Query = phase3Query.Where(t => t.CreatedAt >= fromDate);
-            if (toDate != null) phase3Query = phase3Query.Where(t => t.CreatedAt <= toDate);
-
-            var phase3Trips = await phase3Query
-                .Select(t => new
-                {
-                    t.TripRef,
-                    t.DriverName,
-                    t.VehicleReg,
-                    Status = t.Status.ToString(),
-                    DriverAccepted = t.DriverAccepted ? "Yes" : "No",
-                    Completed = t.Completed ? "Yes" : "No",
-                    CreatedAt = t.CreatedAt.DateTime,
-                    Source = "Phase3"
-                })
-                .ToListAsync();
-            allTrips.AddRange(phase3Trips);
-        }
-        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 208)
-        {
-            // Table doesn't exist - skip Phase3 Trips
-        }
-
-        return GenerateCsv(allTrips, "TripRef,DriverName,VehicleReg,Status,DriverAccepted,Completed,CreatedAt,Source");
+        return GenerateCsv(allTrips, "TripRef,DriverName,VehicleReg,Status,DriverAccepted,Completed,CreatedAt");
     }
 
     public async Task<byte[]> ExportAuditLogsAsync(
@@ -367,20 +399,45 @@ public class ExportService
 
     public async Task<byte[]> ExportDriversAsync(DateTime? fromDate = null, DateTime? toDate = null, string format = "CSV")
     {
-        var tripsQuery = _phase3Db.DispatchTrips.AsQueryable();
-        if (fromDate != null) tripsQuery = tripsQuery.Where(t => t.CreatedAt >= fromDate);
-        if (toDate != null) tripsQuery = tripsQuery.Where(t => t.CreatedAt <= toDate);
+        var allTrips = new List<(string DriverName, DateTime CreatedAt, bool Completed, string Status)>();
 
-        var trips = await tripsQuery.ToListAsync();
-        var drivers = trips
+        // Get Phase 3 trips
+        var phase3Query = _phase3Db.DispatchTrips.AsNoTracking().AsQueryable();
+        if (fromDate != null) phase3Query = phase3Query.Where(t => t.CreatedAt >= fromDate);
+        if (toDate != null) phase3Query = phase3Query.Where(t => t.CreatedAt <= toDate);
+
+        var phase3Trips = await phase3Query
+            .Select(t => new { t.DriverName, t.CreatedAt, t.Completed, t.Status })
+            .ToListAsync();
+        
+        foreach (var t in phase3Trips)
+        {
+            allTrips.Add((t.DriverName, t.CreatedAt.DateTime, t.Completed, t.Status.ToString()));
+        }
+
+        // Get Phase 0 trips
+        var phase0Query = _phase0Db.DispatchTrips.AsNoTracking().AsQueryable();
+        if (fromDate != null) phase0Query = phase0Query.Where(t => t.CreatedAt >= fromDate);
+        if (toDate != null) phase0Query = phase0Query.Where(t => t.CreatedAt <= toDate);
+
+        var phase0Trips = await phase0Query
+            .Select(t => new { t.DriverName, t.CreatedAt, t.CompletedAt, t.Status })
+            .ToListAsync();
+        
+        foreach (var t in phase0Trips)
+        {
+            allTrips.Add((t.DriverName, t.CreatedAt.DateTime, t.CompletedAt.HasValue, t.Status));
+        }
+
+        var drivers = allTrips
             .GroupBy(t => t.DriverName)
             .Select(g => new
             {
                 DriverName = g.Key,
                 TotalTrips = g.Count(),
-                CompletedTrips = g.Count(t => t.Status == DeviceDesk.Modules.Phase3.Models.TripStatus.Completed),
-                InTransitTrips = g.Count(t => t.Status == DeviceDesk.Modules.Phase3.Models.TripStatus.InTransit),
-                PendingTrips = g.Count(t => t.Status == DeviceDesk.Modules.Phase3.Models.TripStatus.PendingAcceptance),
+                CompletedTrips = g.Count(t => t.Completed),
+                InTransitTrips = g.Count(t => t.Status.Contains("Transit") || t.Status.Contains("InTransit")),
+                PendingTrips = g.Count(t => t.Status.Contains("Pending") || t.Status.Contains("Scheduled")),
                 FirstTripDate = g.Min(t => t.CreatedAt),
                 LastTripDate = g.Max(t => t.CreatedAt)
             })
@@ -392,20 +449,45 @@ public class ExportService
 
     public async Task<byte[]> ExportVehiclesAsync(DateTime? fromDate = null, DateTime? toDate = null, string format = "CSV")
     {
-        var tripsQuery = _phase3Db.DispatchTrips.AsQueryable();
-        if (fromDate != null) tripsQuery = tripsQuery.Where(t => t.CreatedAt >= fromDate);
-        if (toDate != null) tripsQuery = tripsQuery.Where(t => t.CreatedAt <= toDate);
+        var allTrips = new List<(string VehicleReg, DateTime CreatedAt, bool Completed, string Status)>();
 
-        var trips = await tripsQuery.ToListAsync();
-        var vehicles = trips
+        // Get Phase 3 trips
+        var phase3Query = _phase3Db.DispatchTrips.AsNoTracking().AsQueryable();
+        if (fromDate != null) phase3Query = phase3Query.Where(t => t.CreatedAt >= fromDate);
+        if (toDate != null) phase3Query = phase3Query.Where(t => t.CreatedAt <= toDate);
+
+        var phase3Trips = await phase3Query
+            .Select(t => new { t.VehicleReg, t.CreatedAt, t.Completed, t.Status })
+            .ToListAsync();
+        
+        foreach (var t in phase3Trips)
+        {
+            allTrips.Add((t.VehicleReg, t.CreatedAt.DateTime, t.Completed, t.Status.ToString()));
+        }
+
+        // Get Phase 0 trips
+        var phase0Query = _phase0Db.DispatchTrips.AsNoTracking().AsQueryable();
+        if (fromDate != null) phase0Query = phase0Query.Where(t => t.CreatedAt >= fromDate);
+        if (toDate != null) phase0Query = phase0Query.Where(t => t.CreatedAt <= toDate);
+
+        var phase0Trips = await phase0Query
+            .Select(t => new { t.VehicleReg, t.CreatedAt, t.CompletedAt, t.Status })
+            .ToListAsync();
+        
+        foreach (var t in phase0Trips)
+        {
+            allTrips.Add((t.VehicleReg, t.CreatedAt.DateTime, t.CompletedAt.HasValue, t.Status));
+        }
+
+        var vehicles = allTrips
             .GroupBy(t => t.VehicleReg)
             .Select(g => new
             {
                 VehicleRegistration = g.Key,
                 TotalTrips = g.Count(),
-                CompletedTrips = g.Count(t => t.Status == DeviceDesk.Modules.Phase3.Models.TripStatus.Completed),
-                InTransitTrips = g.Count(t => t.Status == DeviceDesk.Modules.Phase3.Models.TripStatus.InTransit),
-                PendingTrips = g.Count(t => t.Status == DeviceDesk.Modules.Phase3.Models.TripStatus.PendingAcceptance),
+                CompletedTrips = g.Count(t => t.Completed),
+                InTransitTrips = g.Count(t => t.Status.Contains("Transit") || t.Status.Contains("InTransit")),
+                PendingTrips = g.Count(t => t.Status.Contains("Pending") || t.Status.Contains("Scheduled")),
                 FirstTripDate = g.Min(t => t.CreatedAt),
                 LastTripDate = g.Max(t => t.CreatedAt)
             })

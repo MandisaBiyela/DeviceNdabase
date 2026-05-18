@@ -310,8 +310,19 @@
         }
 
         try {
-            showAlert('info', 'Generating GRV and preparing handover to TechOps...');
+            showAlert('info', 'Verifying batch and generating GRV...');
 
+            // Step 1: Verify the batch first (sets status to Verified)
+            await getJson(`${RNR_API}/batches/${batchId}/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    verifiedBy: batchData?.scanningOfficer || batchData?.receivedBy || 'Receiving Clerk',
+                    notes: hasIssues ? 'Verified with issues - proceeding to GRV' : 'Verified successfully'
+                })
+            });
+
+            // Step 2: Generate GRV
             const grv = await getJson(`${RECON_API}/generate-grv/${batchId}`, {
                 method: 'POST'
             });

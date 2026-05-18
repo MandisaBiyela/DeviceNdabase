@@ -8,60 +8,394 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <script src="/shared/js/toast.js"></script>
     <style>
+        :root {
+            --primary-color: #198754;
+            --secondary-color: #0dcaf0;
+            --success-gradient: linear-gradient(135deg, #d1e7dd 0%, #a3d9a4 100%);
+            --info-gradient: linear-gradient(135deg, #cff4fc 0%, #9eeaf9 100%);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        body {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        /* Enhanced Navbar */
+        .navbar-custom {
+            background: linear-gradient(135deg, #198754 0%, #157347 100%) !important;
+            box-shadow: var(--shadow-md);
+            padding: 1rem 0;
+        }
+
+        .navbar-brand {
+            font-weight: 600;
+            font-size: 1.25rem;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50px;
+            transition: all 0.3s ease;
+        }
+
+        .user-profile:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .user-info {
+            text-align: left;
+        }
+
+        .user-name {
+            color: white;
+            font-weight: 500;
+            font-size: 0.95rem;
+            margin: 0;
+        }
+
+        .user-role {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.75rem;
+            margin: 0;
+        }
+
+        .dropdown-menu {
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            border: none;
+            padding: 0.5rem;
+        }
+
+        .dropdown-item {
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .dropdown-item:hover {
+            background: #f8f9fa;
+        }
+
+        /* Workflow Progress */
         .workflow-progress {
             display: flex;
             justify-content: center;
             align-items: center;
-            margin: 2rem 0;
-            gap: 1rem;
+            margin: 3rem 0;
+            gap: 1.5rem;
+            position: relative;
         }
+
+        .workflow-progress::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 25%;
+            right: 25%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-color) 0%, var(--primary-color) 100%);
+            z-index: 0;
+        }
+
         .workflow-step {
             text-align: center;
             flex: 1;
             max-width: 150px;
+            position: relative;
+            z-index: 1;
         }
+
         .workflow-circle {
-            width: 40px;
-            height: 40px;
+            width: 48px;
+            height: 48px;
             border-radius: 50%;
-            background: #198754;
-            border: 2px solid #198754;
+            background: linear-gradient(135deg, #198754 0%, #20c997 100%);
+            border: 3px solid white;
+            box-shadow: var(--shadow-md);
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 0.5rem;
+            margin: 0 auto 0.75rem;
             font-weight: bold;
             color: white;
+            font-size: 1.25rem;
         }
+
         .workflow-label {
             font-size: 0.875rem;
-            color: #198754;
+            font-weight: 500;
+            color: var(--primary-color);
         }
+
+        /* Completion Card */
+        .completion-card {
+            background: white;
+            border: none;
+            border-radius: 20px;
+            padding: 3rem;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .completion-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, #198754 0%, #20c997 100%);
+        }
+
         .success-icon {
             font-size: 5rem;
-            color: #198754;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            animation: scaleIn 0.5s ease-out;
+        }
+
+        @keyframes scaleIn {
+            from {
+                transform: scale(0);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .grv-number {
+            background: linear-gradient(135deg, #198754 0%, #20c997 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+        }
+
+        /* Info Cards */
+        .info-card {
+            background: white;
+            border: none;
+            border-radius: 16px;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+            height: 100%;
+        }
+
+        .info-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .info-card .card-body {
+            padding: 1.5rem;
+        }
+
+        .info-card .card-title {
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #2c3e50;
+        }
+
+        .info-card ul li {
+            padding: 0.5rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin: 2rem 0;
+        }
+
+        .btn-custom {
+            padding: 0.875rem 2rem;
+            border-radius: 12px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-custom-primary {
+            background: linear-gradient(135deg, #198754 0%, #20c997 100%);
+            border: none;
+            color: white;
+        }
+
+        .btn-custom-primary:hover {
+            background: linear-gradient(135deg, #157347 0%, #1aa179 100%);
+        }
+
+        /* Handover Info */
+        .handover-info {
+            background: white;
+            border-left: 5px solid var(--secondary-color);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: var(--shadow-md);
+            margin-top: 3rem;
+        }
+
+        .handover-info h5 {
+            color: #0dcaf0;
+            font-weight: 600;
             margin-bottom: 1.5rem;
         }
-        .completion-card {
-            background: linear-gradient(135deg, #d1e7dd 0%, #a3d9a4 100%);
-            border: none;
-            border-radius: 15px;
-            padding: 3rem;
+
+        .handover-item {
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 12px;
+            transition: all 0.3s ease;
         }
-        .handover-info {
-            background: linear-gradient(135deg, #cff4fc 0%, #9eeaf9 100%);
-            border-left: 4px solid #0dcaf0;
+
+        .handover-item:hover {
+            background: #e9ecef;
+        }
+
+        .handover-item h6 {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.75rem;
+        }
+
+        /* Next Steps */
+        .next-steps-card {
+            background: white;
+            border: none;
+            border-radius: 16px;
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+        }
+
+        .next-steps-card .card-header {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-bottom: 2px solid #dee2e6;
             padding: 1.5rem;
+        }
+
+        .next-step-item {
+            text-align: center;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            border-radius: 12px;
+        }
+
+        .next-step-item:hover {
+            background: #f8f9fa;
+            transform: translateY(-4px);
+        }
+
+        .next-step-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .next-step-item h6 {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.75rem;
+        }
+
+        .badge-custom {
+            padding: 0.5rem 1rem;
             border-radius: 8px;
+            font-weight: 500;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .workflow-progress {
+                flex-wrap: wrap;
+                gap: 1rem;
+            }
+
+            .workflow-progress::before {
+                display: none;
+            }
+
+            .completion-card {
+                padding: 2rem 1.5rem;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .btn-custom {
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-success mb-4">
+    <!-- Enhanced Navbar with User Profile -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom mb-4">
         <div class="container-fluid">
             <a class="navbar-brand" href="/phase1/dashboard.html">
-                <i class="bi bi-check-circle"></i> DeviceDesk - R&R Complete
+                <i class="bi bi-check-circle-fill"></i> DeviceDesk
             </a>
+            <span class="navbar-text text-white me-auto ms-3">
+                R&R Process Complete
+            </span>
+            
+            <!-- User Profile Dropdown -->
+            <div class="dropdown">
+                <button class="btn user-profile dropdown-toggle" type="button" id="userMenuDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <div class="user-avatar" id="userAvatar">
+                        <i class="bi bi-person-fill"></i>
+                    </div>
+                    <div class="user-info d-none d-md-block">
+                        <p class="user-name" id="userName">Loading...</p>
+                        <p class="user-role" id="userRole">Receiving Clerk</p>
+                    </div>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuDropdown">
+                    <li>
+                        <a class="dropdown-item" href="/phase1/dashboard.html">
+                            <i class="bi bi-house-door me-2"></i>Dashboard
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item text-danger" href="#" id="logoutBtn">
+                            <i class="bi bi-box-arrow-right me-2"></i>Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </nav>
 
@@ -69,78 +403,86 @@
         <!-- R&R Workflow Progress - All Completed -->
         <div class="workflow-progress">
             <div class="workflow-step">
-                <div class="workflow-circle">✓</div>
+                <div class="workflow-circle">
+                    <i class="bi bi-check-lg"></i>
+                </div>
                 <div class="workflow-label">Batch Setup</div>
             </div>
             <div class="workflow-step">
-                <div class="workflow-circle">✓</div>
+                <div class="workflow-circle">
+                    <i class="bi bi-check-lg"></i>
+                </div>
                 <div class="workflow-label">Device Scanning</div>
             </div>
             <div class="workflow-step">
-                <div class="workflow-circle">✓</div>
+                <div class="workflow-circle">
+                    <i class="bi bi-check-lg"></i>
+                </div>
                 <div class="workflow-label">Verification</div>
             </div>
             <div class="workflow-step">
-                <div class="workflow-circle">✓</div>
+                <div class="workflow-circle">
+                    <i class="bi bi-check-lg"></i>
+                </div>
                 <div class="workflow-label">GRV & Handover</div>
             </div>
         </div>
 
         <!-- Success Message -->
         <div class="row">
-            <div class="col-md-10 mx-auto">
+            <div class="col-md-11 mx-auto">
                 <div class="completion-card text-center">
                     <div class="success-icon">
                         <i class="bi bi-check-circle-fill"></i>
                     </div>
-                    <h2 class="text-success mb-3">R&R Process Complete</h2>
+                    <h2 class="text-success mb-3">🎉 R&R Process Complete!</h2>
                     <p class="lead mb-4">
-                        GRV <strong id="grvNumber">#GRV-RR-2025-001</strong> generated successfully.<br>
-                        Devices handed over to <strong>TechOps Queue</strong> for technician assignment.
+                        GRV <span class="grv-number" id="grvNumber">#GRV-RR-2025-001</span> generated successfully.<br>
+                        All devices have been handed over to <strong>TechOps Queue</strong> for technician assignment.
                     </p>
                     
-                    <div class="row mb-4">
+                    <div class="row g-4 mb-4">
                         <div class="col-md-6">
-                            <div class="card bg-white">
+                            <div class="info-card">
                                 <div class="card-body">
                                     <h6 class="card-title">
                                         <i class="bi bi-check-circle text-success"></i> Completed Actions
                                     </h6>
                                     <ul class="list-unstyled mb-0">
-                                        <li><i class="bi bi-check text-success"></i> Collection slip processed</li>
-                                        <li><i class="bi bi-check text-success"></i> Devices scanned and validated</li>
-                                        <li><i class="bi bi-check text-success"></i> Verification completed</li>
-                                        <li><i class="bi bi-check text-success"></i> GRV document generated</li>
-                                        <li><i class="bi bi-check text-success"></i> Devices moved to TechOps Queue</li>
+                                        <li><i class="bi bi-check2 text-success"></i> Collection slip processed</li>
+                                        <li><i class="bi bi-check2 text-success"></i> Devices scanned and validated</li>
+                                        <li><i class="bi bi-check2 text-success"></i> Verification completed</li>
+                                        <li><i class="bi bi-check2 text-success"></i> GRV document generated</li>
+                                        <li><i class="bi bi-check2 text-success"></i> Devices moved to TechOps Queue</li>
                                     </ul>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <div class="card bg-white">
+                            <div class="info-card">
                                 <div class="card-body">
                                     <h6 class="card-title">
                                         <i class="bi bi-info-circle text-primary"></i> Batch Summary
                                     </h6>
                                     <div id="batchSummary">
-                                        <p class="mb-1"><strong>Batch ID:</strong> <span id="batchId">Loading...</span></p>
-                                        <p class="mb-1"><strong>Devices Processed:</strong> <span id="deviceCount">Loading...</span></p>
-                                        <p class="mb-1"><strong>School:</strong> <span id="schoolName">Loading...</span></p>
-                                        <p class="mb-0"><strong>Status:</strong> <span class="badge bg-success">Completed</span></p>
+                                        <p class="mb-2"><strong>Batch ID:</strong><br><small class="text-muted" id="batchId">Loading...</small></p>
+                                        <p class="mb-2"><strong>Devices Processed:</strong> <span class="badge bg-success badge-custom" id="deviceCount">0</span></p>
+                                        <p class="mb-2"><strong>School:</strong><br><span id="schoolName">Loading...</span></p>
+                                        <p class="mb-0"><strong>Status:</strong> <span class="badge bg-success badge-custom">Completed</span></p>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="d-flex justify-content-center gap-3 mb-4">
-                        <button class="btn btn-success btn-lg" id="startNewRnRBtn">
+                    <div class="action-buttons">
+                        <button class="btn btn-custom btn-custom-primary btn-lg" id="startNewRnRBtn">
                             <i class="bi bi-plus-circle"></i> Start New R&R Process
                         </button>
-                        <button class="btn btn-outline-primary btn-lg" id="downloadGRVBtn">
-                            <i class="bi bi-file-pdf"></i> Download GRV PDF
+                        <button class="btn btn-primary btn-custom btn-lg" id="downloadGRVBtn">
+                            <i class="bi bi-file-earmark-pdf"></i> Download GRV PDF
                         </button>
-                        <a href="/phase1/dashboard.html" class="btn btn-outline-secondary btn-lg">
+                        <a href="/phase1/dashboard.html" class="btn btn-outline-secondary btn-custom btn-lg">
                             <i class="bi bi-house"></i> Back to Dashboard
                         </a>
                     </div>
@@ -149,33 +491,39 @@
         </div>
 
         <!-- TechOps Handover Information -->
-        <div class="row mt-5">
+        <div class="row">
             <div class="col-md-12">
                 <div class="handover-info">
-                    <h5 class="text-info mb-3">
-                        <i class="bi bi-arrow-right-circle"></i> TechOps Handover Complete
+                    <h5>
+                        <i class="bi bi-arrow-right-circle-fill"></i> TechOps Handover Complete
                     </h5>
-                    <div class="row">
+                    <div class="row g-3">
                         <div class="col-md-4">
-                            <h6><i class="bi bi-tools text-primary"></i> TechOps Queue</h6>
-                            <p class="small text-muted">
-                                All validated devices are now in the TechOps Queue with status 
-                                <strong>"Awaiting Technician Assignment"</strong> for repair processing.
-                            </p>
+                            <div class="handover-item">
+                                <h6><i class="bi bi-tools text-primary"></i> TechOps Queue</h6>
+                                <p class="small text-muted mb-0">
+                                    All validated devices are now in the TechOps Queue with status 
+                                    <strong>"Awaiting Technician Assignment"</strong> for repair processing.
+                                </p>
+                            </div>
                         </div>
                         <div class="col-md-4">
-                            <h6><i class="bi bi-shield-check text-success"></i> Custody Transfer</h6>
-                            <p class="small text-muted">
-                                Device custody has been transferred from Receiving to TechOps. 
-                                Full movement history logged for audit compliance.
-                            </p>
+                            <div class="handover-item">
+                                <h6><i class="bi bi-shield-check text-success"></i> Custody Transfer</h6>
+                                <p class="small text-muted mb-0">
+                                    Device custody has been transferred from Receiving to TechOps. 
+                                    Full movement history logged for audit compliance.
+                                </p>
+                            </div>
                         </div>
                         <div class="col-md-4">
-                            <h6><i class="bi bi-file-text text-warning"></i> Documentation</h6>
-                            <p class="small text-muted">
-                                GRV document includes collection slip reference, device serials, 
-                                and any variance notes for technician review.
-                            </p>
+                            <div class="handover-item">
+                                <h6><i class="bi bi-file-text text-warning"></i> Documentation</h6>
+                                <p class="small text-muted mb-0">
+                                    GRV document includes collection slip reference, device serials, 
+                                    and any variance notes for technician review.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -183,42 +531,50 @@
         </div>
 
         <!-- Next Steps Information -->
-        <div class="row mt-4">
+        <div class="row mt-4 mb-5">
             <div class="col-md-12">
-                <div class="card">
+                <div class="next-steps-card">
                     <div class="card-header">
                         <h5 class="mb-0">
                             <i class="bi bi-arrow-right"></i> What Happens Next?
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div class="row">
+                        <div class="row g-4">
                             <div class="col-md-3">
-                                <div class="text-center">
-                                    <i class="bi bi-person-gear" style="font-size: 2rem; color: #0d6efd;"></i>
-                                    <h6 class="mt-2">Technician Assignment</h6>
-                                    <p class="small text-muted">TechOps assigns devices to available technicians based on device type and repair complexity.</p>
+                                <div class="next-step-item">
+                                    <div class="next-step-icon text-primary">
+                                        <i class="bi bi-person-gear"></i>
+                                    </div>
+                                    <h6>Technician Assignment</h6>
+                                    <p class="small text-muted mb-0">TechOps assigns devices to available technicians based on device type and repair complexity.</p>
                                 </div>
                             </div>
                             <div class="col-md-3">
-                                <div class="text-center">
-                                    <i class="bi bi-wrench" style="font-size: 2rem; color: #198754;"></i>
-                                    <h6 class="mt-2">Repair Process</h6>
-                                    <p class="small text-muted">Technicians diagnose and repair devices, updating status and logging parts used.</p>
+                                <div class="next-step-item">
+                                    <div class="next-step-icon text-success">
+                                        <i class="bi bi-wrench"></i>
+                                    </div>
+                                    <h6>Repair Process</h6>
+                                    <p class="small text-muted mb-0">Technicians diagnose and repair devices, updating status and logging parts used.</p>
                                 </div>
                             </div>
                             <div class="col-md-3">
-                                <div class="text-center">
-                                    <i class="bi bi-clipboard-check" style="font-size: 2rem; color: #ffc107;"></i>
-                                    <h6 class="mt-2">Quality Assurance</h6>
-                                    <p class="small text-muted">Completed repairs undergo QA testing before being marked as ready for return.</p>
+                                <div class="next-step-item">
+                                    <div class="next-step-icon text-warning">
+                                        <i class="bi bi-clipboard-check"></i>
+                                    </div>
+                                    <h6>Quality Assurance</h6>
+                                    <p class="small text-muted mb-0">Completed repairs undergo QA testing before being marked as ready for return.</p>
                                 </div>
                             </div>
                             <div class="col-md-3">
-                                <div class="text-center">
-                                    <i class="bi bi-truck" style="font-size: 2rem; color: #dc3545;"></i>
-                                    <h6 class="mt-2">Return to School</h6>
-                                    <p class="small text-muted">Repaired devices are packaged and scheduled for return delivery to the school.</p>
+                                <div class="next-step-item">
+                                    <div class="next-step-icon text-danger">
+                                        <i class="bi bi-truck"></i>
+                                    </div>
+                                    <h6>Return to School</h6>
+                                    <p class="small text-muted mb-0">Repaired devices are packaged and scheduled for return delivery to the school.</p>
                                 </div>
                             </div>
                         </div>
@@ -229,6 +585,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/shared/js/logout-modal.js"></script>
     <script>
         (() => {
             const RECON_API = `${location.origin}/api/phase1/reconciliation`;
@@ -252,6 +609,31 @@
                     document.getElementById('deviceCount').textContent = processed;
                 } else {
                     loadBatchSummary(batchId);
+                }
+            }
+
+            // Load user profile
+            loadUserProfile();
+
+            async function loadUserProfile() {
+                try {
+                    const response = await fetch('/api/auth/current-user', { credentials: 'same-origin' });
+                    if (response.ok) {
+                        const user = await response.json();
+                        document.getElementById('userName').textContent = user.fullName || user.email || 'User';
+                        document.getElementById('userRole').textContent = user.role || 'Receiving Clerk';
+                        
+                        // Update avatar with initials
+                        const initials = (user.fullName || user.email || 'U')
+                            .split(' ')
+                            .map(n => n[0])
+                            .join('')
+                            .toUpperCase()
+                            .substring(0, 2);
+                        document.getElementById('userAvatar').textContent = initials;
+                    }
+                } catch (error) {
+                    console.error('Error loading user profile:', error);
                 }
             }
 
@@ -310,12 +692,16 @@
                     a.download = `${grvNumber || 'GRV'}.pdf`;
                     a.click();
                     URL.revokeObjectURL(url);
+                    toast('success', 'GRV PDF downloaded successfully!');
                 } catch (e) {
                     console.error('Download error', e);
                     toast('danger', 'Failed to download GRV PDF');
                 }
             });
+
+            // Logout handler is now handled by shared logout-modal.js
         })();
     </script>
+
 </body>
 </html>

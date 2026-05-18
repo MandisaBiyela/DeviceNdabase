@@ -17,7 +17,7 @@ public class Phase2Device
     // Step 1: Receiving & Pre-Assessment
     [MaxLength(128)]
     public string? IctClerkId { get; set; }
-    public DateTime? ReceivingDate { get; set; }
+    public DateTimeOffset? ReceivingDate { get; set; }
     public bool? VerificationStatus { get; set; }
     public bool? PreAssessmentPassed { get; set; }
     [MaxLength(128)]
@@ -33,10 +33,15 @@ public class Phase2Device
     public bool? Repairable { get; set; }
     [MaxLength(128)]
     public string? TechnicianId { get; set; }
-    public DateTime? InspectionDate { get; set; }
+    public DateTimeOffset? InspectionDate { get; set; }
     [MaxLength(256)]
     public string? RepairCategory { get; set; }
     public bool? DisposalRequested { get; set; }
+
+    // Quarantine tracking
+    public bool IsQuarantined { get; set; }
+    public string? QuarantineReason { get; set; }
+    public DateTimeOffset? QuarantinedAtUtc { get; set; }
 
     // Step 3: Quality Assessment
     public bool? QaPassed { get; set; }
@@ -52,7 +57,7 @@ public class Phase2Device
     public string? SchoolName { get; set; }
 
     // Step 4: Handover to Dispatch (Scan-Out)
-    public DateTime? ScannedOutAt { get; set; }
+    public DateTimeOffset? ScannedOutAt { get; set; }
 
     [MaxLength(128)]
     public string? ScannedOutByUserId { get; set; }
@@ -60,6 +65,6 @@ public class Phase2Device
     // Phase 3: Dispatch Status
     public DispatchDeviceState? DispatchStatus { get; set; }
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

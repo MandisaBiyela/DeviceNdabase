@@ -4,20 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ICT Center - Phase 2</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
     <link rel="stylesheet" href="/css/dashboard-shell.css" />
     <link rel="stylesheet" href="/css/theme.css?v=2025" />
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <style>
-      .sidebar-profile.p2-loading .profile-avatar{ background:#3B82F6; color:#fff; }
-      .sidebar-profile .profile-name{ min-height:16px; display:flex; align-items:center; }
-      .p2-name-skeleton{
-        height:12px; width:82px; border-radius:999px; background:#4B5563;
-        animation:p2Pulse 1.2s ease-in-out infinite;
-      }
-      @keyframes p2Pulse { 0%,100%{opacity:.55;} 50%{opacity:1;} }
-    </style>
 </head>
  
 <body class="app-shell">
@@ -27,13 +17,12 @@
         </div>
         
         <!-- Profile Block -->
-        <div class="sidebar-profile p2-loading" id="sidebarProfile">
+        <div class="sidebar-profile" id="sidebarProfile">
             <div class="profile-avatar">
                 <span class="avatar-initials" id="profileInitials">U</span>
             </div>
             <div class="profile-info">
-                <div class="profile-name" id="profileName"><em style="color:#D1D5DB;font-style:italic;font-size:13px;">Loading...</em></div>
-                <div id="profileNameSkeleton" class="p2-name-skeleton"></div>
+                <div class="profile-name" id="profileName">Loading...</div>
                 <div class="profile-role" id="profileRole">User</div>
             </div>
         </div>
@@ -87,7 +76,8 @@
     console.log("Global formatLocalTime loaded:", typeof window.formatLocalTime);
     </script>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/shared/js/logout-modal.js"></script>
     <script>
         let currentUser = null;
 
@@ -111,15 +101,12 @@
                 document.getElementById('profileInitials').textContent = initials;
                 document.getElementById('profileName').textContent = currentUser.fullName || 'User';
                 document.getElementById('profileRole').textContent = currentUser.role || 'User';
-                const pSk = document.getElementById('profileNameSkeleton');
-                if (pSk) pSk.style.display = 'none';
-                document.getElementById('sidebarProfile')?.classList.remove('p2-loading');
                 
                 // Load role-specific UI
                 loadRoleBasedUI();
             } catch (error) {
                 console.error('Error loading user:', error);
-                window.location.href = '/login.html';
+                window.location.href = '/index.html';
             }
         }
 
@@ -131,54 +118,47 @@
             
             if (role === 'IctClerk') {
                 sidebar.innerHTML = `
-                    <span class="sidebar-section">CLERK MENU</span>
-                    <a href="#" class="sidebar-link active" data-clerk-link="receipting" onclick="setActiveClerkNav('receipting'); loadReceiptingView(); return false;">
-                        <i data-lucide="clipboard-check"></i><span>To Receipting</span>
+                    <h6 class="text-muted mb-3">CLERK MENU</h6>
+                    <a href="#" class="sidebar-link active" onclick="loadReceiptingView(); return false;">
+                        <i class="bi bi-clipboard-check"></i><span>Receipting</span>
                     </a>
-                    <a href="#" class="sidebar-link" data-clerk-link="devices" onclick="setActiveClerkNav('devices'); loadDevicesView(); return false;">
-                        <i data-lucide="monitor"></i><span>View Devices</span>
+                    <a href="#" class="sidebar-link" onclick="loadDevicesView(); return false;">
+                        <i class="bi bi-list-ul"></i><span>View Devices</span>
                     </a>
-                    <a href="#" class="sidebar-link" data-clerk-link="scanout" onclick="setActiveClerkNav('scanout'); loadScanOutView(); return false;">
-                        <i data-lucide="scan-line"></i><span>Scan Out</span>
+                    <a href="#" class="sidebar-link" onclick="loadScanOutView(); return false;">
+                        <i class="bi bi-box-arrow-right"></i><span>Scan-Out to Dispatch</span>
                     </a>
-                    <a href="#" class="sidebar-link" data-clerk-link="dispatch" onclick="setActiveClerkNav('dispatch'); loadScanOutView(); return false;">
-                        <i data-lucide="truck"></i><span>Dispatch</span>
-                    </a>
-                    <a href="/phase2/users.html" class="sidebar-link" data-clerk-link="incidents">
-                        <i data-lucide="alert-triangle"></i><span>Manage Incidents</span>
+                    <a href="/phase2/users.html" class="sidebar-link">
+                        <i class="bi bi-people"></i><span>Manage Technicians</span>
                     </a>
                 `;
                 loadReceiptingView();
             } else if (role === 'IctInspector') {
                 sidebar.innerHTML = `
                     <h6 class="text-muted mb-3">INSPECTOR MENU</h6>
-                    <div class="list-group list-group-flush">
-                        <a href="#" class="list-group-item list-group-item-action" onclick="loadPreAssessmentView(); return false;">
-                            <i class="bi bi-search"></i> Pre-Assessment
-                        </a>
-                        <a href="#" class="list-group-item list-group-item-action" onclick="loadQualityView(); return false;">
-                            <i class="bi bi-check-circle"></i> Quality Assessment
-                        </a>
-                        <a href="#" class="list-group-item list-group-item-action" onclick="loadInspectorMyWorkView(); return false;">
-                            <i class="bi bi-clock-history"></i> My Work (Inspector)
-                        </a>
-                    </div>
+                    <a href="#" class="sidebar-link active" onclick="loadPreAssessmentView(); return false;">
+                        <i class="bi bi-search"></i><span>Pre-Assessment</span>
+                    </a>
+                    <a href="#" class="sidebar-link" onclick="loadQualityView(); return false;">
+                        <i class="bi bi-check-circle"></i><span>Quality Assessment</span>
+                    </a>
+                    <a href="#" class="sidebar-link" onclick="loadInspectorMyWorkView(); return false;">
+                        <i class="bi bi-clock-history"></i><span>My Work (Inspector)</span>
+                    </a>
                 `;
                 loadPreAssessmentView();
             } else if (role === 'IctTechnician') {
                 sidebar.innerHTML = `
                     <h6 class="text-muted mb-3">TECHNICIAN MENU</h6>
-                    <div class="list-group list-group-flush">
-                        <a href="#" class="list-group-item list-group-item-action" onclick="loadDetailedInspectionView(); return false;">
-                            <i class="bi bi-tools"></i> Detailed Inspection
-                        </a>
-                        <a href="#" class="list-group-item list-group-item-action" onclick="loadTechMyWorkView(); return false;">
-                            <i class="bi bi-clock-history"></i> My Work (Technician)
-                        </a>
-                        <a href="#" class="list-group-item list-group-item-action" onclick="loadDisposalRequestView(); return false;">
-                            <i class="bi bi-trash"></i> Request Disposal
-                        </a>
-                    </div>
+                    <a href="#" class="sidebar-link active" onclick="loadDetailedInspectionView(); return false;">
+                        <i class="bi bi-tools"></i><span>Detailed Inspection</span>
+                    </a>
+                    <a href="#" class="sidebar-link" onclick="loadTechMyWorkView(); return false;">
+                        <i class="bi bi-clock-history"></i><span>My Work (Technician)</span>
+                    </a>
+                    <a href="#" class="sidebar-link" onclick="loadDisposalRequestView(); return false;">
+                        <i class="bi bi-trash"></i><span>Request Disposal</span>
+                    </a>
                 `;
                 loadTechMyWorkView();
             } else if (role === 'IctAllocator') {
@@ -219,6 +199,11 @@
                         <i class="bi bi-clipboard-list"></i>
                         <span>Picking Slips</span>
                     </a>
+                    <span class="sidebar-section mt-3">ASSIGNMENT</span>
+                    <a href="#" class="sidebar-link" onclick="loadStudentTeacherAllocationView(); return false;">
+                        <i class="bi bi-person-badge"></i>
+                        <span>Student/Teacher Allocation</span>
+                    </a>
                 `;
                 loadPendingAllocationsView();
             } else {
@@ -229,13 +214,6 @@
                     </div>
                 `;
             }
-            if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
-        }
-
-        function setActiveClerkNav(key) {
-            document.querySelectorAll('[data-clerk-link]').forEach((link) => {
-                link.classList.toggle('active', link.getAttribute('data-clerk-link') === key);
-            });
         }
 
         async function logout() {
@@ -244,7 +222,7 @@
             } catch (e) {
                 console.warn('Logout request aborted or failed:', e);
             } finally {
-                window.location.href = '/login.html?logout=1';
+                window.location.href = '/login.html';
             }
         }
 
@@ -299,7 +277,6 @@
                 (document.getElementById('filterStage') || document.getElementById('devicesList'))) {
                 try { window.loadDevices(); } catch (e) { console.error('loadDevices init error:', e); }
             }
-            if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
         }
 
         // View loaders - implemented via HTML fragments that may contain scripts
@@ -327,7 +304,7 @@
             window.currentDetailedDeviceId = deviceId || null;
             window.currentDetailedReadOnly = !!readOnly;
             try {
-                const r = await fetch('detailed-inspection.html');
+                const r = await fetch('detailed-inspection.html?v=' + Date.now());
                 const html = await r.text();
                 await renderWithScripts('mainContent', html);
             } catch { showPlaceholder('Detailed Inspection'); }
@@ -471,6 +448,38 @@
                 const html = await r.text();
                 await renderWithScripts('mainContent', html);
             } catch { showPlaceholder('Bulk Allocation'); }
+        }
+
+        async function loadStudentTeacherAllocationView() {
+            const links = document.querySelectorAll('#sidebar .sidebar-link');
+            setActiveAllocatorNav(links[9]); // Student/Teacher Allocation link (after Picking Slips)
+            try {
+                const r = await fetch('allocator/student-teacher-allocation.html');
+                const html = await r.text();
+                await renderWithScripts('mainContent', html);
+            } catch (err) { 
+                console.error('[StudentTeacherAllocation] Load error:', err);
+                showPlaceholder('Student/Teacher Allocation'); 
+            }
+        }
+
+        async function loadReadyForDispatchView() {
+            const links = document.querySelectorAll('#sidebar .sidebar-link');
+            setActiveAllocatorNav(links[10]); // Ready for Dispatch link
+            try {
+                document.getElementById('mainContent').innerHTML = `
+                    <div class="container-fluid py-4">
+                        <h2>Ready for Dispatch</h2>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            This view will show allocated devices grouped by school.
+                            <br><small class="text-muted">Future enhancement: Export allocated device lists for dispatch.</small>
+                        </div>
+                    </div>
+                `;
+            } catch (err) {
+                showPlaceholder('Ready for Dispatch');
+            }
         }
         
         // Expose to window for access from loaded views

@@ -9,7 +9,7 @@ namespace DeviceDesk.Modules.Phase2.Controllers;
 
 [ApiController]
 [Route("api/phase2/devices")]
-[Authorize(Roles = $"{UserRoles.IctClerk},{UserRoles.IctInspector},{UserRoles.IctTechnician},{UserRoles.IctManager}")]
+[Authorize(Roles = $"{UserRoles.IctClerk},{UserRoles.IctInspector},{UserRoles.IctTechnician},{UserRoles.IctManager},{UserRoles.IctAllocator}")]
 public class Phase2DevicesController : ControllerBase
 {
     private readonly Phase2DbContext _db;
@@ -45,15 +45,9 @@ public class Phase2DevicesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> List(
-        [FromQuery] Phase2Stage? stage,
-        [FromQuery] Phase2Zone? zone,
-        [FromQuery] string? serial,
-        [FromQuery] string? attention,
-        [FromQuery] int? page,
-        [FromQuery] int? pageSize)
+    public async Task<IActionResult> List([FromQuery] Phase2Stage? stage, [FromQuery] Phase2Zone? zone, [FromQuery] string? serial)
     {
-        var q = _db.Devices.AsNoTracking().AsQueryable();
+        var q = _db.Devices.AsQueryable();
         if (stage.HasValue) q = q.Where(d => d.Stage == stage);
         if (zone.HasValue) q = q.Where(d => d.Zone == zone);
         if (!string.IsNullOrWhiteSpace(serial))
@@ -62,30 +56,8 @@ public class Phase2DevicesController : ControllerBase
             // Case-insensitive search: prefer exact match, but allow partial
             q = q.Where(d => d.Serial.ToLower() == serialTrimmed || d.Serial.ToLower().Contains(serialTrimmed));
         }
-
-        if (!string.IsNullOrWhiteSpace(attention))
-        {
-            var att = attention.Trim();
-            if (int.TryParse(att, out var attInt))
-            {
-                q = q.Where(d => (int)d.AttentionRequired == attInt);
-            }
-            else
-            {
-                var key = att.ToLowerInvariant();
-                q = key switch
-                {
-                    "ok" => q.Where(d => d.AttentionRequired == AttentionRequired.None),
-                    "needsattention" => q.Where(d =>
-                        d.AttentionRequired == AttentionRequired.Hardware ||
-                        d.AttentionRequired == AttentionRequired.Software),
-                    "flagged" => q.Where(d => d.AttentionRequired == AttentionRequired.Quarantine),
-                    _ => q
-                };
-            }
-        }
-
-        var projected = q
+        var list = await q
+            .AsNoTracking()
             .OrderByDescending(d => d.UpdatedAt)
             .Select(d => new
             {
@@ -104,26 +76,11 @@ public class Phase2DevicesController : ControllerBase
                 d.UpdatedAt,
                 d.PreAssessmentNotes,
                 d.PreAssessmentPassed,
-                d.AttentionRequired,
-                ZoneLabel = d.Zone == Phase2Zone.RnR ? "R&R" : "New Stock",
-                Source = d.Zone == Phase2Zone.RnR ? "RnR" : "NewStock",
-                Batch = d.ReceiptId.HasValue ? $"RCPT-{d.ReceiptId.Value}" : "",
                 // Computed flags
                 IsDisposed = d.Stage == Phase2Stage.Disposal || _db.Disposals.Any(x => x.DeviceId == d.Id && x.IsApproved),
                 PendingDisposal = _db.Disposals.Any(x => x.DeviceId == d.Id && !x.IsApproved)
-            });
-
-        // Backward-compatible mode for existing views that expect a flat array.
-        if (!page.HasValue && !pageSize.HasValue)
-        {
-            var legacyRows = await projected.Take(500).ToListAsync();
-            return Ok(legacyRows);
-        }
-
-        var pg = Math.Max(1, page ?? 1);
-        var size = Math.Clamp(pageSize ?? 50, 1, 100);
-        var total = await projected.CountAsync();
-        var rows = await projected.Skip((pg - 1) * size).Take(size).ToListAsync();
-        return Ok(new { page = pg, pageSize = size, total, rows });
+            })
+            .ToListAsync();
+        return Ok(list);
     }
 }

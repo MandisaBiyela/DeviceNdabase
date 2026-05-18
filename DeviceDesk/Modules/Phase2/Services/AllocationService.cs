@@ -266,7 +266,7 @@ public class AllocationService
             })
             .ToListAsync(ct);
 
-        // Get school info - prefer Phase2Device, fallback to core Device
+        // Get school info - lookup from Schools table, then fallback to device fields
         var serials = devices.Select(d => d.Serial).ToList();
         if (serials.Count > 0)
         {
@@ -284,14 +284,61 @@ public class AllocationService
                 .Select(d => new { d.SerialNumber, d.SchoolId, d.SchoolName, d.Model, d.Brand, d.DeviceType })
                 .ToListAsync(ct);
 
+            // Collect ALL school IDs from both Phase2 and Core devices for Schools table lookup
+            var schoolIds = new List<long>();
+            
+            schoolIds.AddRange(phase2Devices
+                .Where(p => p.SchoolId.HasValue)
+                .Select(p => (long)p.SchoolId!.Value));
+            
+            schoolIds.AddRange(coreDevices
+                .Where(c => c.SchoolId.HasValue)
+                .Select(c => c.SchoolId!.Value));
+            
+            schoolIds = schoolIds.Distinct().ToList();
+            
+            // Query Schools table for all collected SchoolIds
+            var schoolsDict = await _coreDb.Schools
+                .Where(s => schoolIds.Contains(s.SchoolId))
+                .ToDictionaryAsync(s => (int)s.SchoolId, s => s.Name, ct);
+
             foreach (var device in devices)
             {
                 var p2 = phase2Devices.FirstOrDefault(p => p.Serial == device.Serial);
                 var core = coreDevices.FirstOrDefault(c => c.SerialNumber == device.Serial);
                 
-                // Prefer Phase2Device, fallback to core Device, then explicit fallback
+                // Determine SchoolId with proper fallback chain
                 device.SchoolId = p2?.SchoolId ?? (core?.SchoolId.HasValue == true ? (int?)core.SchoolId.Value : null);
-                device.SchoolName = p2?.SchoolName ?? core?.SchoolName ?? "No School Linked";
+                
+                // Determine school name with proper fallback chain:
+                // 1. Try Phase2Device.SchoolId -> Schools table
+                // 2. Fall back to Phase2Device.SchoolName (if populated)
+                // 3. Fall back to CoreDevice.SchoolId -> Schools table
+                // 4. Fall back to CoreDevice.SchoolName (if populated)
+                string? finalSchoolName = null;
+                
+                // First priority: lookup school name from Schools table using Phase2Device.SchoolId
+                if (p2?.SchoolId.HasValue == true && schoolsDict.TryGetValue(p2.SchoolId.Value, out var schoolName))
+                {
+                    finalSchoolName = schoolName;
+                }
+                // Second priority: use Phase2Device.SchoolName if populated
+                else if (!string.IsNullOrWhiteSpace(p2?.SchoolName))
+                {
+                    finalSchoolName = p2.SchoolName;
+                }
+                // Third priority: lookup from Schools table using CoreDevice.SchoolId
+                else if (core?.SchoolId.HasValue == true && schoolsDict.TryGetValue((int)core.SchoolId.Value, out var coreSchoolName))
+                {
+                    finalSchoolName = coreSchoolName;
+                }
+                // Fourth priority: use CoreDevice.SchoolName if populated
+                else if (!string.IsNullOrWhiteSpace(core?.SchoolName))
+                {
+                    finalSchoolName = core.SchoolName;
+                }
+                
+                device.SchoolName = finalSchoolName ?? "No School Linked";
                 
                 // Get model with better fallback logic
                 if (core != null && !string.IsNullOrWhiteSpace(core.Model))
@@ -676,7 +723,7 @@ public class PendingAllocationDto
     public int Phase2DeviceId { get; set; }
     public string Serial { get; set; } = string.Empty;
     public string Stage { get; set; } = string.Empty;
-    public DateTime? ReceivingDate { get; set; }
+    public DateTimeOffset? ReceivingDate { get; set; }
     public int? SchoolId { get; set; }
     public string? SchoolName { get; set; }
     public string? Model { get; set; }
@@ -706,7 +753,7 @@ public class UnallocatedDeviceDto
     public int Phase2DeviceId { get; set; }
     public string Serial { get; set; } = string.Empty;
     public string Stage { get; set; } = string.Empty;
-    public DateTime? ReceivingDate { get; set; }
+    public DateTimeOffset? ReceivingDate { get; set; }
     public string? SchoolName { get; set; }
     public string? Model { get; set; }
 }

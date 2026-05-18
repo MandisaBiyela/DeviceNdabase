@@ -1,2 +1,12 @@
-/Phase 0.md
-/Phase0
+# .NET build output
+bin/
+obj/
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+
+# user secrets / env
+*.user
+*.suo
+.env*

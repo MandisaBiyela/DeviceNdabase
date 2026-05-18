@@ -26,12 +26,8 @@
                     return;
                 }
 
-                const roles = Array.isArray(user.roles) ? user.roles : [];
-                const isDispatchUser = roles.some((r) =>
-                    ['DispatchClerk', 'DispatchDriver', 'DispatchQA', 'DispatchManager'].includes(r)
-                );
-
-                if (!isDispatchUser) {
+                const roles = user.roles || [];
+                if (!roles.includes('DispatchClerk')) {
                     window.location.href = '/';
                     return;
                 }

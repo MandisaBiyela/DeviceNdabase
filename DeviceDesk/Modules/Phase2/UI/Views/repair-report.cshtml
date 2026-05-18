@@ -1,0 +1,283 @@
+@model DeviceDesk.Modules.Phase2.Models.Phase2RepairReportViewModel
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Repair & Quotation Report - @Model.RepairNumber</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-size: 12px;
+            margin: 0;
+            padding: 0;
+        }
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 15mm 20mm;
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .header-left h1 {
+            font-size: 20px;
+            margin: 0;
+        }
+        .header-left span {
+            font-size: 11px;
+            color: #6b7280;
+        }
+        .header-right {
+            text-align: right;
+            font-size: 11px;
+        }
+        .section {
+            margin-bottom: 12px;
+        }
+        .section-title {
+            font-weight: 600;
+            font-size: 12px;
+            margin-bottom: 4px;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 2px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 4px 30px;
+            font-size: 11px;
+        }
+        .label {
+            font-weight: 600;
+        }
+        .text-block {
+            border: 1px solid #e5e7eb;
+            padding: 6px;
+            min-height: 40px;
+            font-size: 11px;
+            white-space: pre-wrap;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 4px 6px;
+            text-align: left;
+        }
+        th {
+            background: #f9fafb;
+            font-weight: 600;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .totals {
+            margin-top: 6px;
+            width: 40%;
+            margin-left: auto;
+        }
+        .totals td {
+            border: none;
+            padding: 2px 0;
+        }
+        .totals .label {
+            font-weight: 600;
+        }
+        .signature-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 40px;
+            margin-top: 25px;
+            font-size: 11px;
+        }
+        .signature-block {
+            border-top: 1px solid #d1d5db;
+            padding-top: 4px;
+        }
+        .signature-block .role {
+            font-weight: 600;
+        }
+        @@media print {
+            body, .page {
+                margin: 0;
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <h1>Repair & Quotation Report</h1>
+            <span>NDABASE DeviceDesk – Phase 2 (ICT Centre)</span>
+        </div>
+        <div class="header-right">
+            <div><span class="label">Report No:</span> @Model.RepairNumber</div>
+            <div><span class="label">Date:</span> @Model.ReportDate.ToString("yyyy-MM-dd HH:mm")</div>
+            <div><span class="label">Technician:</span> @Model.TechnicianName</div>
+        </div>
+    </div>
+
+    <!-- School & Device -->
+    <div class="section">
+        <div class="section-title">School & Device Details</div>
+        <div class="info-grid">
+            <div><span class="label">School:</span> @Model.SchoolName</div>
+            <div><span class="label">EMIS:</span> @Model.Emis</div>
+            <div><span class="label">District:</span> @Model.District</div>
+            <div><span class="label">Project:</span> @Model.ProjectName</div>
+            <div><span class="label">Device Serial:</span> @Model.DeviceSerial</div>
+            <div><span class="label">Item Description:</span> @Model.ItemDescription</div>
+            @if (!string.IsNullOrWhiteSpace(Model.AssetTag))
+            {
+                <div><span class="label">Asset Tag:</span> @Model.AssetTag</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.PodNumber))
+            {
+                <div><span class="label">POD / GRV:</span> @Model.PodNumber</div>
+            }
+        </div>
+    </div>
+
+    <!-- Inspection Summary -->
+    <div class="section">
+        <div class="section-title">Inspection Summary</div>
+        <div class="info-grid">
+            <div><span class="label">Category:</span> @Model.Category</div>
+            <div><span class="label">Priority:</span> @Model.Priority</div>
+            <div><span class="label">Under Warranty:</span> @(Model.IsUnderWarranty ? "Yes" : "No")</div>
+            <div><span class="label">Warranty Route:</span> @Model.WarrantyRoute</div>
+            <div><span class="label">Estimated Labour (hrs):</span> @Model.EstimatedLabourHours?.ToString("0.##")</div>
+            <div><span class="label">Status:</span> @Model.Status</div>
+        </div>
+    </div>
+
+    <!-- Fault Description -->
+    <div class="section">
+        <div class="section-title">Fault Description</div>
+        <div class="label">Symptoms / User Complaint</div>
+        <div class="text-block">@Model.Symptoms</div>
+
+        <div class="label" style="margin-top:6px;">Technician Findings</div>
+        <div class="text-block">@Model.Findings</div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.HardwareChecklistSummary))
+        {
+            <div class="label" style="margin-top:6px;">Hardware Checklist</div>
+            <div class="text-block">@Model.HardwareChecklistSummary</div>
+        }
+    </div>
+
+    <!-- Parts -->
+    <div class="section">
+        <div class="section-title">Parts Required / Quotation</div>
+
+        @if (Model.Parts != null && Model.Parts.Any())
+        {
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Part Name</th>
+                        <th>Part Number</th>
+                        <th class="text-right">Qty</th>
+                        <th class="text-right">Unit Cost</th>
+                        <th class="text-right">Line Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @{
+                    int i = 1;
+                    foreach (var p in Model.Parts)
+                    {
+                        <tr>
+                            <td>@i</td>
+                            <td>@p.PartName</td>
+                            <td>@p.PartNumber</td>
+                            <td class="text-right">@p.Quantity</td>
+                            <td class="text-right">@p.UnitCost?.ToString("N2")</td>
+                            <td class="text-right">@p.LineTotal?.ToString("N2")</td>
+                        </tr>
+                        i++;
+                    }
+                }
+                </tbody>
+            </table>
+
+            <table class="totals">
+                <tr>
+                    <td class="label">Parts Subtotal:</td>
+                    <td class="text-right">@Model.PartsSubtotal?.ToString("N2")</td>
+                </tr>
+                <tr>
+                    <td class="label">Labour:</td>
+                    <td class="text-right">@Model.LabourTotal?.ToString("N2")</td>
+                </tr>
+                <tr>
+                    <td class="label">VAT (@Model.VatRate%):</td>
+                    <td class="text-right">@Model.VatAmount?.ToString("N2")</td>
+                </tr>
+                <tr>
+                    <td class="label">Grand Total:</td>
+                    <td class="text-right"><strong>@Model.GrandTotal?.ToString("N2")</strong></td>
+                </tr>
+            </table>
+        }
+        else
+        {
+            <div class="text-block">No parts captured for this repair.</div>
+        }
+    </div>
+
+    <!-- Recommendation -->
+    <div class="section">
+        <div class="section-title">Technician Recommendation</div>
+        <div class="text-block">@Model.RecommendedAction</div>
+    </div>
+
+    <!-- Signatures -->
+    <div class="section">
+        <div class="section-title">Authorization & Sign-off</div>
+        <div class="signature-row">
+            <div class="signature-block">
+                <div class="role">Prepared by (Technician)</div>
+                <div>Name: @Model.TechnicianName</div>
+                <div>Signature: ________________________</div>
+                <div>Date: ____________________________</div>
+            </div>
+            <div class="signature-block">
+                <div class="role">Approved by (Manager)</div>
+                <div>Name: ____________________________</div>
+                <div>Signature: ________________________</div>
+                <div>Date: ____________________________</div>
+            </div>
+            <div class="signature-block">
+                <div class="role">School Representative</div>
+                <div>Name: ____________________________</div>
+                <div>Signature: ________________________</div>
+                <div>Date: ____________________________</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>
+

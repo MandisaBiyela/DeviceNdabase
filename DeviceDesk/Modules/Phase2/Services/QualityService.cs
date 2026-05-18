@@ -66,7 +66,7 @@ public class QualityService
             device.ReworkCount++;
         }
 
-        device.UpdatedAt = DateTime.UtcNow;
+        device.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
         
         await _audit.LogAsync(inspectorId, Phase2AuditActions.QualityAssessment, deviceId, device.Serial, $"Passed: {passed}, Attempt: {attempts + 1}");

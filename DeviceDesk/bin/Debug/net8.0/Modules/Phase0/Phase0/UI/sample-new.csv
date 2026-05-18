@@ -1,8 +1,0 @@
-OrderNumber,Brand,Model,DeviceType,Description,Quantity
-0001,HP,EliteBook 840,Laptop,14-inch business laptop,10
-0001,Dell,Latitude 5420,Laptop,Enterprise laptop,15
-0001,Lenovo,ThinkPad X1,Laptop,Ultralight laptop,8
-0002,HP,ProBook 450,Laptop,Budget laptop,20
-0002,Dell,OptiPlex 7090,Desktop,Small form factor,12
-0003,Apple,iPad Air,Tablet,10.9-inch tablet,25
-0003,HP,Chromebook 14,Chromebook,Chrome OS laptop,30

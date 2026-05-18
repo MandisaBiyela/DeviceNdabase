@@ -132,7 +132,7 @@
       <div class="login-left col-lg-6 col-md-5">
         <img src="/img/ndabase-full-logo.png" alt="Ndabase Printing Solutions" class="login-logo" />
         <h1 class="login-title-main">Ndabase Printing Solutions</h1>
-        <p class="login-subtitle">Internal Helpdesk Ticketing System</p>
+        <p class="login-subtitle">Device Tracking & Management System</p>
       </div>
 
       <!-- RIGHT SIDE -->
@@ -185,15 +185,10 @@
   </div>
 
   <script>
-    // After explicit sign-out, do not redirect "already logged in" users to "/" — stale cookies can send them back into the app or a cached legacy page.
-    const qs = new URLSearchParams(window.location.search);
-    const skipAutoRedirectHome = qs.has('logout') || qs.has('signedOut');
-
     async function checkAuth() {
-      if (skipAutoRedirectHome) return;
       try {
-        const res = await fetch('/api/auth/current-user', { credentials: 'include', cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
-        if (res.ok) { window.location.replace('/'); }
+        const res = await fetch('/api/auth/current-user', { credentials: 'include' });
+        if (res.ok) { window.location.href = '/'; }
       } catch {}
     }
     checkAuth();

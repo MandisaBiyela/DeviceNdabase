@@ -139,99 +139,16 @@ namespace DeviceDesk.Modules.Phase1.Services
                 }
             }
 
-            // Build a model-name → school-breakdown lookup from the batch items so we can
-            // show per-school allocations next to each model row.
-            var breakdownByModel = await BuildModelBreakdownAsync(orderID, ct);
-
-            return existingModels.Select(m =>
+            // Return models as DTOs
+            return existingModels.Select(m => new ModelDto
             {
-                breakdownByModel.TryGetValue(m.ModelName, out var schoolBreakdown);
-                schoolBreakdown ??= new List<ModelSchoolBreakdownDto>();
-                var summary = schoolBreakdown.Count > 0
-                    ? string.Join(", ", schoolBreakdown.Select(s => $"{s.SchoolName}: {s.QtyOrdered}"))
-                    : string.Empty;
-
-                return new ModelDto
-                {
-                    ModelID = m.ModelID,
-                    ModelName = m.ModelName,
-                    ExpectedQty = m.ExpectedQty,
-                    CountedQty = m.CountedQty,
-                    Status = m.Status,
-                    Variance = m.ExpectedQty - m.CountedQty,
-                    SchoolBreakdown = schoolBreakdown,
-                    SchoolBreakdownSummary = summary
-                };
+                ModelID = m.ModelID,
+                ModelName = m.ModelName,
+                ExpectedQty = m.ExpectedQty,
+                CountedQty = m.CountedQty,
+                Status = m.Status,
+                Variance = m.ExpectedQty - m.CountedQty
             }).ToList();
-        }
-
-        /// <summary>
-        /// Aggregates SchoolBreakdownJson across all NewStockBatchItems for the order,
-        /// keyed by the same "Brand Model DeviceType" composite the scanning service uses.
-        /// </summary>
-        private async Task<Dictionary<string, List<ModelSchoolBreakdownDto>>> BuildModelBreakdownAsync(
-            Guid orderID, CancellationToken ct)
-        {
-            var result = new Dictionary<string, List<ModelSchoolBreakdownDto>>(StringComparer.OrdinalIgnoreCase);
-            var items = await _db.NewStockBatchItems
-                .AsNoTracking()
-                .Where(i => i.BatchId == orderID)
-                .ToListAsync(ct);
-
-            foreach (var item in items)
-            {
-                var modelKey = $"{item.Brand} {item.Model} {item.DeviceType}".Trim();
-                if (string.IsNullOrWhiteSpace(modelKey)) modelKey = item.Description ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(modelKey)) continue;
-
-                if (!result.TryGetValue(modelKey, out var bucket))
-                {
-                    bucket = new List<ModelSchoolBreakdownDto>();
-                    result[modelKey] = bucket;
-                }
-
-                if (string.IsNullOrWhiteSpace(item.SchoolBreakdownJson)) continue;
-                try
-                {
-                    using var doc = System.Text.Json.JsonDocument.Parse(item.SchoolBreakdownJson);
-                    if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array) continue;
-                    foreach (var el in doc.RootElement.EnumerateArray())
-                    {
-                        var schoolName = el.TryGetProperty("schoolName", out var n) ? n.GetString() ?? "" : "";
-                        var qty = el.TryGetProperty("qtyOrdered", out var q) && q.TryGetInt32(out var qi) ? qi : 0;
-                        var status = el.TryGetProperty("deliveryStatus", out var s) ? s.GetString() ?? "" : "";
-                        if (string.IsNullOrWhiteSpace(schoolName) || qty <= 0) continue;
-                        bucket.Add(new ModelSchoolBreakdownDto
-                        {
-                            SchoolName = schoolName,
-                            QtyOrdered = qty,
-                            DeliveryStatus = status
-                        });
-                    }
-                }
-                catch (System.Text.Json.JsonException)
-                {
-                    // ignore malformed JSON
-                }
-            }
-
-            // Merge duplicate school names within a single model bucket
-            foreach (var key in result.Keys.ToList())
-            {
-                result[key] = result[key]
-                    .GroupBy(b => b.SchoolName, StringComparer.OrdinalIgnoreCase)
-                    .Select(g => new ModelSchoolBreakdownDto
-                    {
-                        SchoolName = g.Key,
-                        QtyOrdered = g.Sum(x => x.QtyOrdered),
-                        DeliveryStatus = g.First().DeliveryStatus
-                    })
-                    .OrderByDescending(b => b.QtyOrdered)
-                    .ThenBy(b => b.SchoolName)
-                    .ToList();
-            }
-
-            return result;
         }
 
         /// <summary>
@@ -559,19 +476,6 @@ namespace DeviceDesk.Modules.Phase1.Services
         public int CountedQty { get; set; }
         public string Status { get; set; } = string.Empty;
         public int Variance { get; set; }
-
-        /// <summary>Per-school allocation for this model, sourced from NewStockBatchItems.SchoolBreakdownJson.</summary>
-        public List<ModelSchoolBreakdownDto> SchoolBreakdown { get; set; } = new();
-
-        /// <summary>Pre-formatted summary like "Juba High School: 30, Westville Primary: 17".</summary>
-        public string SchoolBreakdownSummary { get; set; } = string.Empty;
-    }
-
-    public class ModelSchoolBreakdownDto
-    {
-        public string SchoolName { get; set; } = string.Empty;
-        public int QtyOrdered { get; set; }
-        public string DeliveryStatus { get; set; } = string.Empty;
     }
 
     public class ModelScanResultDto

@@ -1,0 +1,453 @@
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-0">Student / Teacher Allocation</h2>
+            <small class="text-muted">
+                Receipted devices ready to be assigned to learners or teachers.
+            </small>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm" id="refreshBtn">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+    </div>
+    
+    <!-- Search Bar -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="input-group">
+                <span class="input-group-text bg-white">
+                    <i class="bi bi-search"></i>
+                </span>
+                <input 
+                    type="text" 
+                    class="form-control" 
+                    id="serialSearchInput" 
+                    placeholder="Search by serial number or school name..."
+                    autocomplete="off"
+                >
+                <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn">
+                    <i class="bi bi-x-lg"></i> Clear
+                </button>
+            </div>
+            <small class="text-muted ms-2">
+                <i class="bi bi-info-circle"></i> Type to filter devices by serial number or school name
+            </small>
+        </div>
+    </div>
+    
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div id="allocatorTableContainer">
+                <div class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span class="text-muted">Loading devices...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Student/Teacher Allocation Modal -->
+<div class="modal fade" id="allocationModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          Allocate Device: <span id="allocModalSerial" class="text-primary"></span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="allocDeviceInfo" class="alert alert-info small mb-3"></div>
+
+        <!-- Radio buttons -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Allocate To</label>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="allocType" id="allocNone" value="0" checked>
+            <label class="form-check-label" for="allocNone">No Allocation / Clear Allocation</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="allocType" id="allocStudent" value="1">
+            <label class="form-check-label" for="allocStudent">Student / Learner</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="allocType" id="allocTeacher" value="2">
+            <label class="form-check-label" for="allocTeacher">Teacher / Educator</label>
+          </div>
+        </div>
+
+        <!-- Student fields -->
+        <div id="studentFields" class="border rounded p-3 mb-2 bg-light" style="display:none;">
+          <div class="mb-2">
+            <label class="form-label">Student Name</label>
+            <input type="text" id="studentName" class="form-control form-control-sm" placeholder="Enter student name">
+          </div>
+          <div>
+            <label class="form-label">Student ID / Number</label>
+            <input type="text" id="studentId" class="form-control form-control-sm" placeholder="Enter student ID">
+          </div>
+        </div>
+
+        <!-- Teacher fields -->
+        <div id="teacherFields" class="border rounded p-3 mb-2 bg-light" style="display:none;">
+          <div class="mb-2">
+            <label class="form-label">Teacher Name</label>
+            <input type="text" id="teacherName" class="form-control form-control-sm" placeholder="Enter teacher name">
+          </div>
+          <div>
+            <label class="form-label">Persal Number</label>
+            <input type="text" id="teacherPersal" class="form-control form-control-sm" placeholder="Enter persal number (numeric)">
+          </div>
+        </div>
+
+        <div id="allocError" class="alert alert-danger small d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveAllocation()">
+            <i class="bi bi-check-circle me-1"></i>Save Allocation
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+    console.log('[StudentTeacherAllocation] View loaded');
+    
+    let allocatorDevices = [];
+    let currentDevice = null;
+    let currentSearch = '';
+
+    // Event listener for radio button changes
+    document.addEventListener('change', function (e) {
+        if (e.target.name === 'allocType') {
+            updateAllocationFieldVisibility();
+        }
+    });
+
+    function updateAllocationFieldVisibility() {
+        const type = getSelectedAllocationType();
+        const studentDiv = document.getElementById('studentFields');
+        const teacherDiv = document.getElementById('teacherFields');
+
+        if (studentDiv && teacherDiv) {
+            studentDiv.style.display = (type === 1) ? 'block' : 'none';
+            teacherDiv.style.display = (type === 2) ? 'block' : 'none';
+        }
+    }
+
+    function getSelectedAllocationType() {
+        const checked = document.querySelector('input[name="allocType"]:checked');
+        return checked ? parseInt(checked.value, 10) : 0;
+    }
+
+    let currentPage = 1;
+    let totalPages = 1;
+    let totalCount = 0;
+
+    async function loadStudentTeacherDevices(page = 1, search = '') {
+        const container = document.getElementById('allocatorTableContainer');
+        
+        try {
+            const params = new URLSearchParams({ page, pageSize: 100 });
+            if (search && search.trim()) {
+                params.append('search', search.trim());
+            }
+            
+            const resp = await fetch(`/api/phase2/allocation/ready-for-assignment?${params}`);
+            if (!resp.ok) {
+                throw new Error(`API returned ${resp.status}: ${resp.statusText}`);
+            }
+            
+            const data = await resp.json();
+            allocatorDevices = data.items || [];
+            currentPage = data.page || 1;
+            totalPages = data.totalPages || 1;
+            totalCount = data.totalCount || 0;
+            currentSearch = search;
+            
+            console.log('[StudentTeacherAllocation] Loaded', allocatorDevices.length, 'devices (page', currentPage, 'of', totalPages, ', total:', totalCount, ')');
+            if (search) {
+                console.log('[StudentTeacherAllocation] Search:', search);
+            }
+            
+            renderStudentTeacherAllocationTable();
+        } catch (err) {
+            console.error('[StudentTeacherAllocation] Error loading devices:', err);
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-circle me-2"></i>
+                    Error loading devices: ${err.message}
+                </div>`;
+        }
+    }
+
+    function renderStudentTeacherAllocationTable() {
+        const container = document.getElementById('allocatorTableContainer');
+        const devicesToShow = allocatorDevices;
+        
+        if (!devicesToShow.length) {
+            const message = currentSearch 
+                ? `No devices found matching "${currentSearch}". Try a different search term.`
+                : 'No receipted devices pending allocation.';
+            container.innerHTML = `
+                <div class="alert alert-info mb-0 text-center">
+                    <i class="bi bi-info-circle me-2"></i>
+                    ${message}
+                </div>`;
+            return;
+        }
+
+        const rows = devicesToShow.map(d => {
+            const allocationBadge = formatAllocationSummary(d);
+            return `
+        <tr>
+            <td class="text-nowrap"><code class="bg-light px-2 py-1 rounded">${d.serial}</code></td>
+            <td>${d.schoolName ?? '<span class="text-muted">N/A</span>'}</td>
+            <td><span class="badge bg-secondary">${d.zone}</span></td>
+            <td><span class="badge bg-info">${d.stage}</span></td>
+            <td>${allocationBadge}</td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-primary" onclick="openAllocationModal(${d.phase2DeviceId})">
+                    <i class="bi bi-person-plus me-1"></i>Allocate
+                </button>
+            </td>
+        </tr>`;
+        }).join('');
+
+        const paginationHtml = totalPages > 1 ? `
+            <nav aria-label="Device pagination" class="mt-3">
+                <ul class="pagination pagination-sm justify-content-center mb-0">
+                    <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                        <a class="page-link" href="#" onclick="loadStudentTeacherDevices(${currentPage - 1}, '${currentSearch.replace(/'/g, "\\'")}'); return false;">Previous</a>
+                    </li>
+                    ${Array.from({length: Math.min(5, totalPages)}, (_, i) => {
+                        const pageNum = currentPage <= 3 ? i + 1 : currentPage - 2 + i;
+                        if (pageNum > totalPages) return '';
+                        return `<li class="page-item ${pageNum === currentPage ? 'active' : ''}">
+                            <a class="page-link" href="#" onclick="loadStudentTeacherDevices(${pageNum}, '${currentSearch.replace(/'/g, "\\'")}'); return false;">${pageNum}</a>
+                        </li>`;
+                    }).join('')}
+                    ${totalPages > 5 ? '<li class="page-item disabled"><span class="page-link">...</span></li>' : ''}
+                    <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                        <a class="page-link" href="#" onclick="loadStudentTeacherDevices(${currentPage + 1}, '${currentSearch.replace(/'/g, "\\'")}'); return false;">Next</a>
+                    </li>
+                </ul>
+            </nav>
+        ` : '';
+
+        container.innerHTML = `
+            <div class="table-responsive">
+                <table class="table table-sm align-middle table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Serial</th>
+                            <th>School</th>
+                            <th>Zone</th>
+                            <th>Stage</th>
+                            <th>Current Allocation</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer text-muted small d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="bi bi-info-circle me-1"></i>
+                    ${currentSearch ? 
+                        `Showing <strong>${devicesToShow.length}</strong> matching device(s) for "${currentSearch}" | Page <strong>${currentPage}</strong> of <strong>${totalPages}</strong>` :
+                        `Showing <strong>${allocatorDevices.length}</strong> of <strong>${totalCount}</strong> device(s) | Page <strong>${currentPage}</strong> of <strong>${totalPages}</strong>`
+                    }
+                </div>
+                ${paginationHtml}
+            </div>
+        `;
+    }
+
+    function formatAllocationSummary(d) {
+        if (d.allocationType === 1) {
+            return `<span class="badge bg-primary me-1">Student</span> <small>${d.studentName ?? ''}</small>`;
+        }
+        if (d.allocationType === 2) {
+            return `<span class="badge bg-success me-1">Teacher</span> <small>${d.teacherName ?? ''}</small>`;
+        }
+        return '<span class="text-muted">Unallocated</span>';
+    }
+
+    function openAllocationModal(phase2DeviceId) {
+        currentDevice = allocatorDevices.find(d => d.phase2DeviceId === phase2DeviceId);
+        if (!currentDevice) {
+            alert('Device not found in current list.');
+            return;
+        }
+
+        document.getElementById('allocModalSerial').textContent = currentDevice.serial;
+        document.getElementById('allocDeviceInfo').innerHTML = `
+            <strong><i class="bi bi-building me-1"></i>${currentDevice.schoolName ?? 'Unknown school'}</strong><br/>
+            <small>Zone: <span class="badge bg-secondary">${currentDevice.zone}</span> · 
+            Stage: <span class="badge bg-info">${currentDevice.stage}</span></small>
+        `;
+
+        // Set radio based on current allocation
+        if (currentDevice.allocationType === 1) {
+            document.getElementById('allocStudent').checked = true;
+        } else if (currentDevice.allocationType === 2) {
+            document.getElementById('allocTeacher').checked = true;
+        } else {
+            document.getElementById('allocNone').checked = true;
+        }
+
+        // Pre-fill fields
+        document.getElementById('studentName').value = currentDevice.studentName ?? '';
+        document.getElementById('studentId').value = currentDevice.studentIdNumber ?? '';
+        document.getElementById('teacherName').value = currentDevice.teacherName ?? '';
+        document.getElementById('teacherPersal').value = currentDevice.teacherPersalNumber ?? '';
+
+        updateAllocationFieldVisibility();
+        
+        const errorDiv = document.getElementById('allocError');
+        errorDiv.classList.add('d-none');
+        errorDiv.textContent = '';
+
+        const modal = new bootstrap.Modal(document.getElementById('allocationModal'));
+        modal.show();
+    }
+
+    async function saveAllocation() {
+        if (!currentDevice) return;
+
+        const type = getSelectedAllocationType();
+        const errorDiv = document.getElementById('allocError');
+        errorDiv.classList.add('d-none');
+        errorDiv.textContent = '';
+
+        // Validation
+        if (type === 1) {
+            const name = document.getElementById('studentName').value.trim();
+            if (!name) {
+                errorDiv.textContent = 'Please enter the student name.';
+                errorDiv.classList.remove('d-none');
+                return;
+            }
+        }
+        if (type === 2) {
+            const name = document.getElementById('teacherName').value.trim();
+            const persal = document.getElementById('teacherPersal').value.trim();
+            if (!name || !persal) {
+                errorDiv.textContent = 'Please enter teacher name and persal number.';
+                errorDiv.classList.remove('d-none');
+                return;
+            }
+            // Validate persal is numeric
+            if (persal && !/^\d+$/.test(persal)) {
+                errorDiv.textContent = 'Persal number must be numeric.';
+                errorDiv.classList.remove('d-none');
+                return;
+            }
+        }
+
+        const payload = {
+            allocationType: type,
+            studentName: (type === 1) ? document.getElementById('studentName').value.trim() : null,
+            studentIdNumber: (type === 1) ? document.getElementById('studentId').value.trim() : null,
+            teacherName: (type === 2) ? document.getElementById('teacherName').value.trim() : null,
+            teacherPersalNumber: (type === 2) ? document.getElementById('teacherPersal').value.trim() : null
+        };
+
+        try {
+            console.log('[StudentTeacherAllocation] Saving allocation for device', currentDevice.phase2DeviceId);
+            
+            const resp = await fetch(`/api/phase2/allocation/devices/${currentDevice.phase2DeviceId}/assign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!resp.ok) {
+                const errorData = await resp.json().catch(() => ({ error: 'Unknown error' }));
+                throw new Error(errorData.error || `Failed to save (${resp.status})`);
+            }
+
+            console.log('[StudentTeacherAllocation] Allocation saved successfully');
+
+            // Close modal
+            const modalEl = document.getElementById('allocationModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) {
+                modal.hide();
+            }
+
+            // Show success toast if available
+            if (window.toast) {
+                window.toast('Allocation saved successfully', 'success');
+            }
+
+            // Reload the list
+            await loadStudentTeacherDevices();
+        } catch (err) {
+            console.error('[StudentTeacherAllocation] Save error:', err);
+            errorDiv.textContent = err.message;
+            errorDiv.classList.remove('d-none');
+        }
+    }
+
+    // Search input handler with debouncing - SERVER-SIDE SEARCH
+    let searchTimeout;
+    const searchInput = document.getElementById('serialSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const searchTerm = e.target.value;
+                console.log('[StudentTeacherAllocation] Search (server-side):', searchTerm);
+                loadStudentTeacherDevices(1, searchTerm); // Always reset to page 1 on search
+            }, 400); // Wait 400ms after user stops typing
+        });
+        
+        // Handle Enter key
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(searchTimeout);
+                const searchTerm = e.target.value;
+                console.log('[StudentTeacherAllocation] Search (Enter, server-side):', searchTerm);
+                loadStudentTeacherDevices(1, searchTerm);
+            }
+        });
+    }
+
+    // Clear search button handler
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', function() {
+            const searchInput = document.getElementById('serialSearchInput');
+            if (searchInput) {
+                searchInput.value = '';
+                console.log('[StudentTeacherAllocation] Search cleared');
+                loadStudentTeacherDevices(1, ''); // Load all devices
+                searchInput.focus();
+            }
+        });
+    }
+
+    // Initialize: Load devices
+    loadStudentTeacherDevices(1, '');
+
+    // Refresh button handler
+    document.getElementById('refreshBtn')?.addEventListener('click', () => {
+        // Keep search query when refreshing
+        const searchInput = document.getElementById('serialSearchInput');
+        const searchTerm = searchInput ? searchInput.value : '';
+        loadStudentTeacherDevices(currentPage, searchTerm);
+    });
+
+    console.log('[StudentTeacherAllocation] Script initialized');
+</script>
+

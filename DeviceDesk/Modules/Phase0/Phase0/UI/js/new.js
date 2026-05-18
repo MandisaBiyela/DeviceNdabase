@@ -1,368 +1,130 @@
 (() => {
-  const { API_BASE, fetchJson, byId } = PHASE0;
+  const { API_BASE, fetchJson, byId, show } = PHASE0;
 
-  // Card 1: CSV import
-  const csvInput = byId('newCsvInput');
-  const dropZone = byId('newDropZone');
-  const chooseCsvLink = byId('newChooseCsvLink');
-  const filePillWrap = byId('newFilePillWrap');
-  const filePillText = byId('newFilePillText');
-  const clearFileBtn = byId('newClearFileBtn');
+  const fileInput = byId('newOneFile');
   const importBtn = byId('newImportBtn');
-  const alertEl = byId('newAlert');
-  const templateLink = byId('newDownloadTemplateLink');
+  const msg = byId('newMsg');
 
-  // Card 2: manual batch
-  const manualToggleBtn = byId('newManualToggleBtn');
-  const manualFormWrap = byId('newManualFormWrap');
-  const manualAlert = byId('newManualAlert');
-  const manualDeviceType = byId('newManualDeviceType');
-  const manualQty = byId('newManualQty');
-  const manualBrand = byId('newManualBrand');
-  const manualModel = byId('newManualModel');
-  const manualDescription = byId('newManualDescription');
-  const manualOrderNumber = byId('newManualOrderNumber');
-  const addToBatchBtn = byId('newManualAddBtn');
-  const cancelManualBtn = byId('newManualCancelBtn');
-  const manualRowsBody = byId('newManualRows');
-  const manualTotalLabel = byId('newManualTotal');
-  const submitBatchBtn = byId('newSubmitBatchBtn');
-  const emptyRow = byId('newManualEmptyRow');
+  // Manual modal elements
+  const modal = byId('manualModal');
+  const manualClose = byId('manualClose');
+  const manualBtn = byId('newManualBtn');
+  const manualTable = byId('manualTable').querySelector('tbody');
+  const manualAddRow = byId('manualAddRow');
+  const manualPack = byId('manualPack');
+  const manualSubmit = byId('manualSubmit');
+  const manualMsg = byId('manualMsg');
 
-  // Header date filter
-  const dateFilterBtn = byId('newDateFilterBtn');
-  const dateFilterLabel = byId('newDateFilterLabel');
-  const dateMenu = byId('newDateFilterMenu');
-  const dateOptionBtns = Array.from(document.querySelectorAll('[data-date-option]'));
-  const customFrom = byId('newDateFrom');
-  const customTo = byId('newDateTo');
-  const customApplyBtn = byId('newDateApplyBtn');
-  const customRangeWrap = byId('newCustomDateRangeWrap');
-
-  const state = {
-    selectedCsv: null,
-    manualItems: [],
-    dateFilter: { mode: 'today', from: '', to: '' },
-  };
-
-  function setAlert(el, type, html) {
-    if (!el) return;
-    el.style.display = html ? 'flex' : 'none';
-    el.classList.remove('success', 'error', 'info');
-    if (type) el.classList.add(type);
-    el.innerHTML = html || '';
+  function setMsg(el, text, isErr=false){
+    el.textContent = text;
+    el.className = `mt-2 ${isErr ? 'text-danger' : 'text-muted'}`;
+  }
+  function setMsgHtml(el, html, isErr=false){
+    el.innerHTML = html;
+    el.className = `mt-2 ${isErr ? 'text-danger' : 'text-muted'}`;
   }
 
-  function escapeHtml(str) {
-    return String(str ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
-  }
-
-  function setCsvFile(file) {
-    state.selectedCsv = file || null;
-    if (!state.selectedCsv) {
-      filePillWrap?.classList.add('d-none');
-      if (csvInput) csvInput.value = '';
-      if (importBtn) importBtn.disabled = true;
-      return;
-    }
-    filePillWrap?.classList.remove('d-none');
-    if (filePillText) filePillText.textContent = state.selectedCsv.name;
-    if (importBtn) importBtn.disabled = false;
-  }
-
-  function downloadTemplateCsv() {
-    const headers = ['DeviceType', 'Quantity', 'Brand', 'Model', 'Description', 'OrderNumber'];
-    const content = `${headers.join(',')}\n`;
-    const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'new_stock_batch_template.csv';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  function renderManualTable() {
-    if (!manualRowsBody) return;
-    manualRowsBody.innerHTML = '';
-    if (!state.manualItems.length) {
-      if (emptyRow) {
-        const tr = document.createElement('tr');
-        tr.id = 'newManualEmptyRow';
-        tr.innerHTML = `<td colspan="7" class="sr-empty-inline">No items in this session batch yet.</td>`;
-        manualRowsBody.appendChild(tr);
-      }
-      if (submitBatchBtn) submitBatchBtn.disabled = true;
-      if (manualTotalLabel) manualTotalLabel.textContent = 'Total items: 0';
-      return;
-    }
-
-    state.manualItems.forEach((it, idx) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${escapeHtml(it.deviceType)}</td>
-        <td><span class="sr-qty-pill">${escapeHtml(String(it.qty))}</span></td>
-        <td>${escapeHtml(it.brand || '')}</td>
-        <td>${escapeHtml(it.model || '')}</td>
-        <td>${escapeHtml(it.description || '')}</td>
-        <td>${escapeHtml(it.orderNumber || '')}</td>
-        <td class="text-center">
-          <button type="button" class="btn btn-sm btn-light" data-remove-idx="${idx}" aria-label="Remove row">✕</button>
-        </td>
-      `;
-      manualRowsBody.appendChild(tr);
-    });
-
-    manualRowsBody.querySelectorAll('[data-remove-idx]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const idx = Number(btn.getAttribute('data-remove-idx'));
-        if (Number.isNaN(idx)) return;
-        state.manualItems.splice(idx, 1);
-        renderManualTable();
+    // Upload file to backend CsvImportService
+  importBtn.addEventListener('click', async () => {
+    setMsg(msg, '');
+    const f = fileInput.files[0];
+    if (!f) { setMsg(msg, 'Please select a spreadsheet first.', true); return; }
+    
+    // Upload file to backend for processing
+    try {
+      const formData = new FormData();
+      formData.append('file', f);
+      
+      const res = await fetch(`${location.origin}/api/phase0/new/import`, {
+        method: 'POST',
+        body: formData
       });
-    });
-
-    if (submitBatchBtn) submitBatchBtn.disabled = false;
-    if (manualTotalLabel) manualTotalLabel.textContent = `Total items: ${state.manualItems.length}`;
-  }
-
-  function clearManualForm() {
-    if (manualDeviceType) manualDeviceType.value = '';
-    if (manualQty) manualQty.value = '1';
-    if (manualBrand) manualBrand.value = '';
-    if (manualModel) manualModel.value = '';
-    if (manualDescription) manualDescription.value = '';
-    if (manualOrderNumber) manualOrderNumber.value = '';
-    [manualDeviceType, manualQty].forEach((el) => {
-      if (!el) return;
-      el.classList.remove('sr-validation-invalid');
-      el.removeAttribute('title');
-    });
-  }
-
-  function validateManualInputs() {
-    const deviceType = (manualDeviceType?.value || '').trim();
-    const qty = Math.max(1, Number.parseInt((manualQty?.value || '1').trim(), 10) || 0);
-    let ok = true;
-
-    [manualDeviceType, manualQty].forEach((el) => {
-      if (!el) return;
-      el.classList.remove('sr-validation-invalid');
-      el.removeAttribute('title');
-    });
-
-    if (!deviceType) {
-      ok = false;
-      if (manualDeviceType) {
-        manualDeviceType.classList.add('sr-validation-invalid');
-        manualDeviceType.setAttribute('title', 'DeviceType is required.');
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Upload failed');
       }
-    }
-    if (qty < 1) {
-      ok = false;
-      if (manualQty) {
-        manualQty.classList.add('sr-validation-invalid');
-        manualQty.setAttribute('title', 'Quantity must be at least 1.');
-      }
-    }
-    return { ok, deviceType, qty };
-  }
-
-  async function submitManualBatch() {
-    if (!state.manualItems.length) return;
-    setAlert(manualAlert, null, '');
-    if (submitBatchBtn) submitBatchBtn.disabled = true;
-
-    const items = state.manualItems.map((it) => ({
-      deviceType: it.deviceType,
-      qty: it.qty,
-      brand: it.brand || null,
-      model: it.model || null,
-      description: it.description || null,
-      orderNumber: it.orderNumber || null,
-      serial: null,
-      imei: null,
-    }));
-
-    const fd = new FormData();
-    fd.append('itemsJson', JSON.stringify({ items }));
-
-    try {
-      const res = await fetchJson(`${API_BASE}/new/import-manual`, { method: 'POST', body: fd });
-      setAlert(
-        manualAlert,
-        'success',
-        `✓ Batch submitted: ${res?.added ?? 0} devices created${res?.batchId ? ` (Batch ${res.batchId})` : ''}. <a href="/phase0/new-batches.html">View batches</a>`
-      );
-      state.manualItems = [];
-      renderManualTable();
-      clearManualForm();
-      manualFormWrap?.classList.remove('open');
+      
+      const result = await res.json();
+      setMsgHtml(msg, `✅ Import successful! Added: ${result.added}, Duplicates: ${result.duplicates}, Invalid: ${result.invalid}, Total: ${result.total}. ` +
+        `<a href="/phase0/new-stock-batch.html">View Batches</a>`);
+      fileInput.value = '';
     } catch (e) {
-      setAlert(manualAlert, 'error', `Submit failed: ${e?.message || 'Unknown error'}`);
-    } finally {
-      if (submitBatchBtn) submitBatchBtn.disabled = !state.manualItems.length;
+      setMsg(msg, `Error: ${e.message}`, true);
     }
-  }
-
-  function setDateMode(mode) {
-    state.dateFilter.mode = mode;
-    const labels = {
-      today: 'Today',
-      week: 'This Week',
-      month: 'This Month',
-      custom: 'Custom Range',
-    };
-    if (dateFilterLabel) dateFilterLabel.textContent = labels[mode] || 'Today';
-    dateOptionBtns.forEach((btn) => {
-      const selected = btn.getAttribute('data-date-option') === mode;
-      btn.classList.toggle('selected', selected);
-    });
-    if (customRangeWrap) customRangeWrap.style.display = mode === 'custom' ? 'block' : 'none';
-  }
-
-  function closeDateMenu() {
-    dateMenu?.classList.remove('open');
-    dateFilterBtn?.setAttribute('aria-expanded', 'false');
-  }
-  function openDateMenu() {
-    dateMenu?.classList.add('open');
-    dateFilterBtn?.setAttribute('aria-expanded', 'true');
-  }
-
-  // CSV controls
-  templateLink?.addEventListener('click', (e) => { e.preventDefault(); downloadTemplateCsv(); });
-  chooseCsvLink?.addEventListener('click', (e) => { e.preventDefault(); csvInput?.click(); });
-  dropZone?.addEventListener('click', () => csvInput?.click());
-  csvInput?.addEventListener('change', () => setCsvFile(csvInput.files?.[0] || null));
-  clearFileBtn?.addEventListener('click', (e) => { e.preventDefault(); setCsvFile(null); });
-
-  ['dragenter', 'dragover'].forEach((evt) => {
-    dropZone?.addEventListener(evt, (e) => {
-      e.preventDefault();
-      dropZone.classList.add('sr-dropzone-active');
-    });
-  });
-  ['dragleave', 'drop'].forEach((evt) => {
-    dropZone?.addEventListener(evt, (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('sr-dropzone-active');
-    });
-  });
-  dropZone?.addEventListener('drop', (e) => {
-    const file = e.dataTransfer?.files?.[0];
-    if (file) setCsvFile(file);
   });
 
-  importBtn?.addEventListener('click', async () => {
-    if (!state.selectedCsv) {
-      setAlert(alertEl, 'error', 'Please select a CSV file first.');
+  // 2) Manual entry modal
+  function openModal(){ show(modal, true); }
+  function closeModal(){ show(modal, false); manualTable.innerHTML=''; manualPack.value=''; setMsg(manualMsg,''); }
+
+  manualBtn.addEventListener('click', () => { openModal(); addRow(); });
+  manualClose.addEventListener('click', closeModal);
+
+  function addRow(row = {}) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input class="form-control" value="${row.brand || ''}" placeholder="HP" /></td>
+      <td><input class="form-control" value="${row.model || ''}" placeholder="EliteBook 840" /></td>
+      <td><select class="form-select">
+        <option value="Laptop" ${row.deviceType === 'Laptop' ? 'selected' : ''}>Laptop</option>
+        <option value="Desktop" ${row.deviceType === 'Desktop' ? 'selected' : ''}>Desktop</option>
+        <option value="Tablet" ${row.deviceType === 'Tablet' ? 'selected' : ''}>Tablet</option>
+        <option value="Chromebook" ${row.deviceType === 'Chromebook' ? 'selected' : ''}>Chromebook</option>
+        <option value="Other" ${row.deviceType === 'Other' ? 'selected' : ''}>Other</option>
+      </select></td>
+      <td><input class="form-control" value="${row.description || ''}" placeholder="14-inch laptop" /></td>
+      <td><input class="form-control" type="number" min="1" value="${row.quantity || 1}" /></td>
+      <td><button class="btn btn-light del">×</button></td>
+    `;
+    tr.querySelector('.del').addEventListener('click', () => tr.remove());
+    manualTable.appendChild(tr);
+  }
+  manualAddRow.addEventListener('click', () => addRow());
+
+  manualSubmit.addEventListener('click', async () => {
+    setMsg(manualMsg,'');
+    const items = [...manualTable.querySelectorAll('tr')].map(tr => {
+      const inputs = tr.querySelectorAll('input');
+      const select = tr.querySelector('select');
+      return {
+        brand: inputs[0].value.trim() || null,
+        model: inputs[1].value.trim() || null,
+        deviceType: select.value,
+        description: inputs[2].value.trim() || null,
+        quantityExpected: Number(inputs[3].value || 1)
+      };
+    }).filter(r => r.quantityExpected > 0);
+
+    if (!items.length) {
+      setMsg(manualMsg, 'Please add at least one row with quantity > 0.', true);
       return;
     }
-    setAlert(alertEl, null, '');
-    importBtn.disabled = true;
+
+    // Create batch via new API
+    const payload = {
+      supplierName: null,
+      invoiceNumber: null,
+      expectedDeliveryDate: null,
+      items: items,
+      createdBy: 'clerk@example.com' // TODO: Get from session
+    };
+
     try {
-      const fd = new FormData();
-      fd.append('file', state.selectedCsv);
-      const res = await fetchJson(`${API_BASE}/new/import`, { method: 'POST', body: fd });
-      setAlert(
-        alertEl,
-        'success',
-        `✓ ${res?.added ?? 0} items imported, ${res?.duplicates ?? 0} duplicates skipped${res?.invalid ? `, ${res.invalid} invalid` : ''}. <a href="/phase0/new-batches.html">View batches</a>`
-      );
-      setCsvFile(null);
+      const res = await fetch(`${location.origin}/api/phase0/newstock/batches`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!res.ok) throw new Error('Failed to create batch');
+      
+      const result = await res.json();
+      setMsgHtml(manualMsg, `✅ Batch ${result.batchNumber} created with ${result.totalQuantityExpected} items. ` +
+        `<a href="/phase0/new-stock-batch.html">View Batches</a>`);
+      closeModal();
     } catch (e) {
-      setAlert(alertEl, 'error', `Import failed: ${e?.message || 'Unknown error'}`);
-    } finally {
-      importBtn.disabled = !state.selectedCsv;
+      setMsg(manualMsg, `Error: ${e.message}`, true);
     }
   });
-
-  // Manual form controls
-  manualToggleBtn?.addEventListener('click', () => {
-    const isOpen = manualFormWrap?.classList.contains('open');
-    if (isOpen) {
-      manualFormWrap?.classList.remove('open');
-      clearManualForm();
-      setAlert(manualAlert, null, '');
-    } else {
-      manualFormWrap?.classList.add('open');
-      manualDeviceType?.focus();
-    }
-  });
-
-  cancelManualBtn?.addEventListener('click', () => {
-    manualFormWrap?.classList.remove('open');
-    clearManualForm();
-    setAlert(manualAlert, null, '');
-  });
-
-  addToBatchBtn?.addEventListener('click', () => {
-    const { ok, deviceType, qty } = validateManualInputs();
-    if (!ok) return;
-
-    state.manualItems.push({
-      deviceType,
-      qty,
-      brand: (manualBrand?.value || '').trim(),
-      model: (manualModel?.value || '').trim(),
-      description: (manualDescription?.value || '').trim(),
-      orderNumber: (manualOrderNumber?.value || '').trim(),
-    });
-    renderManualTable();
-    clearManualForm();
-    manualDeviceType?.focus();
-  });
-
-  submitBatchBtn?.addEventListener('click', submitManualBatch);
-
-  // Header date filter controls
-  dateFilterBtn?.addEventListener('click', (e) => {
-    e.preventDefault();
-    if (dateMenu?.classList.contains('open')) closeDateMenu();
-    else openDateMenu();
-  });
-
-  dateOptionBtns.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const mode = btn.getAttribute('data-date-option');
-      if (!mode) return;
-      setDateMode(mode);
-      if (mode !== 'custom') closeDateMenu();
-    });
-  });
-
-  customApplyBtn?.addEventListener('click', () => {
-    state.dateFilter.from = customFrom?.value || '';
-    state.dateFilter.to = customTo?.value || '';
-    setDateMode('custom');
-    closeDateMenu();
-  });
-
-  document.addEventListener('click', (e) => {
-    const inside = e.target?.closest?.('#newDateFilterWrap');
-    if (!inside) closeDateMenu();
-  });
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeDateMenu();
-  });
-
-  // Init
-  setCsvFile(null);
-  renderManualTable();
-  setDateMode('today');
-  setAlert(alertEl, null, '');
-  setAlert(manualAlert, null, '');
-
-  try {
-    if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
-  } catch {}
 })();

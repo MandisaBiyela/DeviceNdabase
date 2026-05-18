@@ -29,14 +29,30 @@ public class AssessmentService
         // Technicians will use flags (AttentionRequired, PreAssessmentPassed) to triage.
         device.Stage = Phase2Stage.DetailedInspection;
 
-        device.UpdatedAt = DateTime.UtcNow;
+        device.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
         
         await _audit.LogAsync(inspectorId, Phase2AuditActions.PreAssessment, deviceId, device.Serial, $"Passed: {passed}; Attention: {attentionRequired}");
     }
 
     // Step 2: Detailed Inspection by Technician
-    public async Task DetailedInspectionAsync(int deviceId, string technicianId, bool underWarranty, bool? repairable, InspectionCategory category, string? notes, string? documentRef = null, Phase2Stage? destination = null)
+    public async Task DetailedInspectionAsync(
+        int deviceId,
+        string technicianId,
+        bool underWarranty,
+        bool? repairable,
+        InspectionCategory category,
+        string? notes,
+        string? documentRef = null,
+        Phase2Stage? destination = null,
+        // New parameters for structured data
+        string? symptoms = null,
+        string? findings = null,
+        List<string>? faultChecklist = null,
+        List<(string PartName, string? PartCode, int Quantity, string? Notes)>? parts = null,
+        string? recommendedAction = null,
+        string? priority = null,
+        decimal? estimatedLabourHours = null)
     {
         var device = await _db.Devices.FindAsync(deviceId) ?? throw new InvalidOperationException("Device not found");
 
@@ -55,7 +71,7 @@ public class AssessmentService
         device.Repairable = repairable;
 
         device.TechnicianId = technicianId;
-        device.InspectionDate = DateTime.UtcNow;
+        device.InspectionDate = DateTimeOffset.UtcNow;
         device.RepairCategory = category.ToString();
         
         _db.Assessments.Add(new AssessmentRecord
@@ -67,6 +83,50 @@ public class AssessmentService
             PerformedBy = technicianId,
             DocumentRef = documentRef
         });
+
+        // Create structured repair request for hardware/quarantine/warranty categories
+        if (category == InspectionCategory.HardwareFailure ||
+            category == InspectionCategory.Quarantine ||
+            category == InspectionCategory.WarrantyReturn)
+        {
+            var repairRequest = new Phase2RepairRequest
+            {
+                DeviceId = deviceId,
+                DeviceSerial = device.Serial,
+                IsUnderWarranty = underWarranty,
+                WarrantyRoute = category == InspectionCategory.WarrantyReturn ? "ReturnToManufacturer" : "InternalRepair",
+                Category = category,
+                SymptomDescription = symptoms,
+                TechnicianFindings = findings,
+                HardwareChecklistSummary = faultChecklist != null ? string.Join(", ", faultChecklist) : null,
+                RecommendedAction = recommendedAction,
+                Priority = priority ?? "Normal",
+                EstimatedLabourHours = estimatedLabourHours,
+                Status = RepairStatus.PendingAuthorization,
+                CreatedByUserId = technicianId,
+                CreatedAtUtc = DateTimeOffset.UtcNow
+            };
+            
+            if (parts != null && parts.Any())
+            {
+                foreach (var p in parts)
+                {
+                    repairRequest.Parts.Add(new Phase2RepairPart
+                    {
+                        PartName = p.PartName,
+                        PartNumber = p.PartCode,
+                        Quantity = p.Quantity
+                    });
+                }
+            }
+            
+            _db.RepairRequests.Add(repairRequest);
+            
+            // Set quarantine flags
+            device.IsQuarantined = true;
+            device.QuarantineReason = recommendedAction ?? symptoms ?? "Requires repair";
+            device.QuarantinedAtUtc = DateTimeOffset.UtcNow;
+        }
 
         if (underWarranty && category == InspectionCategory.WarrantyReturn)
         {
@@ -95,7 +155,7 @@ public class AssessmentService
             device.DisposalRequested = true;
         }
 
-        device.UpdatedAt = DateTime.UtcNow;
+        device.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
         
         await _audit.LogAsync(technicianId, Phase2AuditActions.DetailedInspection, deviceId, device.Serial, $"Category: {category}, Warranty: {underWarranty}");

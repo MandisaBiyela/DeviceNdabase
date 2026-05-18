@@ -30,10 +30,6 @@ public class DashboardStatsDto
     public Dictionary<string, int> PODsByStatus { get; set; } = new();
     public Dictionary<string, int> TripsByStatus { get; set; } = new();
     public int DisposalPending { get; set; }
-    [JsonPropertyName("passRate")]
-    public double PassRate { get; set; }
-    [JsonPropertyName("failRate")]
-    public double FailRate { get; set; }
 }
 
 public class Phase0StatsDto
@@ -140,8 +136,8 @@ public class DeviceListItemDto
     public string Stage { get; set; } = string.Empty;
     public string Zone { get; set; } = string.Empty;
     public string? SchoolName { get; set; }
-    public DateTime? CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
+    public DateTimeOffset? CreatedAt { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
 }
 
 public class PaginatedResult<T>
@@ -216,5 +212,129 @@ public class UnifiedAuditLogDto
     public string? MetaJson { get; set; }
     public DateTime Timestamp { get; set; }
     public string Source { get; set; } = string.Empty; // "System" or "Phase2"
+}
+
+// Imported Devices DTOs
+public class ImportedDeviceListItemDto
+{
+    public int Id { get; set; }
+    public string Serial { get; set; } = string.Empty;
+    public long? SchoolId { get; set; }
+    public string? SchoolName { get; set; }
+    public string? EmisCode { get; set; }
+    public string? District { get; set; }
+    public string? Circuit { get; set; }
+    public string? ItemDescription { get; set; }
+    public string? PodNumber { get; set; }
+    public DateTime? DateReceived { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>
+/// Filters + paging for the Imported devices page
+/// </summary>
+public class ImportedDeviceFilterDto
+{
+    public string? Serial { get; set; }
+    public string? School { get; set; }
+    public string? District { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 50;
+}
+
+public class ImportedDevicesResultDto
+{
+    public List<ImportedDeviceListItemDto> Items { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+}
+
+// School Devices View DTOs
+public class CategoryCountDto
+{
+    public string Category { get; set; } = string.Empty;
+    public int Count { get; set; }
+}
+
+public class SchoolDevicesSummaryDto
+{
+    public long? SchoolId { get; set; }
+    public string? SchoolName { get; set; }
+    public string? EmisCode { get; set; }
+    public string? District { get; set; }
+    public string? Circuit { get; set; }
+    
+    public int WorkflowCount { get; set; }
+    public int ImportedCount { get; set; }
+    
+    public int TotalCount => WorkflowCount + ImportedCount;
+    
+    public List<CategoryCountDto> Categories { get; set; } = new();
+}
+
+public class SchoolDeviceListItemDto
+{
+    public string Serial { get; set; } = string.Empty;
+    public string Source { get; set; } = string.Empty;   // "Workflow" or "Imported"
+    public string? Stage { get; set; }                   // For Phase2 devices
+    public string? Zone { get; set; }                    // For Phase2 devices
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+public class SchoolDevicesDetailDto
+{
+    public SchoolDevicesSummaryDto Summary { get; set; } = new();
+    public List<SchoolDeviceListItemDto> Devices { get; set; } = new();
+}
+
+// Provincial Analytics DTOs
+public class ProvincialAnalyticsRecordDto
+{
+    public string Province { get; set; } = string.Empty;
+    public string ProjectDeviceType { get; set; } = string.Empty;
+    public int Quantity { get; set; }
+}
+
+public class DistrictAnalyticsCardDto
+{
+    public string District { get; set; } = string.Empty;
+    public string Province { get; set; } = string.Empty;
+    public int TotalSchools { get; set; }
+    public int TotalDevices { get; set; }
+    public int ProcessedDevices { get; set; }
+    
+    public double ProcessingRatePercent => TotalDevices == 0
+        ? 0
+        : (ProcessedDevices * 100.0 / TotalDevices);
+}
+
+public class ProvinceAnalyticsCardDto
+{
+    public string Province { get; set; } = string.Empty;
+    public int TotalSchools { get; set; }
+    public int TotalDistricts { get; set; }
+    public int TotalDevices { get; set; }
+    public int ProcessedDevices { get; set; }
+    public List<DistrictAnalyticsCardDto> Districts { get; set; } = new();
+    
+    public double ProcessingRatePercent => TotalDevices == 0
+        ? 0
+        : (ProcessedDevices * 100.0 / TotalDevices);
+}
+
+public class ProvincialAnalyticsSummaryDto
+{
+    public int TotalDistricts { get; set; }
+    public int TotalSchools { get; set; }
+    public int TotalDevices { get; set; }
+    public int DevicesProcessed { get; set; }
+}
+
+public class ProvincialAnalyticsResultDto
+{
+    public ProvincialAnalyticsSummaryDto Summary { get; set; } = new();
+    public List<ProvinceAnalyticsCardDto> Provinces { get; set; } = new();
+    public List<DistrictAnalyticsCardDto> Districts { get; set; } = new();
 }
 

@@ -20,6 +20,8 @@ public class Phase2DbContext : DbContext
     public DbSet<DeviceScan> DeviceScans => Set<DeviceScan>();
     public DbSet<PickingSlip> PickingSlips => Set<PickingSlip>();
     public DbSet<PickingSlipItem> PickingSlipItems => Set<PickingSlipItem>();
+    public DbSet<Phase2RepairRequest> RepairRequests => Set<Phase2RepairRequest>();
+    public DbSet<Phase2RepairPart> RepairParts => Set<Phase2RepairPart>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -190,6 +192,38 @@ public class Phase2DbContext : DbContext
                 .WithMany()
                 .HasForeignKey(x => x.Phase2DeviceId)
                 .OnDelete(DeleteBehavior.Restrict); // Prevent deletion of device if on picking slip
+        });
+
+        // Phase2RepairRequest configuration
+        modelBuilder.Entity<Phase2RepairRequest>(b =>
+        {
+            b.ToTable("Phase2RepairRequests");
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => x.DeviceId);
+            b.HasIndex(x => x.DeviceSerial);
+            b.HasIndex(x => x.CreatedAtUtc);
+            b.HasIndex(x => x.Status);
+            
+            b.HasOne(x => x.Device)
+                .WithMany()
+                .HasForeignKey(x => x.DeviceId)
+                .OnDelete(DeleteBehavior.Restrict);
+            
+            b.Property(x => x.Category).HasConversion<int>();
+            b.Property(x => x.Status).HasConversion<int>();
+            
+            b.HasMany(x => x.Parts)
+                .WithOne(p => p.RepairRequest)
+                .HasForeignKey(p => p.RepairRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Phase2RepairPart configuration
+        modelBuilder.Entity<Phase2RepairPart>(b =>
+        {
+            b.ToTable("Phase2RepairParts");
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => x.RepairRequestId);
         });
     }
 }

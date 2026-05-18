@@ -256,7 +256,7 @@ public class DispatchBatchService
                     grvNumber = d.Receipt != null ? d.Receipt.GrvNumber : null // GRV number from receipt
                 })
                 .OrderByDescending(d => d.scannedOutAt ?? DateTime.MinValue)
-                .Take(1000) // Limit to first 1000 devices for performance
+                .Take(4999) // Performance limit - TODO: Implement proper pagination for full access to 42K+ devices
                 .ToListAsync();
             
             _logger.LogInformation("[DispatchQueue] Found {Count} devices in queue after filtering (excluding synthetic schools, not in batches, not delivered)", devices.Count);
@@ -296,43 +296,24 @@ public class DispatchBatchService
                 _logger.LogWarning("[DispatchQueue] Diagnostic - Devices from synthetic schools: {Count}", synthetic);
             }
             
-            // Enrich with school district and EMIS code from Schools table (single query — avoid N+1 per device)
-            var distinctSchoolNames = devices
-                .Select(d => d.schoolName)
-                .Where(n => !string.IsNullOrWhiteSpace(n))
-                .Select(n => n!.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            List<School> schoolRows = new();
-            if (distinctSchoolNames.Count > 0)
-            {
-                schoolRows = await _coreDb.Schools
-                    .AsNoTracking()
-                    .Where(s => distinctSchoolNames.Contains(s.Name))
-                    .ToListAsync();
-            }
-
-            var schoolByTrimmedName = new Dictionary<string, School>(StringComparer.OrdinalIgnoreCase);
-            foreach (var s in schoolRows)
-            {
-                var key = (s.Name ?? string.Empty).Trim();
-                if (string.IsNullOrEmpty(key)) continue;
-                if (!schoolByTrimmedName.ContainsKey(key))
-                    schoolByTrimmedName[key] = s;
-            }
-
+            // Enrich with school district and EMIS code from Schools table
             var enrichedDevices = new List<object>();
             foreach (var device in devices)
             {
                 string? district = null;
                 string? emisCode = null;
 
-                if (!string.IsNullOrWhiteSpace(device.schoolName) &&
-                    schoolByTrimmedName.TryGetValue(device.schoolName.Trim(), out var school))
+                if (!string.IsNullOrEmpty(device.schoolName))
                 {
-                    district = school.District;
-                    emisCode = school.EmisCode;
+                    var school = await _coreDb.Schools
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(s => s.Name == device.schoolName);
+                    
+                    if (school != null)
+                    {
+                        district = school.District;
+                        emisCode = school.EmisCode;
+                    }
                 }
 
                 enrichedDevices.Add(new

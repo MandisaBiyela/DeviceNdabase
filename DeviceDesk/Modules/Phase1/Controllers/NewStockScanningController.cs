@@ -1,4 +1,5 @@
 using DeviceDesk.Modules.Phase1.Services;
+using DeviceDesk.Modules.Phase1.Models;
 using DeviceDesk.Middleware;
 using DeviceDesk.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -12,11 +13,13 @@ namespace DeviceDesk.Modules.Phase1.Controllers
     public class NewStockScanningController : ControllerBase
     {
         private readonly NewStockScanningService _service;
+        private readonly RnrGrvService _rnrGrvService;
         private readonly ILogger<NewStockScanningController> _logger;
 
-        public NewStockScanningController(NewStockScanningService service, ILogger<NewStockScanningController> logger)
+        public NewStockScanningController(NewStockScanningService service, RnrGrvService rnrGrvService, ILogger<NewStockScanningController> logger)
         {
             _service = service;
+            _rnrGrvService = rnrGrvService;
             _logger = logger;
         }
 
@@ -90,6 +93,79 @@ namespace DeviceDesk.Modules.Phase1.Controllers
 
             return Ok(new { message = "Scan deleted successfully" });
         }
+
+        #region Device Allocation Endpoints (New Stock)
+
+        /// <summary>
+        /// Set allocation for a single device in a New Stock batch
+        /// </summary>
+        [HttpPost("batches/{batchId}/allocate-device")]
+        public async Task<IActionResult> AllocateDevice(
+            Guid batchId,
+            [FromBody] DeviceAllocationDto dto,
+            CancellationToken ct = default)
+        {
+            try
+            {
+                var userId = User?.Identity?.Name ?? "system";
+                await _rnrGrvService.SetDeviceAllocationAsync(batchId, dto, userId);
+                return Ok(new { success = true, message = "Device allocation saved" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[NewStock AllocateDevice] Error: {Message}", ex.Message);
+                return StatusCode(500, new { error = "Failed to save device allocation", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Set allocations for multiple devices in a New Stock batch (bulk operation)
+        /// </summary>
+        [HttpPost("batches/{batchId}/allocate-bulk")]
+        public async Task<IActionResult> AllocateBulk(
+            Guid batchId,
+            [FromBody] BulkAllocationRequest request,
+            CancellationToken ct = default)
+        {
+            try
+            {
+                if (batchId != request.BatchId)
+                    return BadRequest(new { error = "BatchId mismatch" });
+                
+                var userId = User?.Identity?.Name ?? "system";
+                await _rnrGrvService.SetBulkAllocationsAsync(request, userId);
+                
+                return Ok(new { 
+                    success = true, 
+                    message = $"Bulk allocation saved for {request.Allocations.Count} devices" 
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[NewStock AllocateBulk] Error: {Message}", ex.Message);
+                return StatusCode(500, new { error = "Failed to save bulk allocations", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Get current allocations for all devices in a New Stock batch
+        /// </summary>
+        [HttpGet("batches/{batchId}/allocations")]
+        public async Task<IActionResult> GetAllocations(Guid batchId, CancellationToken ct = default)
+        {
+            try
+            {
+                var allocations = await _rnrGrvService.GetAllocationsAsync(batchId);
+                return Ok(allocations);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[NewStock GetAllocations] Error: {Message}", ex.Message);
+                return StatusCode(500, new { error = "Failed to get allocations", details = ex.Message });
+            }
+        }
+
+        #endregion
     }
 
     public record ScanDeviceRequest(

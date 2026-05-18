@@ -213,9 +213,7 @@ namespace DeviceDesk.Infrastructure.Data
                 e.HasIndex(x => x.OrderID);
                 e.Property(x => x.ModelName).HasMaxLength(200);
                 e.Property(x => x.Status).HasMaxLength(20);
-                // Bind navigation "Order" to FK OrderID so EF does not create a shadow FK "OrderBatchId"
-                // (principal key on NewStockBatch is BatchId, not Id).
-                e.HasOne(x => x.Order)
+                e.HasOne<NewStockBatch>()
                     .WithMany()
                     .HasForeignKey(x => x.OrderID)
                     .OnDelete(DeleteBehavior.Cascade);
@@ -229,11 +227,11 @@ namespace DeviceDesk.Infrastructure.Data
                 e.HasIndex(x => x.ModelID);
                 e.HasIndex(x => x.DeviceSerial).IsUnique();
                 e.Property(x => x.DeviceSerial).HasMaxLength(200);
-                e.HasOne(x => x.Order)
+                e.HasOne<NewStockBatch>()
                     .WithMany()
                     .HasForeignKey(x => x.OrderID)
                     .OnDelete(DeleteBehavior.Cascade);
-                e.HasOne(x => x.Model)
+                e.HasOne<OrderModelList>()
                     .WithMany(x => x.ScannedSerials)
                     .HasForeignKey(x => x.ModelID)
                     .OnDelete(DeleteBehavior.Cascade);
@@ -375,6 +373,13 @@ namespace DeviceDesk.Infrastructure.Data
         public string? Address { get; set; }
     }
 
+    public enum AllocationType
+    {
+        None = 0,
+        Student = 1,
+        Teacher = 2
+    }
+
     public class Device
     {
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -397,6 +402,15 @@ namespace DeviceDesk.Infrastructure.Data
         public DateTimeOffset ImportedAt { get; set; } = DateTimeOffset.UtcNow;
 
         public Guid? BatchId { get; set; }
+
+        // Allocation fields
+        public AllocationType AllocationType { get; set; } = AllocationType.None;
+        public string? StudentName { get; set; }
+        public string? StudentIdNumber { get; set; }
+        public string? TeacherName { get; set; }
+        public string? TeacherPersalNumber { get; set; }
+        public DateTimeOffset? AllocatedAt { get; set; }
+        public string? AllocatedByUserId { get; set; }
     }
 
     public class DeviceImportBatch

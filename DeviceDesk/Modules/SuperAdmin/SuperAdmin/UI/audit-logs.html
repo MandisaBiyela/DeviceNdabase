@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DeviceDesk – Audit Logs</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
     <link rel="stylesheet" href="/css/dashboard-shell.css" />
@@ -35,12 +35,13 @@
         <nav class="sidebar-nav">
             <span class="sidebar-section">MAIN MENU</span>
             <a href="/superadmin/dashboard.html" class="sidebar-link"><i class="bi bi-grid-fill"></i><span>Dashboard</span></a>
-            <a href="/superadmin/dashboard.html#devices" class="sidebar-link"><i class="bi bi-device-hdd"></i><span>All Devices</span></a>
+            <a href="/superadmin/all-devices.html" class="sidebar-link"><i class="bi bi-device-hdd"></i><span>All Devices</span></a>
+            <a href="/superadmin/provincial-analytics.html" class="sidebar-link"><i class="bi bi-bar-chart-fill"></i><span>Provincial Analytics</span></a>
             <a href="/superadmin/user-management.html" class="sidebar-link"><i class="bi bi-people"></i><span>User Management</span></a>
             <a href="/superadmin/audit-logs.html" class="sidebar-link active"><i class="bi bi-journal-text"></i><span>Audit Logs</span></a>
             <a href="/superadmin/export-center.html" class="sidebar-link"><i class="bi bi-download"></i><span>Export Center</span></a>
             <span class="sidebar-section">SYSTEM</span>
-            <a href="/logout" class="sidebar-link danger"><i class="bi bi-box-arrow-right"></i><span>Logout</span></a>
+            <a href="#" onclick="handleLogout(); return false;" class="sidebar-link danger"><i class="bi bi-box-arrow-right"></i><span>Logout</span></a>
         </nav>
     </aside>
 
@@ -131,7 +132,7 @@
         </main>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let currentPage = 1;
         const pageSize = 50;
@@ -351,6 +352,25 @@
 
         function showDevicesTable() {
             window.location.href = '/superadmin/dashboard.html';
+        }
+
+        async function handleLogout() {
+            try {
+                const res = await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                // Redirect to login page regardless of response
+                window.location.href = '/login.html';
+            } catch (err) {
+                console.error('Logout error:', err);
+                // Still redirect even if logout fails
+                window.location.href = '/login.html';
+            }
         }
     </script>
 </body>

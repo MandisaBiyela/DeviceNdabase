@@ -34,19 +34,26 @@ namespace DeviceDesk.Modules.Phase1.Controllers
             _rnrGrvService = rnrGrvService;
         }
 
-        // DTO for RnR header information
-        public sealed class RnrBatchHeaderDto
-        {
-            public Guid BatchId { get; set; }
-            public string? SlipNumber { get; set; }
-            public string? SchoolName { get; set; }
-            public string? EmisCode { get; set; }
-            public DateTimeOffset? CollectionDate { get; set; }
-            public string? CollectedBy { get; set; }
-            public int ExpectedCount { get; set; }
-            public int ScannedCount { get; set; }
-            public int MissingCount { get; set; }
-        }
+    // DTO for RnR header information
+    public sealed class RnrBatchHeaderDto
+    {
+        public Guid BatchId { get; set; }
+        public string? SlipNumber { get; set; }
+        public string? SchoolName { get; set; }
+        public string? EmisCode { get; set; }
+        public DateTimeOffset? CollectionDate { get; set; }
+        public string? CollectedBy { get; set; }
+        public int ExpectedCount { get; set; }
+        public int ScannedCount { get; set; }
+        public int MissingCount { get; set; }
+    }
+
+    // DTO for verifying R&R batch
+    public sealed class VerifyBatchRequest
+    {
+        public string? VerifiedBy { get; set; }
+        public string? Notes { get; set; }
+    }
 
         /// <summary>
         /// Health check endpoint to verify RnR controller is working
@@ -953,6 +960,58 @@ namespace DeviceDesk.Modules.Phase1.Controllers
             return Ok(new { ok, missing, unexpected, nextUrl });
         }
 
+        /// <summary>
+        /// Verify/Accept R&R batch manually - sets status to Verified to allow GRV generation
+        /// This is used when user reviews and accepts variances on the verification page
+        /// </summary>
+        [HttpPost("batches/{id:guid}/verify")]
+        public async Task<IActionResult> VerifyBatch(Guid id, [FromBody] VerifyBatchRequest request, CancellationToken ct = default)
+        {
+            try
+            {
+                var batch = await _db.ReceivingBatches.FindAsync(new object[] { id }, ct);
+                if (batch == null)
+                {
+                    return NotFound(new { error = "Receiving batch not found" });
+                }
+
+                // Allow verification from PendingVerification or already Verified status
+                if (batch.Status != ReceivingBatchStatus.PendingVerification && 
+                    batch.Status != ReceivingBatchStatus.Verified)
+                {
+                    return BadRequest(new { error = $"Batch cannot be verified from {batch.Status} status" });
+                }
+
+                // Update batch to Verified status
+                batch.Status = ReceivingBatchStatus.Verified;
+                batch.VerifiedBy = request?.VerifiedBy ?? "System";
+                batch.VerifiedAt = DateTimeOffset.UtcNow;
+                batch.IsLocked = true;
+                batch.UpdatedAt = DateTimeOffset.UtcNow;
+
+                // Optionally save resolution notes
+                if (!string.IsNullOrWhiteSpace(request?.Notes))
+                {
+                    batch.Notes = request.Notes;
+                }
+
+                await _db.SaveChangesAsync(ct);
+
+                return Ok(new 
+                { 
+                    success = true, 
+                    batchId = id,
+                    status = batch.Status.ToString(),
+                    message = "Batch verified successfully and ready for GRV generation" 
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Verify Batch] Error: {ex.Message}");
+                return StatusCode(500, new { error = "Failed to verify batch", details = ex.Message });
+            }
+        }
+
 
         /// <summary>
         /// Get batch summary - shortage-centric (unexpected items are rejected at scan time)
@@ -1656,5 +1715,78 @@ namespace DeviceDesk.Modules.Phase1.Controllers
                 return StatusCode(500, new { error = "Failed to get scans", details = ex.InnerException?.Message ?? ex.Message });
             }
         }
+
+        #region Device Allocation Endpoints
+
+        /// <summary>
+        /// Set allocation for a single device in an RnR batch
+        /// </summary>
+        [HttpPost("batches/{batchId}/allocate-device")]
+        public async Task<IActionResult> AllocateDevice(
+            Guid batchId,
+            [FromBody] DeviceAllocationDto dto,
+            CancellationToken ct = default)
+        {
+            try
+            {
+                var userId = User?.Identity?.Name ?? "system";
+                await _rnrGrvService.SetDeviceAllocationAsync(batchId, dto, userId);
+                return Ok(new { success = true, message = "Device allocation saved" });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AllocateDevice] Error: {ex.Message}");
+                return StatusCode(500, new { error = "Failed to save device allocation", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Set allocations for multiple devices in an RnR batch (bulk operation)
+        /// </summary>
+        [HttpPost("batches/{batchId}/allocate-bulk")]
+        public async Task<IActionResult> AllocateBulk(
+            Guid batchId,
+            [FromBody] BulkAllocationRequest request,
+            CancellationToken ct = default)
+        {
+            try
+            {
+                if (batchId != request.BatchId)
+                    return BadRequest(new { error = "BatchId mismatch" });
+                
+                var userId = User?.Identity?.Name ?? "system";
+                await _rnrGrvService.SetBulkAllocationsAsync(request, userId);
+                
+                return Ok(new { 
+                    success = true, 
+                    message = $"Bulk allocation saved for {request.Allocations.Count} devices" 
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AllocateBulk] Error: {ex.Message}");
+                return StatusCode(500, new { error = "Failed to save bulk allocations", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Get current allocations for all devices in an RnR batch
+        /// </summary>
+        [HttpGet("batches/{batchId}/allocations")]
+        public async Task<IActionResult> GetAllocations(Guid batchId, CancellationToken ct = default)
+        {
+            try
+            {
+                var allocations = await _rnrGrvService.GetAllocationsAsync(batchId);
+                return Ok(allocations);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[GetAllocations] Error: {ex.Message}");
+                return StatusCode(500, new { error = "Failed to get allocations", details = ex.Message });
+            }
+        }
+
+        #endregion
     }
 }

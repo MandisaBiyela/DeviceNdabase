@@ -86,40 +86,121 @@
 
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <h6 class="mb-2">Result</h6>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio"
-                                   name="preModalResult" id="preModalResultPass"
-                                   value="pass">
-                            <label class="form-check-label" for="preModalResultPass">
-                                Pass – no obvious issues
-                            </label>
-                        </div>
-                        <div class="form-check mb-3">
-                            <input class="form-check-input" type="radio"
-                                   name="preModalResult" id="preModalResultFail"
-                                   value="fail">
-                            <label class="form-check-label" for="preModalResultFail">
-                                Fail – issues found
-                            </label>
+                        <h6 class="mb-3 fw-semibold">Visual/Functional Check</h6>
+
+                        <!-- Check for physical damage -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Check for physical damage</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio"
+                                       name="preModalPhysicalDamage" id="preModalNoDamage"
+                                       value="no-damage">
+                                <label class="form-check-label" for="preModalNoDamage">
+                                    No obvious damage
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio"
+                                       name="preModalPhysicalDamage" id="preModalDamagePresent"
+                                       value="damage-present">
+                                <label class="form-check-label" for="preModalDamagePresent">
+                                    Damage present
+                                </label>
+                            </div>
                         </div>
 
-                        <h6 class="mb-2">Attention required</h6>
-                        <select id="preModalAttention" class="form-select">
-                            <option value="none">No issue (OK)</option>
-                            <option value="hardware">Hardware department</option>
-                            <option value="software">Software issue</option>
-                            <option value="quarantine">Quarantine</option>
-                        </select>
-                        <div class="form-text">
-                            Where should this device go after pre-assessment?
+                        <!-- Test power on/off -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Test power on/off</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio"
+                                       name="preModalPower" id="preModalPowerOn"
+                                       value="powers-on">
+                                <label class="form-check-label" for="preModalPowerOn">
+                                    Device powers on
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio"
+                                       name="preModalPower" id="preModalPowerOff"
+                                       value="no-power">
+                                <label class="form-check-label" for="preModalPowerOff">
+                                    Does not power on
+                                </label>
+                            </div>
                         </div>
+
+                        <!-- Check screen/display -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Check screen/display</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio"
+                                       name="preModalScreen" id="preModalScreenOk"
+                                       value="ok">
+                                <label class="form-check-label" for="preModalScreenOk">
+                                    OK
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio"
+                                       name="preModalScreen" id="preModalScreenNotOk"
+                                       value="not-ok">
+                                <label class="form-check-label" for="preModalScreenNotOk">
+                                    Not OK
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Test basic functionality -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Test basic functionality</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio"
+                                       name="preModalFunctionality" id="preModalFunctionalityOk"
+                                       value="ok">
+                                <label class="form-check-label" for="preModalFunctionalityOk">
+                                    OK
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio"
+                                       name="preModalFunctionality" id="preModalFunctionalityNotOk"
+                                       value="not-ok">
+                                <label class="form-check-label" for="preModalFunctionalityNotOk">
+                                    Not OK
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Result -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Result</label>
+                            <select id="preModalResult" class="form-select" disabled>
+                                <option value="">Select result...</option>
+                                <option value="pass">Pass – no obvious issues</option>
+                                <option value="fail">Fail – issues found</option>
+                            </select>
+                        </div>
+
                     </div>
 
                     <div class="col-md-6">
-                        <h6 class="mb-2">Notes</h6>
-                        <textarea id="preModalNotes" class="form-control" rows="5"
+                        <h6 class="mb-2 fw-semibold">Notes</h6>
+                        <textarea id="preModalNotes" class="form-control" rows="14"
                                   placeholder="Capture key findings, visible damage, symptoms, etc."></textarea>
+                        
+                        <div class="mt-3">
+                            <label class="form-label small fw-semibold">Attention required</label>
+                            <select id="preModalAttention" class="form-select">
+                                <option value="none">No issue (OK)</option>
+                                <option value="hardware">Hardware department</option>
+                                <option value="software">Software issue</option>
+                                <option value="quarantine">Quarantine</option>
+                            </select>
+                            <div class="form-text">
+                                Where should this device go after pre-assessment?
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -266,18 +347,59 @@ function formatPreAssessmentTime(dateString) {
 
         document.getElementById('preModalUpdated').textContent = formatPreAssessmentTime(updatedAt);
 
-        // reset fields
+        // reset all fields
         document.getElementById('preModalNotes').value = preAssessmentNotes;
         document.getElementById('preModalAttention').value = 'none';
-        document
-            .querySelectorAll('input[name="preModalResult"]')
-            .forEach(r => { r.checked = false; });
+        document.getElementById('preModalResult').value = '';
+        
+        // Reset all radio button groups
+        document.querySelectorAll('input[name="preModalPhysicalDamage"]').forEach(r => { r.checked = false; });
+        document.querySelectorAll('input[name="preModalPower"]').forEach(r => { r.checked = false; });
+        document.querySelectorAll('input[name="preModalScreen"]').forEach(r => { r.checked = false; });
+        document.querySelectorAll('input[name="preModalFunctionality"]').forEach(r => { r.checked = false; });
 
-        if (preAssessmentPassed === true) {
-            document.getElementById('preModalResultPass').checked = true;
-        } else if (preAssessmentPassed === false) {
-            document.getElementById('preModalResultFail').checked = true;
+        // Set up auto-calculation of result when any check changes
+        setupAutoResult();
+    }
+
+    function setupAutoResult() {
+        const checkFields = [
+            'preModalPhysicalDamage',
+            'preModalPower',
+            'preModalScreen',
+            'preModalFunctionality'
+        ];
+
+        checkFields.forEach(fieldName => {
+            document.querySelectorAll(`input[name="${fieldName}"]`).forEach(radio => {
+                radio.addEventListener('change', updateResult);
+            });
+        });
+    }
+
+    function updateResult() {
+        const physicalDamage = document.querySelector('input[name="preModalPhysicalDamage"]:checked')?.value;
+        const power = document.querySelector('input[name="preModalPower"]:checked')?.value;
+        const screen = document.querySelector('input[name="preModalScreen"]:checked')?.value;
+        const functionality = document.querySelector('input[name="preModalFunctionality"]:checked')?.value;
+
+        const resultSelect = document.getElementById('preModalResult');
+
+        // All checks must be completed
+        if (!physicalDamage || !power || !screen || !functionality) {
+            resultSelect.value = '';
+            return;
         }
+
+        // Pass only if: no damage, powers on, screen OK, functionality OK
+        const allPass = (
+            physicalDamage === 'no-damage' &&
+            power === 'powers-on' &&
+            screen === 'ok' &&
+            functionality === 'ok'
+        );
+
+        resultSelect.value = allPass ? 'pass' : 'fail';
     }
 
     async function onSavePreAssessment() {
@@ -286,13 +408,36 @@ function formatPreAssessmentTime(dateString) {
             return;
         }
 
-        const resultRadio = document.querySelector('input[name="preModalResult"]:checked');
-        if (!resultRadio) {
-            alert('Select Pass or Fail.');
+        // Validate all check fields are completed
+        const physicalDamage = document.querySelector('input[name="preModalPhysicalDamage"]:checked');
+        const power = document.querySelector('input[name="preModalPower"]:checked');
+        const screen = document.querySelector('input[name="preModalScreen"]:checked');
+        const functionality = document.querySelector('input[name="preModalFunctionality"]:checked');
+
+        if (!physicalDamage) {
+            alert('Please complete the physical damage check.');
+            return;
+        }
+        if (!power) {
+            alert('Please complete the power on/off test.');
+            return;
+        }
+        if (!screen) {
+            alert('Please complete the screen/display check.');
+            return;
+        }
+        if (!functionality) {
+            alert('Please complete the basic functionality test.');
             return;
         }
 
-        const passed = resultRadio.value === 'pass';
+        const resultSelect = document.getElementById('preModalResult');
+        if (!resultSelect.value) {
+            alert('Result not determined. Please complete all checks.');
+            return;
+        }
+
+        const passed = resultSelect.value === 'pass';
         const notes = document.getElementById('preModalNotes').value || '';
         const attentionKey = document.getElementById('preModalAttention').value || 'none';
 

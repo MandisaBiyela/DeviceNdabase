@@ -144,27 +144,19 @@ namespace DeviceDesk.Modules.Phase0.Controllers
         }
 
         [HttpGet("batches")]
-        public async Task<IActionResult> GetBatches(int page = 1, int pageSize = 10, string? orderNumber = null)
+        public async Task<IActionResult> GetBatches(int page = 1, int pageSize = 10)
         {
             try
             {
                 page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 100);
-
-                var batches = _db.Batches.Where(b => b.Source == "RNR");
-                if (!string.IsNullOrWhiteSpace(orderNumber))
-                {
-                    var needle = orderNumber.Trim();
-                    batches = batches.Where(b => b.OrderNumber == needle);
-                }
-
-                var query = batches
+                var query = _db.Batches
+                    .Where(b => b.Source == "RNR")
                     .OrderByDescending(b => b.CreatedAt)
                     .Select(b => new {
                         Id = b.BatchId,
                         b.CreatedAt,
                         UploadedBy = "System", // TODO: Add user tracking
                         SourceFileName = b.FileName,
-                        OrderNumber = b.OrderNumber,
                         Items = _db.Devices.Count(d => d.BatchId == b.BatchId)
                     });
 

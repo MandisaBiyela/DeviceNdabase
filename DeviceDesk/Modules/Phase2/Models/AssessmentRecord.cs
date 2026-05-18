@@ -22,5 +22,5 @@ public class AssessmentRecord
     [MaxLength(128)]
     public string? PerformedBy { get; set; }
 
-    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    public DateTimeOffset Timestamp { get; set; } = DateTimeOffset.UtcNow;
 }

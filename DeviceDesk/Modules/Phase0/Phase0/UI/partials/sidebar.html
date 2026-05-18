@@ -1,55 +1,18 @@
-<div class="sidebar-brand-global">
-  <img src="/img/ndabase-icon.png" class="sidebar-brand-icon" alt="Ndabase Logo Icon" />
+<div class="dd-side__brand">
+  <a href="index.html">DeviceDesk</a>
+  <button id="ddSideToggle" class="dd-side__toggle" aria-label="Toggle sidebar">☰</button>
 </div>
 
-<div class="sidebar-profile" id="sidebarProfile">
-  <div class="profile-avatar">
-    <span class="avatar-initials" id="profileInitials">U</span>
-  </div>
-  <div class="profile-info">
-    <div class="profile-name" id="profileName">Loading…</div>
-    <div class="profile-role" id="profileRole">User</div>
-  </div>
-</div>
+<nav class="dd-side__nav">
+  <div class="dd-side__section">RNR</div>
+  <a data-nav="rnr-upload"  href="rnr.html"          class="dd-side__link">Upload RNR</a>
+  <a data-nav="rnr-all"     href="rnr-all.html"      class="dd-side__link">All RNR Devices</a>
+  <a data-nav="rnr-batches" href="rnr-batches.html"  class="dd-side__link">RNR Batches</a>
 
-<nav class="sidebar-nav">
-  <span class="sidebar-section">ORDERS</span>
-  <a href="/phase0/orders.html" class="sidebar-link" data-nav="orders">
-    <i class="bi bi-file-earmark-text"></i><span>Device Orders</span>
-  </a>
-
-  <span class="sidebar-section">NEW STOCK</span>
-  <a href="/phase0/new.html" class="sidebar-link" data-nav="new">
-    <i class="bi bi-arrow-bar-up"></i><span>Upload NEW</span>
-  </a>
-  <a href="/phase0/new-batches.html" class="sidebar-link" data-nav="new-batches">
-    <i class="bi bi-collection-play"></i><span>NEW Batches</span>
-  </a>
-  <a href="/phase0/new-all.html" class="sidebar-link" data-nav="new-all">
-    <i class="bi bi-phone"></i><span>All NEW Devices</span>
-  </a>
-
-  <span class="sidebar-section">RNR</span>
-  <a href="/phase0/rnr.html" class="sidebar-link" data-nav="rnr">
-    <i class="bi bi-arrow-up-circle"></i><span>Upload RNR</span>
-  </a>
-  <a href="/phase0/rnr-batches.html" class="sidebar-link" data-nav="rnr-batches">
-    <i class="bi bi-collection"></i><span>RNR Batches</span>
-  </a>
-  <a href="/phase0/rnr-all.html" class="sidebar-link" data-nav="rnr-all">
-    <i class="bi bi-laptop"></i><span>All RNR Devices</span>
-  </a>
-
-  <span class="sidebar-section">READINESS</span>
-  <a href="/phase0/new-readiness.html" class="sidebar-link" data-nav="readiness">
-    <i class="bi bi-clipboard-check"></i><span>School Readiness</span>
-  </a>
-  <a href="/phase0/readiness-reports.html" class="sidebar-link" data-nav="readiness-reports">
-    <i class="bi bi-file-earmark-spreadsheet"></i><span>Readiness Reports</span>
-  </a>
-
-  <span class="sidebar-section">SYSTEM</span>
-  <a href="/logout" class="sidebar-link danger" data-nav="logout">
-    <i class="bi bi-box-arrow-right"></i><span>Logout</span>
-  </a>
+  <div class="dd-side__section">NEW</div>
+  <a data-nav="new-upload"  href="new.html"          class="dd-side__link">Upload NEW</a>
+  <a data-nav="new-all"     href="new-all.html"      class="dd-side__link">All NEW Devices</a>
+  <a data-nav="new-batches" href="new-batches.html"  class="dd-side__link">NEW Batches</a>
+  <a data-nav="new-readiness" href="new-readiness.html" class="dd-side__link">School Readiness</a>
+  <a data-nav="readiness-reports" href="readiness-reports.html" class="dd-side__link">Readiness Reports</a>
 </nav>

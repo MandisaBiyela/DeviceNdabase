@@ -44,3 +44,12 @@ public enum PickingSlipStatus
     Completed,
     Cancelled
 }
+
+public enum RepairStatus
+{
+    PendingAuthorization = 1,
+    AwaitingParts = 2,
+    InProgress = 3,
+    Completed = 4,
+    Cancelled = 5
+}

@@ -1,98 +1,519 @@
 <div class="mb-2">
-  <div class="text-muted small">Clerk Menu</div>
-  <h1 class="h4 fw-semibold mt-1 d-flex align-items-center gap-2"><i data-lucide="clipboard-check" style="width:24px;height:24px;color:#374151"></i> Receipting & Verification</h1>
-</div>
+    <div class="text-muted small">Clerk Menu</div>
+    <h1 class="h4 fw-semibold mt-1"><i class="bi bi-clipboard-check"></i> Receipting & Verification</h1>
+    </div>
 
 <section class="two-col-grid">
-  <div class="d-flex flex-column gap-3">
-    <div class="wizard-alert">
-      <span class="step-pill">Step 1</span>
-      <div>
-        <div class="wizard-title">Fetch GRV from Phase 1 Warehouse</div>
-        <div class="wizard-subtitle">Select a pending GRV issued by Phase 1 Warehouse Receiving</div>
-      </div>
-    </div>
-    <div id="step1Card">
-      <div id="grvListContainer"><div class="text-center py-3"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div></div>
-    </div>
-    <div class="panel wizard-panel" id="step2Card" style="display:none;">
-      <div class="panel-header"><span class="step-pill">Step 2</span><div><div class="wizard-title">Scan Devices</div></div></div>
-      <div class="panel-body">
-        <div class="alert alert-info mb-3"><strong>Selected GRV:</strong> <span id="selectedGrvNumber">-</span> · <strong>Issued By:</strong> <span id="selectedGrvIssuer">-</span> · <strong>Expected:</strong> <span id="expectedCountDisplay">0</span></div>
-        <button class="btn btn-outline-secondary btn-sm" onclick="backToStep1()">Back</button>
-      </div>
-    </div>
-  </div>
+    <div class="d-flex flex-column gap-3">
+        <div class="panel wizard-panel" id="step1Card">
+            <div class="panel-header">
+                <span class="step-pill">Step 1</span>
+                <div>
+                    <div class="wizard-title">Fetch GRV from Phase 1 Warehouse</div>
+                    <div class="wizard-subtitle">Select a pending GRV issued by Phase 1 Warehouse Receiving</div>
+                </div>
+            </div>
+            <div class="panel-body">
+                <div id="grvListContainer">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading GRVs...</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-  <div class="d-flex flex-column gap-3">
-    <div class="panel"><div class="panel-header"><span>Current Progress</span></div><div class="panel-body">
-      <ul class="step-list">
-        <li><button class="step-link" data-step-link="1"><span class="step-badge active">1</span><span>Fetch GRV</span></button></li>
-        <li><button class="step-link" data-step-link="2" disabled><span class="step-badge inactive">2</span><span>Scan Devices</span></button></li>
-        <li><button class="step-link" data-step-link="3" disabled><span class="step-badge inactive">3</span><span>Assign Zones</span></button></li>
-        <li><button class="step-link" data-step-link="4" disabled><span class="step-badge inactive">4</span><span>Submit</span></button></li>
-      </ul>
-    </div></div>
-    <div class="panel"><div class="panel-header"><span>Quick Stats</span></div><div class="panel-body">
-      <ul class="quick-stats-list">
-        <li class="quick-stats-item"><span>Receipts Today:</span><span class="stat-pill" id="receiptsToday"><span class="dots"><span></span><span></span><span></span></span></span></li>
-        <li class="quick-stats-item"><span>Devices Received:</span><span class="stat-pill" id="devicesReceived"><span class="dots"><span></span><span></span><span></span></span></span></li>
-      </ul>
-    </div></div>
-    <div class="panel"><div class="panel-header"><span>Workflow Instructions</span></div><div class="panel-body workflow-wrap">
-      <ol class="workflow-list">
-        <li>Select pending GRV from Phase 1</li><li>Scan each device serial number</li><li>System auto-verifies count</li><li>If mismatch: Send email to Phase 1</li><li>Assign zones (New Stock / R&amp;R)</li><li>Submit receipt</li>
-      </ol>
-    </div></div>
-  </div>
+        <div class="panel wizard-panel" id="step2Card" style="display:none;">
+            <div class="panel-header">
+                <span class="step-pill">Step 2</span>
+                <div>
+                    <div class="wizard-title">Scan Devices</div>
+                </div>
+            </div>
+            <div class="panel-body">
+                <div class="alert alert-info mb-3">
+                    <div class="row">
+                        <div class="col-md-6"><strong>GRV Number:</strong> <span id="selectedGrvNumber">-</span></div>
+                        <div class="col-md-6"><strong>Issued By:</strong> <span id="selectedGrvIssuer">-</span></div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-md-6"><strong>Expected Count:</strong> <span class="badge bg-primary" id="expectedCountDisplay">0</span></div>
+                        <div class="col-md-6"><strong>Scanned Count:</strong> <span class="badge bg-success" id="scannedCount">0</span></div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="serialScanner" class="form-label">Scan Device Serial Number</label>
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+                        <input type="text" class="form-control" id="serialScanner" placeholder="Scan or enter serial number" autofocus>
+                        <button class="btn btn-success" type="button" onclick="addScannedDevice()"><i class="bi bi-plus-circle"></i> Add</button>
+                    </div>
+                    <small class="text-muted">Press Enter after scanning each device</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Scanned Devices (<span id="scannedCountLabel">0</span>)</label>
+                    <div id="scannedDevicesList" class="border rounded p-3" style="max-height: 350px; overflow-y: auto; background: #f8f9fa;"></div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-success btn-lg" onclick="verifyCount()"><i class="bi bi-check-circle"></i> Verify Count & Continue</button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="backToStep1()"><i class="bi bi-arrow-left"></i> Back</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel" id="step3DiscrepancyCard" style="display:none;">
+            <div class="panel-header"><span>Count Discrepancy Detected</span></div>
+            <div class="panel-body">
+                <div class="alert alert-warning">
+                    <h6><i class="bi bi-exclamation-circle"></i> Mismatch Found!</h6>
+                    <div class="row mt-2">
+                        <div class="col-md-6"><p class="mb-1"><strong>Expected (from GRV):</strong> <span class="badge bg-primary" id="discrepancyExpected">0</span> devices</p></div>
+                        <div class="col-md-6"><p class="mb-1"><strong>Actually Received:</strong> <span class="badge bg-danger" id="discrepancyReceived">0</span> devices</p></div>
+                    </div>
+                    <p class="mb-0 mt-2"><strong>Difference:</strong> <span class="badge bg-dark" id="discrepancyDifference">0</span></p>
+                </div>
+
+                <div class="mb-3">
+                    <label for="discrepancyNotes" class="form-label">Discrepancy Explanation *</label>
+                    <textarea class="form-control" id="discrepancyNotes" rows="4" placeholder="Explain the discrepancy (e.g., damaged devices not included, missing items, extra devices)" required></textarea>
+                    <small class="text-muted">Be specific about what caused the count mismatch</small>
+                </div>
+
+                <div class="alert alert-info"><i class="bi bi-envelope"></i> An email will be sent to <strong id="phase1ClerkEmail">receiving.clerk@local</strong> (Phase 1 Warehouse Receiving).</div>
+
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-warning btn-lg" onclick="sendDiscrepancyEmail()"><i class="bi bi-envelope"></i> Send Discrepancy Report & Proceed</button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="backToScanning()"><i class="bi bi-arrow-left"></i> Back to Scanning</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel wizard-panel" id="step4Card" style="display:none;">
+            <div class="panel-header"><span class="step-pill">Step 3</span><div class="wizard-title">Review Devices</div></div>
+            <div class="panel-body">
+                <div class="alert alert-info mb-3">
+                    <i class="bi bi-info-circle"></i> Zones will be assigned by the ICT Allocator after receipt is completed.
+                </div>
+                <div id="zoneAssignmentList" class="mb-3"></div>
+                <button type="button" class="btn btn-primary btn-lg" onclick="submitReceipt()"><i class="bi bi-check-circle"></i> Create Receipt</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex flex-column gap-3">
+        <div class="panel">
+            <div class="panel-header"><span>Current Progress</span></div>
+            <div class="panel-body">
+                <ul class="step-list">
+                    <li class="step-list-item" id="progress1"><span class="step-badge active">1</span><span>Fetch GRV</span></li>
+                    <li class="step-list-item" id="progress2"><span class="step-badge inactive">2</span><span>Scan Devices</span></li>
+                    <li class="step-list-item" id="progress3"><span class="step-badge inactive">3</span><span>Review Devices</span></li>
+                    <li class="step-list-item" id="progress4"><span class="step-badge inactive">4</span><span>Submit</span></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header"><span>Workflow Instructions</span></div>
+            <div class="panel-body">
+                <ol class="workflow-list">
+                    <li>Select pending GRV from Phase 1</li>
+                    <li>Scan each device serial number</li>
+                    <li>System auto-verifies count</li>
+                    <li>If mismatch: Send email to Phase 1</li>
+                    <li>Review scanned devices</li>
+                    <li>Submit receipt (zones assigned by ICT Allocator)</li>
+                </ol>
+            </div>
+        </div>
+    </div>
 </section>
 
 <div id="alertContainer" class="mt-3"></div>
-<div id="selectedActionBar" class="selected-action-bar" style="display:none;">
-  <div class="text-sm text-gray-700">Selected: <strong id="selectedActionLabel">-</strong></div>
-  <button class="btn btn-primary btn-sm d-inline-flex align-items-center gap-2" onclick="goToStep2()">Continue to Scan Devices <i data-lucide="arrow-right" style="width:14px;height:14px"></i></button>
-</div>
 
 <style>
-.two-col-grid{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(0,1.2fr);gap:16px;margin-top:8px}
-.wizard-alert{border-radius:12px;padding:14px 16px;background:#eff6ff;border:1px solid #bfdbfe;display:flex;align-items:flex-start;gap:10px}
-.step-pill{border-radius:999px;padding:3px 10px;font-size:11px;background:#2563eb;color:#fff;font-weight:700}
-.wizard-title{font-weight:600;font-size:14px;color:#1f2937}.wizard-subtitle{font-size:12px;color:#6b7280;margin-top:2px}
-.grv-card{cursor:pointer;transition:.15s;border:1px solid #e5e7eb;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.06)}
-.grv-card:hover{border-color:#60a5fa;border-left:4px solid #3b82f6;box-shadow:0 8px 16px rgba(15,23,42,.08)}
-.grv-card.selected{border:2px solid #3b82f6;background:rgba(239,246,255,.5)}
-.grv-status{border-radius:999px;font-size:10px;font-weight:600;padding:2px 8px;border:1px solid}
-.grv-pending{background:#fffbeb;color:#b45309;border-color:#fde68a}.grv-receipted{background:#f0fdf4;color:#15803d;border-color:#bbf7d0}
-.step-list{list-style:none;padding:0;margin:0}.step-link{border:0;background:transparent;padding:0;display:flex;align-items:center;gap:10px}
-.step-link[disabled]{opacity:.55;cursor:not-allowed}.step-badge{width:22px;height:22px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
-.step-badge.active{background:#2563eb;color:#fff}.step-badge.inactive{background:#f3f4f6;color:#9ca3af}
-.quick-stats-list{list-style:none;padding:0;margin:0;font-size:12px}.quick-stats-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f3f4f6}.quick-stats-item:last-child{border-bottom:0}
-.stat-pill{min-width:36px;text-align:center;border-radius:999px;padding:2px 8px;font-size:11px;background:#eef2ff;color:#111827}
-.workflow-wrap{background:rgba(239,246,255,.45);border:1px solid #dbeafe;border-radius:12px}.workflow-list{font-size:12px;padding-left:0;margin:0;list-style:none}
-.workflow-list li{margin-bottom:6px;display:flex;gap:8px}.workflow-list li::before{content:counter(list-item) ".";color:#3b82f6;font-weight:700;width:14px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;margin-top:1px}
-.dots{display:inline-flex;gap:4px;align-items:center}.dots span{width:4px;height:4px;border-radius:999px;background:#9ca3af;animation:bounce 1s infinite;display:inline-block}.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
-@keyframes bounce{0%,100%{transform:translateY(0);opacity:.5}50%{transform:translateY(-3px);opacity:1}}
-.selected-action-bar{position:sticky;bottom:0;z-index:10;background:#fff;border-top:1px solid #e5e7eb;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-top:10px}
-@media (max-width:1024px){.two-col-grid{grid-template-columns:minmax(0,1fr)}}
+    .two-col-grid { display: grid; grid-template-columns: minmax(0, 2.3fr) minmax(0, 1.2fr); gap: 16px; margin-top: 8px; }
+    .wizard-panel .panel-header { display: flex; align-items: center; gap: 8px; }
+    .step-pill { border-radius: 999px; padding: 3px 10px; font-size: 11px; background: #2563eb; color: #ffffff; font-weight: 600; }
+    .wizard-title { font-weight: 600; font-size: 14px; }
+    .wizard-subtitle { font-size: 12px; color: #6b7280; margin-top: 4px; }
+    .wizard-body { margin-top: 10px; }
+    .wizard-alert { border-radius: 12px; padding: 10px 12px; background: #e0f2fe; color: #0369a1; font-size: 12px; display: flex; align-items: flex-start; gap: 8px; }
+    .wizard-alert i { margin-top: 2px; }
+    .step-list { list-style: none; padding-left: 0; margin: 0; }
+    .step-list-item { display: flex; align-items: center; gap: 10px; font-size: 12px; padding: 6px 0; }
+    .step-badge { width: 22px; height: 22px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+    .step-badge.active { background: #2563eb; color: #ffffff; }
+    .step-badge.inactive { background: #f3f4f6; color: #9ca3af; }
+    .quick-stats-list { list-style: none; padding-left: 0; margin: 0; font-size: 12px; }
+    .quick-stats-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+    .stat-pill { min-width: 36px; text-align: center; border-radius: 999px; padding: 2px 8px; font-size: 11px; background: #eef2ff; color: #111827; }
+    .workflow-list { font-size: 12px; padding-left: 20px; margin-bottom: 0; }
+    .workflow-list li { margin-bottom: 4px; }
+    .scanned-device-item { padding: 0.75rem; border-bottom: 1px solid #dee2e6; display: flex; justify-content: space-between; align-items: center; background: white; margin-bottom: 0.5rem; border-radius: 5px; }
+    .scanned-device-item:last-child { border-bottom: none; }
+    .grv-card { cursor: pointer; transition: all 0.3s; border: 2px solid transparent; }
+    .grv-card:hover { border-color: #0d6efd; transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .zone-assignment-item { padding: 1rem; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 0.75rem; background: white; }
+    @media (max-width: 1024px) { .two-col-grid { grid-template-columns: minmax(0, 1fr); } }
 </style>
 
+<script src="/js/helpers/time.js"></script>
+<!-- Shared Phase 2 utilities -->
+<script src="/phase2/js/phase2-utils.js"></script>
 <script>
-let selectedGrv = null; let maxStepUnlocked = 1;
-function initReceiptingView(){ loadPendingGRVs(); updateStats(); wireStepper(); if(window.lucide&&typeof window.lucide.createIcons==='function') window.lucide.createIcons(); }
-if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', initReceiptingView);} else { initReceiptingView(); }
-async function loadPendingGRVs(){
-  const c=document.getElementById('grvListContainer'); c.innerHTML='<div class="text-center py-3"><div class="spinner-border text-primary" role="status"></div></div>';
-  try{
-    const r=await fetch('/api/phase2/receipting/pending-grvs'); if(!r.ok) throw new Error('HTTP '+r.status); const grvs=await r.json();
-    if(!Array.isArray(grvs)||!grvs.length){ c.innerHTML='<div class="alert alert-info">No pending GRVs from Phase 1 Warehouse.</div>'; return; }
-    c.innerHTML=grvs.map(grv=>`<div class="card grv-card mb-2" data-grv-id="${grv.grvNumber}" onclick='selectGRV(${JSON.stringify(grv).replace(/"/g,'&quot;')})'><div class="card-body"><div class="d-flex justify-content-between"><div><div class="font-monospace fw-bold">${grv.grvNumber}</div><div class="text-muted small">${new Date(grv.issueDate).toLocaleDateString()}</div><div class="mt-1"><span class="text-muted small">Issued by:</span><br><strong class="small">${grv.issuerName}</strong></div><div class="mt-1 small text-muted">${grv.deviceCount} devices</div></div><span class="grv-status ${(String(grv.status||'Pending').toLowerCase().includes('receipted')?'grv-receipted':'grv-pending')}">${String(grv.status||'Pending')}</span></div></div></div>`).join('');
-  }catch(e){ c.innerHTML=`<div class="alert alert-danger">Error loading GRVs: ${e.message}</div>`; }
-}
-function selectGRV(grv){ selectedGrv=grv; document.querySelectorAll('.grv-card').forEach(x=>x.classList.remove('selected')); document.querySelector(`[data-grv-id="${grv.grvNumber}"]`)?.classList.add('selected'); document.getElementById('selectedActionLabel').textContent=grv.grvNumber; document.getElementById('selectedActionBar').style.display='flex'; }
-function goToStep2(){ if(!selectedGrv) return; document.getElementById('selectedGrvNumber').textContent=selectedGrv.grvNumber; document.getElementById('selectedGrvIssuer').textContent=selectedGrv.issuerName; document.getElementById('expectedCountDisplay').textContent=selectedGrv.deviceCount; document.getElementById('step1Card').style.display='none'; document.getElementById('step2Card').style.display='block'; document.getElementById('selectedActionBar').style.display='none'; maxStepUnlocked=Math.max(maxStepUnlocked,2); updateProgress(2); }
-function backToStep1(){ document.getElementById('step2Card').style.display='none'; document.getElementById('step1Card').style.display='block'; document.getElementById('selectedActionBar').style.display=selectedGrv?'flex':'none'; updateProgress(1); }
-function wireStepper(){ document.querySelectorAll('[data-step-link]').forEach(b=>b.addEventListener('click',()=>{ const s=Number(b.getAttribute('data-step-link')); if(s>maxStepUnlocked) return; if(s===1) backToStep1(); if(s===2&&selectedGrv) goToStep2(); })); updateProgress(1); }
-function updateProgress(step){ for(let i=1;i<=4;i++){ const l=document.querySelector(`[data-step-link="${i}"]`); const bd=l?.querySelector('.step-badge'); if(!bd) continue; bd.classList.toggle('active',i<=step); bd.classList.toggle('inactive',i>step); l.disabled=i>maxStepUnlocked; } }
-function updateStats(){ setTimeout(()=>animateCount('receiptsToday',12),350); setTimeout(()=>animateCount('devicesReceived',2400),600); }
-function animateCount(id,target){ const el=document.getElementById(id); const st=performance.now(); const dur=800; const f=(n)=>{ const p=Math.min(1,(n-st)/dur); el.textContent=Math.floor(target*p).toLocaleString(); if(p<1) requestAnimationFrame(f); }; requestAnimationFrame(f);}
+    let scannedDevices = [];
+    let selectedGrv = null;
+    let phase1ClerkEmail = 'receiving.clerk@local';
+
+    // Initialize receipting view regardless of how the fragment is loaded
+    function initReceiptingView() {
+        // Kick off GRV fetch
+        try { loadPendingGRVs(); } catch (e) { console.error('init: loadPendingGRVs failed', e); }
+
+        // Enter key handler for serial scanner
+        const serialInput = document.getElementById('serialScanner');
+        if (serialInput) {
+            serialInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addScannedDevice();
+                }
+            });
+        }
+    }
+
+    // Run immediately if injected after DOM load; otherwise wait for DOMContentLoaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initReceiptingView);
+    } else {
+        initReceiptingView();
+    }
+
+    async function loadPendingGRVs() {
+        const container = document.getElementById('grvListContainer');
+
+        // Show loading spinner each time
+        container.innerHTML = `
+            <div class="text-center py-3">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading GRVs...</span>
+                </div>
+            </div>
+        `;
+
+        try {
+            // Fetch pending GRVs from Phase 2 aggregation endpoint
+            const response = await fetch('/api/phase2/receipting/pending-grvs');
+
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+
+            const grvs = await response.json();
+
+            if (!Array.isArray(grvs) || grvs.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        No pending GRVs from Phase 1 Warehouse. Please ensure Phase 1 has generated GRVs.
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = grvs.map(grv => `
+                <div class="card grv-card mb-2" onclick="selectGRV(${JSON.stringify(grv).replace(/"/g, '&quot;')})">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-4">
+                                <h6 class="mb-0">${grv.grvNumber}</h6>
+                                <small class="text-muted">${new Date(grv.issueDate).toLocaleDateString()}</small>
+                            </div>
+                            <div class="col-md-5">
+                                <small class="text-muted">Issued by:</small><br>
+                                <strong>${grv.issuerName}</strong>
+                            </div>
+                            <div class="col-md-3 text-end">
+                                <span class="badge bg-primary">${grv.deviceCount} devices</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+        } catch (error) {
+            console.error('Error loading GRVs', error);
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Error loading GRVs: ${error.message}
+                </div>
+            `;
+        }
+    }
+
+    function selectGRV(grv) {
+        selectedGrv = grv;
+        phase1ClerkEmail = grv.issuerEmail;
+        
+        document.getElementById('selectedGrvNumber').textContent = grv.grvNumber;
+        document.getElementById('selectedGrvIssuer').textContent = grv.issuerName;
+        document.getElementById('expectedCountDisplay').textContent = grv.deviceCount;
+        
+        document.getElementById('step1Card').style.display = 'none';
+        document.getElementById('step2Card').style.display = 'block';
+        updateProgress(2);
+        document.getElementById('serialScanner').focus();
+    }
+
+    function addScannedDevice() {
+        const serialInput = document.getElementById('serialScanner');
+        const serial = serialInput.value.trim();
+
+        if (!serial) {
+            showAlert('Please enter a serial number', 'warning');
+            return;
+        }
+
+        if (scannedDevices.includes(serial)) {
+            showAlert('Device already scanned!', 'warning');
+            serialInput.value = '';
+            serialInput.focus();
+            return;
+        }
+
+        scannedDevices.push(serial);
+        updateScannedList();
+        serialInput.value = '';
+        serialInput.focus();
+
+        // Log scan event for receiving step
+        try {
+            fetch('/api/phase2/audit/scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    Serial: serial,
+                    Stage: 0 // Phase2Stage.Received
+                })
+            });
+        } catch (auditErr) {
+            console.warn('Scan audit logging failed', auditErr);
+        }
+
+        // Play success sound (optional)
+        // new Audio('/sounds/beep.mp3').play();
+    }
+
+    function updateScannedList() {
+        const container = document.getElementById('scannedDevicesList');
+        const count = scannedDevices.length;
+        document.getElementById('scannedCount').textContent = count;
+        document.getElementById('scannedCountLabel').textContent = count;
+
+        if (count === 0) {
+            container.innerHTML = '<p class="text-muted text-center mb-0">No devices scanned yet. Start scanning...</p>';
+            return;
+        }
+
+        container.innerHTML = scannedDevices.map((serial, index) => `
+            <div class="scanned-device-item">
+                <span><i class="bi bi-check-circle text-success me-2"></i><strong>${serial}</strong></span>
+                <button class="btn btn-sm btn-outline-danger" onclick="removeScannedDevice(${index})">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+
+    function removeScannedDevice(index) {
+        scannedDevices.splice(index, 1);
+        updateScannedList();
+    }
+
+    function verifyCount() {
+        const expected = selectedGrv.deviceCount;
+        const received = scannedDevices.length;
+
+        if (received === 0) {
+            showAlert('Please scan at least one device', 'warning');
+            return;
+        }
+
+        if (expected !== received) {
+            // Discrepancy detected - show discrepancy card
+            const difference = received - expected;
+            document.getElementById('discrepancyExpected').textContent = expected;
+            document.getElementById('discrepancyReceived').textContent = received;
+            document.getElementById('discrepancyDifference').textContent = difference > 0 ? `+${difference}` : difference;
+            document.getElementById('phase1ClerkEmail').textContent = phase1ClerkEmail;
+            
+            document.getElementById('step2Card').style.display = 'none';
+            document.getElementById('step3DiscrepancyCard').style.display = 'block';
+            updateProgress(3);
+        } else {
+            // Count matches - proceed directly to review
+            showAlert('Count verified successfully! Proceeding to review...', 'success');
+            proceedToZoneAssignment();
+        }
+    }
+
+    async function sendDiscrepancyEmail() {
+        const notes = document.getElementById('discrepancyNotes').value.trim();
+        
+        if (!notes) {
+            showAlert('Please provide an explanation for the discrepancy', 'warning');
+            return;
+        }
+
+        try {
+            // Send email notification to Phase 1 clerk
+            const emailData = {
+                to: phase1ClerkEmail,
+                subject: `Discrepancy Alert: GRV ${selectedGrv.grvNumber}`,
+                body: `
+                    <h3>Device Count Discrepancy Detected</h3>
+                    <p><strong>GRV Number:</strong> ${selectedGrv.grvNumber}</p>
+                    <p><strong>Expected Count:</strong> ${selectedGrv.deviceCount}</p>
+                    <p><strong>Received Count:</strong> ${scannedDevices.length}</p>
+                    <p><strong>Difference:</strong> ${scannedDevices.length - selectedGrv.deviceCount}</p>
+                    <p><strong>Explanation:</strong></p>
+                    <p>${notes}</p>
+                    <p><strong>ICT Clerk:</strong> ${currentUser.fullName} (${currentUser.email})</p>
+                    <p><strong>Date:</strong> ${formatLocalTime(new Date())}</p>
+                `
+            };
+
+            // Mock API call - replace with actual email service
+            // const response = await fetch('/api/notifications/send-email', {
+            //     method: 'POST',
+            //     headers: { 'Content-Type': 'application/json' },
+            //     body: JSON.stringify(emailData)
+            // });
+
+            showAlert('Discrepancy report sent to Phase 1 Receiving Clerk. Proceeding to review...', 'success');
+            
+            // Proceed to review after 2 seconds
+            setTimeout(() => {
+                proceedToZoneAssignment();
+            }, 2000);
+            
+        } catch (error) {
+            showAlert('Error sending discrepancy report: ' + error.message, 'danger');
+        }
+    }
+
+    function proceedToZoneAssignment() {
+        const container = document.getElementById('zoneAssignmentList');
+        
+        container.innerHTML = scannedDevices.map((serial, index) => `
+            <div class="zone-assignment-item">
+                <div class="row align-items-center">
+                    <div class="col-md-7">
+                        <strong>${serial}</strong>
+                    </div>
+                    <div class="col-md-5 text-end">
+                        <span class="badge bg-info">Pending Zone Assignment</span>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        
+        document.getElementById('step3DiscrepancyCard').style.display = 'none';
+        document.getElementById('step2Card').style.display = 'none';
+        document.getElementById('step4Card').style.display = 'block';
+        updateProgress(4);
+    }
+
+    async function submitReceipt() {
+        // Create items array with just serial numbers (zones will be assigned by ICT Allocator)
+        const items = scannedDevices.map(serial => ({
+            Serial: serial
+        }));
+
+        try {
+            const response = await fetch('/api/phase2/receipting', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    GrvNumber: selectedGrv.grvNumber,
+                    ClerkId: currentUser.email,
+                    Items: items
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                showAlert(`Receipt created successfully! GRV: ${data.grvNumber}, Items: ${data.itemCount}`, 'success');
+                
+                // Reset form after 2 seconds
+                setTimeout(() => {
+                    resetForm();
+                }, 2000);
+            } else {
+                const error = await response.json();
+                showAlert(error.message || 'Failed to create receipt', 'danger');
+            }
+        } catch (error) {
+            showAlert('Error creating receipt: ' + error.message, 'danger');
+        }
+    }
+
+    function resetForm() {
+        scannedDevices = [];
+        selectedGrv = null;
+        document.getElementById('step4Card').style.display = 'none';
+        document.getElementById('step1Card').style.display = 'block';
+        updateProgress(1);
+        loadPendingGRVs();
+    }
+
+    function backToStep1() {
+        scannedDevices = [];
+        updateScannedList();
+        document.getElementById('step2Card').style.display = 'none';
+        document.getElementById('step1Card').style.display = 'block';
+        updateProgress(1);
+    }
+
+    function backToScanning() {
+        document.getElementById('discrepancyNotes').value = '';
+        document.getElementById('step3DiscrepancyCard').style.display = 'none';
+        document.getElementById('step2Card').style.display = 'block';
+        updateProgress(2);
+        document.getElementById('serialScanner').focus();
+    }
+
+    function updateProgress(step) {
+        for (let i = 1; i <= 4; i++) {
+            const container = document.getElementById(`progress${i}`);
+            const badge = container ? container.querySelector('.step-badge') : null;
+            if (!badge) continue;
+            if (i <= step) {
+                badge.classList.add('active');
+                badge.classList.remove('inactive');
+            } else {
+                badge.classList.remove('active');
+                badge.classList.add('inactive');
+            }
+        }
+    }
+
+    function showAlert(message, type) {
+        const alertContainer = document.getElementById('alertContainer');
+        alertContainer.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        setTimeout(() => {
+            alertContainer.innerHTML = '';
+        }, 5000);
+    }
+
+    // Quick Stats section removed - updateStats function no longer needed
 </script>

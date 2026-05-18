@@ -40,7 +40,7 @@
 
             if (res.status === 401 || res.status === 403) {
                 alert('Your session has expired or lacks permissions. Please log in again.');
-            window.location.href = '/login.html?logout=1';
+            window.location.href = '/index.html';
                 return;
             }
 
@@ -54,7 +54,7 @@
                 const text = await res.text();
                 console.warn('Unexpected response for technicians list:', text.slice(0, 200));
                 alert('Unexpected response from server. Please log in again.');
-            window.location.href = '/login.html?logout=1';
+            window.location.href = '/index.html';
                 return;
             }
 
@@ -175,7 +175,7 @@
 
             if (res.status === 401 || res.status === 403) {
                 alert('Not authorized. Please log in again.');
-            window.location.href = '/login.html?logout=1';
+            window.location.href = '/index.html';
                 return;
             }
 
@@ -201,7 +201,7 @@
 
             if (res.status === 401 || res.status === 403) {
                 alert('Not authorized. Please log in again.');
-            window.location.href = '/login.html?logout=1';
+            window.location.href = '/index.html';
                 return;
             }
 
@@ -305,7 +305,7 @@
 
                 if (res.status === 401 || res.status === 403) {
                     alert('Not authorized. Please log in again.');
-                    window.location.href = '/login.html?logout=1';
+                    window.location.href = '/index.html';
                     return;
                 }
 

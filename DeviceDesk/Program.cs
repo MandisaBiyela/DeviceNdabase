@@ -8,6 +8,7 @@ using DeviceDesk.Modules.Phase2.Models;
 using DeviceDesk.Modules.Phase2.Services;
 using DeviceDesk.Modules.Phase3.Data;
 using DeviceDesk.Modules.Phase3.Services;
+using DeviceDesk.Modules.SuperAdmin.Data;
 using DeviceDesk.Modules.SuperAdmin.Services;
 using DeviceDesk.Middleware;
 using DeviceDesk.Services;
@@ -41,6 +42,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(o =>
 builder.Services.AddDbContext<Phase2DbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddDbContext<Phase3DbContext>(o =>
+    o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContext<SuperAdminDbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Startup diagnostics
@@ -141,6 +144,7 @@ builder.Services.AddScoped<ReceivingDocumentIngestService>();
 // Phase 2 services
 builder.Services.AddScoped<ReceiptingService>();
 builder.Services.AddScoped<AssessmentService>();
+builder.Services.AddScoped<RepairReportService>();
 builder.Services.AddScoped<QualityService>();
 builder.Services.AddScoped<DisposalService>();
 builder.Services.AddScoped<AuditService>();
@@ -148,6 +152,7 @@ builder.Services.AddScoped<DispatchService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<AutoAllocationService>();
 builder.Services.AddScoped<AllocationService>();
+builder.Services.AddScoped<IPhase2AllocationService, Phase2AllocationService>();
 builder.Services.AddScoped<PickingService>();
 
 // SuperAdmin services
@@ -274,6 +279,18 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine($"[Phase3 migrations warning] {ex.InnerException?.Message ?? ex.Message}");
     }
 
+    // SuperAdmin migrations
+    try
+    {
+        var superAdminDb = scope.ServiceProvider.GetRequiredService<SuperAdminDbContext>();
+        Console.WriteLine("[DB] Applying SuperAdminDbContext migrations...");
+        superAdminDb.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[SuperAdmin migrations warning] {ex.InnerException?.Message ?? ex.Message}");
+    }
+
     // Seed default users regardless of non-Identity migration failures
     try
     {
@@ -301,6 +318,19 @@ using (var scope = app.Services.CreateScope())
         catch (Exception ex)
         {
             Console.WriteLine($"[Schools seeding warning] {ex.InnerException?.Message ?? ex.Message}");
+        }
+
+        // Seed imported devices for SuperAdmin
+        try
+        {
+            var importCsvPath = Path.Combine(app.Environment.ContentRootPath, "Data", "Seeds",
+                "Schools_Populated_Siyanda_Fixed_Dates_Cleaned (1).csv");
+            await app.Services.SeedImportedDevicesFromCsvAsync(importCsvPath, forceReseed: true);
+            Console.WriteLine("[DB] Imported devices seeding completed (force reseed enabled).");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Imported devices seeding warning] {ex.InnerException?.Message ?? ex.Message}");
         }
     }
 

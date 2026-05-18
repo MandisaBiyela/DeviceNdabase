@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Batch Editor - DeviceDesk</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="/lib/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link href="/css/dashboard-shell.css" rel="stylesheet" />
     <link rel="stylesheet" href="/css/theme.css?v=2025" />
     <link href="/css/site.css" rel="stylesheet" />
@@ -50,10 +50,6 @@
             </a>
             <a href="/dispatch/arrival-debrief.html" class="sidebar-link" id="arrivalDebriefLink">
                 <i class="bi bi-check-circle"></i><span>Arrival Debrief</span>
-            </a>
-            <span class="sidebar-section">REPORTS</span>
-            <a href="/dispatch/close-out-report.html" class="sidebar-link">
-                <i class="bi bi-file-earmark-word"></i><span>Close-Out Report</span>
             </a>
             <span class="sidebar-section">SYSTEM</span>
             <a href="/logout" class="sidebar-link danger">
@@ -150,7 +146,7 @@
                                 <div class="d-flex align-items-center gap-2">
                                     <button id="btn-find-matching"
                                             type="button"
-                                            class="btn btn-sm btn-outline-secondary"
+                                            class="btn btn-sm btn-primary"
                                             style="display:none;"
                                             onclick="findAndAddMatchingDevices()">
                                         <i class="bi bi-search"></i> Find Matching Devices
@@ -214,13 +210,59 @@
         </div> <!-- /app-content -->
     </div> <!-- /app-main -->
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Matching Devices Modal -->
+    <div class="modal fade" id="matchingDevicesModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-search"></i> Matching Devices by GRV</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info mb-3">
+                        <h6 class="alert-heading"><i class="bi bi-info-circle"></i> GRV Summary</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <strong>Total in GRV:</strong> <span id="modalTotalInGrv">0</span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Eligible to add:</strong> <span class="text-success" id="modalEligibleCount">0</span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Still in ICT:</strong> <span class="text-warning" id="modalInIctCount">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="matchingDevicesInfo" class="alert alert-warning" style="display:none;">
+                        No additional devices can be added at this time.
+                    </div>
+                    
+                    <div id="matchingDevicesList" style="max-height: 400px; overflow-y: auto;">
+                        <!-- Devices will be populated here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmAddDevicesBtn" onclick="confirmAddMatchingDevices()">
+                        <i class="bi bi-plus-circle"></i> Add All Devices
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+    <script src="/shared/js/toast.js"></script>
     <script>
         let batchId = null;
         let batch = null;
+        let matchingDevicesModalInstance = null;
+        let pendingMatchingDevices = [];
 
         document.addEventListener('DOMContentLoaded', () => {
+            matchingDevicesModalInstance = new bootstrap.Modal(document.getElementById('matchingDevicesModal'));
             const params = new URLSearchParams(window.location.search);
             batchId = params.get('id');
             
@@ -285,12 +327,15 @@
                 renderBatch();
             } catch (error) {
                 console.error('Failed to load batch:', error);
-                const userChoice = confirm(`Failed to load batch: ${error.message}\n\nWould you like to:\n\nOK - Go to Transport Monitor\nCancel - Try again`);
-                if (userChoice) {
-                    window.location.href = '/dispatch/transport-monitor';
-                } else {
-                    loadBatch(); // Retry
-                }
+                toast(`Failed to load batch: ${error.message}`, 'danger');
+                setTimeout(() => {
+                    const userChoice = confirm(`Would you like to:\n\nOK - Go to Transport Monitor\nCancel - Try again`);
+                    if (userChoice) {
+                        window.location.href = '/dispatch/transport-monitor';
+                    } else {
+                        loadBatch(); // Retry
+                    }
+                }, 500);
             }
         }
 
@@ -327,7 +372,7 @@
         function loadBatchById() {
             const batchIdInput = document.getElementById('batchIdInput');
             if (!batchIdInput || !batchIdInput.value.trim()) {
-                alert('Please enter a Batch ID');
+                toast('Please enter a Batch ID', 'warning');
                 return;
             }
             batchId = batchIdInput.value.trim();
@@ -431,7 +476,7 @@
         // Find and add matching devices (same school + GRV)
         async function findAndAddMatchingDevices() {
             if (!batchId) {
-                alert('No batch selected.');
+                toast('No batch selected.', 'warning');
                 return;
             }
 
@@ -451,30 +496,55 @@
                 const inIctCount = result.inIctCount || 0;
                 const devices = result.devices || [];
 
-                // Build info message
-                let msg = `GRV summary for this batch:\n` +
-                          `- Total devices in GRV: ${total}\n` +
-                          `- Eligible to add now: ${eligibleCount}\n`;
-
-                if (inIctCount > 0) {
-                    msg += `- Still in ICT centre (cannot add yet): ${inIctCount}\n`;
-                }
+                // Update modal with summary
+                document.getElementById('modalTotalInGrv').textContent = total;
+                document.getElementById('modalEligibleCount').textContent = eligibleCount;
+                document.getElementById('modalInIctCount').textContent = inIctCount;
 
                 if (eligibleCount === 0 || devices.length === 0) {
-                    alert(msg + '\n\nNo additional devices can be added right now.');
+                    document.getElementById('matchingDevicesInfo').style.display = 'block';
+                    document.getElementById('matchingDevicesList').style.display = 'none';
+                    document.getElementById('confirmAddDevicesBtn').style.display = 'none';
+                    matchingDevicesModalInstance.show();
                     return;
                 }
 
-                // 2) Confirmation with full context
-                msg += `\nDo you want to add ALL ${eligibleCount} eligible device(s) to this batch?`;
-                const confirmAdd = confirm(msg);
-                if (!confirmAdd) {
-                    return;
-                }
+                // Show devices list
+                document.getElementById('matchingDevicesInfo').style.display = 'none';
+                document.getElementById('matchingDevicesList').style.display = 'block';
+                document.getElementById('confirmAddDevicesBtn').style.display = 'inline-block';
+                
+                const devicesList = document.getElementById('matchingDevicesList');
+                devicesList.innerHTML = devices.map(d => `
+                    <div class="card mb-2">
+                        <div class="card-body py-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong><i class="bi bi-laptop"></i> ${d.serial || 'Unknown'}</strong>
+                                    ${d.schoolName ? `<br><small class="text-muted"><i class="bi bi-building"></i> ${d.schoolName}</small>` : ''}
+                                </div>
+                                <span class="badge bg-success">Ready</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
 
-                const deviceIds = devices.map(d => d.id);
+                // Store devices for later
+                pendingMatchingDevices = devices.map(d => d.id);
+                
+                // Show modal
+                matchingDevicesModalInstance.show();
+            } catch (err) {
+                console.error('Error finding/adding matching devices', err);
+                toast('Error finding/adding matching devices: ' + err.message, 'danger');
+            }
+        }
 
-                // 3) Call existing AddDevices endpoint
+        async function confirmAddMatchingDevices() {
+            try {
+                const deviceIds = pendingMatchingDevices;
+
+                // Call AddDevices endpoint
                 const addResponse = await fetch(
                     `/api/dispatch/batches/${batchId}/devices`,
                     {
@@ -493,12 +563,13 @@
 
                 const addResult = await addResponse.json();
 
-                // 4) Feedback + reload
-                alert(addResult.message || `Added ${eligibleCount} device(s) to batch.`);
+                // Close modal and show success
+                matchingDevicesModalInstance.hide();
+                toast(addResult.message || `Added ${deviceIds.length} device(s) to batch.`, 'success');
                 await loadBatch();
             } catch (err) {
-                console.error('Error finding/adding matching devices', err);
-                alert('Error finding/adding matching devices: ' + err.message);
+                console.error('Error adding matching devices', err);
+                toast('Error adding matching devices: ' + err.message, 'danger');
             }
         }
 
@@ -540,7 +611,7 @@
                 document.body.removeChild(a);
             } catch (error) {
                 console.error('Error downloading POD:', error);
-                alert('Failed to download POD: ' + error.message);
+                toast('Failed to download POD: ' + error.message, 'danger');
             }
         }
 
@@ -582,7 +653,7 @@
                 document.body.removeChild(a);
             } catch (error) {
                 console.error('Error downloading Delivery Note:', error);
-                alert('Failed to download Delivery Note: ' + error.message);
+                toast('Failed to download Delivery Note: ' + error.message, 'danger');
             }
         }
 
@@ -654,16 +725,16 @@
                     throw new Error(error.message || 'Failed to save');
                 }
 
-                alert('Details saved successfully!');
+                toast('Details saved successfully!', 'success');
                 await loadBatch();
             } catch (error) {
-                alert(`Failed to save: ${error.message}`);
+                toast(`Failed to save: ${error.message}`, 'danger');
             }
         }
 
         async function cancelCurrentBatch() {
             if (!batchId) {
-                alert('No batch loaded.');
+                toast('No batch loaded.', 'warning');
                 return;
             }
 
@@ -686,14 +757,16 @@
                 }
 
                 const result = await response.json();
-                alert(result.message || 'Batch cancelled. Devices returned to dispatch queue.');
+                toast(result.message || 'Batch cancelled. Devices returned to dispatch queue.', 'success');
 
                 // Clear the stored batch and go back to queue
                 localStorage.removeItem('phase3.lastBatchId');
-                window.location.href = '/dispatch/dispatch-queue.html';
+                setTimeout(() => {
+                    window.location.href = '/dispatch/dispatch-queue.html';
+                }, 1500);
             } catch (err) {
                 console.error('Error cancelling batch:', err);
-                alert(`Error cancelling batch: ${err.message}`);
+                toast(`Error cancelling batch: ${err.message}`, 'danger');
             }
         }
 
@@ -710,10 +783,10 @@
                     throw new Error(error.message || 'Failed to remove device');
                 }
 
-                alert('Device removed');
+                toast('Device removed successfully', 'success');
                 await loadBatch();
             } catch (error) {
-                alert(`Failed to remove device: ${error.message}`);
+                toast(`Failed to remove device: ${error.message}`, 'danger');
             }
         }
 
@@ -773,25 +846,27 @@
                 }
 
                 const message = result.message || 'Batch locked successfully';
-                alert(message);
+                toast(message, 'success');
 
                 // Ask user if they want to continue directly to Loading Audit
-                if (confirm('Continue to Loading Audit for this batch?')) {
+                setTimeout(() => {
+                    if (confirm('Continue to Loading Audit for this batch?')) {
                     // Persist last batch id for convenience and navigate with explicit id
                     try {
                         localStorage.setItem('phase3.lastBatchId', batchId);
                     } catch (e) {
                         console.warn('Unable to persist last batch id:', e);
                     }
-                    window.location.href = `/dispatch/loading-audit.html?id=${encodeURIComponent(batchId)}`;
-                    return;
-                }
+                        window.location.href = `/dispatch/loading-audit.html?id=${encodeURIComponent(batchId)}`;
+                        return;
+                    }
 
-                // Stay on editor and refresh data if user chooses not to continue
-                await loadBatch();
+                    // Stay on editor and refresh data if user chooses not to continue
+                    loadBatch();
+                }, 500);
             } catch (error) {
                 console.error('Error locking batch:', error);
-                alert(`Failed to lock batch: ${error.message}`);
+                toast(`Failed to lock batch: ${error.message}`, 'danger');
             }
         }
     </script>

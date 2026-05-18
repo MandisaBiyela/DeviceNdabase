@@ -12,11 +12,16 @@ namespace DeviceDesk.Modules.Phase1.Controllers
     {
         private readonly ReconciliationService _reconciliation;
         private readonly GRVService _grv;
+        private readonly ILogger<ReconciliationController> _logger;
 
-        public ReconciliationController(ReconciliationService reconciliation, GRVService grv)
+        public ReconciliationController(
+            ReconciliationService reconciliation, 
+            GRVService grv,
+            ILogger<ReconciliationController> logger)
         {
             _reconciliation = reconciliation;
             _grv = grv;
+            _logger = logger;
         }
 
         [HttpPost("start-scanning")]
@@ -116,6 +121,11 @@ namespace DeviceDesk.Modules.Phase1.Controllers
                 if (ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
                     return NotFound(new { error = ex.Message });
                 return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating GRV for batch {BatchId}", batchId);
+                return StatusCode(500, new { error = $"Failed to generate GRV: {ex.Message}" });
             }
         }
 

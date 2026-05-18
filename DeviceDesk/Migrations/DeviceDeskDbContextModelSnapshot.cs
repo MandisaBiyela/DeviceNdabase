@@ -63,6 +63,15 @@ namespace DeviceDesk.netcore.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTimeOffset?>("AllocatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("AllocatedByUserId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("AllocationType")
+                        .HasColumnType("int");
+
                     b.Property<Guid?>("BatchId")
                         .HasColumnType("uniqueidentifier");
 
@@ -105,6 +114,18 @@ namespace DeviceDesk.netcore.Migrations
                     b.Property<string>("Source")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("StudentIdNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("StudentName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TeacherName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TeacherPersalNumber")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -851,10 +872,6 @@ namespace DeviceDesk.netcore.Migrations
                     b.Property<DateTime?>("ExpectedDeliveryDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("FinancialYear")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
                     b.Property<string>("GRVNumber")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -865,17 +882,6 @@ namespace DeviceDesk.netcore.Migrations
 
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PoNumber")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<Guid?>("ProcurementOrderId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ProjectName")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -896,10 +902,6 @@ namespace DeviceDesk.netcore.Migrations
                         .IsUnique();
 
                     b.HasIndex("CreatedAt");
-
-                    b.HasIndex("PoNumber");
-
-                    b.HasIndex("ProcurementOrderId");
 
                     b.HasIndex("Status");
 
@@ -936,12 +938,6 @@ namespace DeviceDesk.netcore.Migrations
 
                     b.Property<int>("QuantityScanned")
                         .HasColumnType("int");
-
-                    b.Property<string>("SchoolBreakdownJson")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal>("UnitPrice")
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Zone")
                         .IsRequired()
@@ -1024,6 +1020,9 @@ namespace DeviceDesk.netcore.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid?>("OrderBatchId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("OrderID")
                         .HasColumnType("uniqueidentifier");
 
@@ -1034,147 +1033,11 @@ namespace DeviceDesk.netcore.Migrations
 
                     b.HasKey("ModelID");
 
+                    b.HasIndex("OrderBatchId");
+
                     b.HasIndex("OrderID");
 
                     b.ToTable("OrderModelLists", (string)null);
-                });
-
-            modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ProcurementOrder", b =>
-                {
-                    b.Property<Guid>("ProcurementOrderId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetimeoffset(7)")
-                        .HasDefaultValueSql("SYSUTCDATETIME()");
-
-                    b.Property<DateTimeOffset?>("ExpectedDeliveryDate")
-                        .HasColumnType("datetimeoffset(7)");
-
-                    b.Property<string>("FinancialYear")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<Guid?>("NewStockBatchId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("PoNumber")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("ProjectName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("ScopeNotes")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SupplierName")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("TimelineNotes")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal>("TotalInvoicedToDepartment")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("TotalOrderValue")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("TotalPaidByDepartment")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("TotalPaidToSuppliers")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetimeoffset(7)")
-                        .HasDefaultValueSql("SYSUTCDATETIME()");
-
-                    b.HasKey("ProcurementOrderId");
-
-                    b.HasIndex("NewStockBatchId");
-
-                    b.HasIndex("PoNumber")
-                        .IsUnique();
-
-                    b.ToTable("ProcurementOrders", (string)null);
-                });
-
-            modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ProcurementOrderItem", b =>
-                {
-                    b.Property<Guid>("ProcurementOrderItemId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Brand")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<int>("DeliveryStatus")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<string>("DeviceType")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("Model")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<Guid>("ProcurementOrderSchoolId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("QtyOrdered")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("TotalPrice")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("UnitPrice")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("ProcurementOrderItemId");
-
-                    b.HasIndex("ProcurementOrderSchoolId");
-
-                    b.ToTable("ProcurementOrderItems", (string)null);
-                });
-
-            modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ProcurementOrderSchool", b =>
-                {
-                    b.Property<Guid>("ProcurementOrderSchoolId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ProcurementOrderId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("SchoolName")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<decimal>("SchoolSubTotal")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("ProcurementOrderSchoolId");
-
-                    b.HasIndex("ProcurementOrderId");
-
-                    b.ToTable("ProcurementOrderSchools", (string)null);
                 });
 
             modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ScannedSerial", b =>
@@ -1191,7 +1054,16 @@ namespace DeviceDesk.netcore.Migrations
                     b.Property<Guid>("ModelID")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ModelID1")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("OrderBatchId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("OrderID")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OrderModelListModelID")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("Timestamp")
@@ -1203,6 +1075,10 @@ namespace DeviceDesk.netcore.Migrations
                         .IsUnique();
 
                     b.HasIndex("ModelID");
+
+                    b.HasIndex("ModelID1");
+
+                    b.HasIndex("OrderBatchId");
 
                     b.HasIndex("OrderID");
 
@@ -1345,6 +1221,10 @@ namespace DeviceDesk.netcore.Migrations
                 {
                     b.HasOne("DeviceDesk.Modules.Phase0.Models.NewStockBatch", "Order")
                         .WithMany()
+                        .HasForeignKey("OrderBatchId");
+
+                    b.HasOne("DeviceDesk.Modules.Phase0.Models.NewStockBatch", null)
+                        .WithMany()
                         .HasForeignKey("OrderID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1352,37 +1232,23 @@ namespace DeviceDesk.netcore.Migrations
                     b.Navigation("Order");
                 });
 
-            modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ProcurementOrderItem", b =>
-                {
-                    b.HasOne("DeviceDesk.Modules.Phase0.Models.ProcurementOrderSchool", "ProcurementOrderSchool")
-                        .WithMany("Items")
-                        .HasForeignKey("ProcurementOrderSchoolId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ProcurementOrderSchool");
-                });
-
-            modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ProcurementOrderSchool", b =>
-                {
-                    b.HasOne("DeviceDesk.Modules.Phase0.Models.ProcurementOrder", "ProcurementOrder")
-                        .WithMany("Schools")
-                        .HasForeignKey("ProcurementOrderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ProcurementOrder");
-                });
-
             modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ScannedSerial", b =>
                 {
-                    b.HasOne("DeviceDesk.Modules.Phase0.Models.OrderModelList", "Model")
+                    b.HasOne("DeviceDesk.Modules.Phase0.Models.OrderModelList", null)
                         .WithMany("ScannedSerials")
                         .HasForeignKey("ModelID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("DeviceDesk.Modules.Phase0.Models.OrderModelList", "Model")
+                        .WithMany()
+                        .HasForeignKey("ModelID1");
+
                     b.HasOne("DeviceDesk.Modules.Phase0.Models.NewStockBatch", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderBatchId");
+
+                    b.HasOne("DeviceDesk.Modules.Phase0.Models.NewStockBatch", null)
                         .WithMany()
                         .HasForeignKey("OrderID")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1422,16 +1288,6 @@ namespace DeviceDesk.netcore.Migrations
             modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.OrderModelList", b =>
                 {
                     b.Navigation("ScannedSerials");
-                });
-
-            modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ProcurementOrder", b =>
-                {
-                    b.Navigation("Schools");
-                });
-
-            modelBuilder.Entity("DeviceDesk.Modules.Phase0.Models.ProcurementOrderSchool", b =>
-                {
-                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }

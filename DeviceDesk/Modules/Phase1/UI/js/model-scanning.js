@@ -29,12 +29,6 @@
     let activeModel = null;
     let scannedSerials = [];
 
-    function escapeHtmlMs(s) {
-        const d = document.createElement('div');
-        d.textContent = s == null ? '' : String(s);
-        return d.innerHTML;
-    }
-
     // Wait for DOM to be ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
@@ -127,41 +121,23 @@
             // API returns ModelID (uppercase), not modelId
             const modelID = model.modelID || model.ModelID;
 
-            const breakdown = Array.isArray(model.schoolBreakdown) ? model.schoolBreakdown : [];
-            const breakdownHtml = breakdown.length
-                ? `
-                    <div class="mt-3 small">
-                        <div class="text-muted text-uppercase fw-semibold mb-1" style="letter-spacing:.04em;">School breakdown</div>
-                        <ul class="list-unstyled mb-0">
-                            ${breakdown
-                                .map(b => `<li><span class="fw-semibold">${escapeHtmlMs(b.schoolName)}</span>: ${b.qtyOrdered}</li>`)
-                                .join('')}
-                        </ul>
-                    </div>`
-                : '';
-
             return `
                 <div class="col-md-4">
-                    <div class="model-card ${isClosed ? 'completed' : ''} card h-100"
+                    <div class="model-card ${isClosed ? 'completed' : ''} card h-100" 
                          style="${isClosed ? '' : 'cursor: pointer;'}">
                         <div class="card-body">
                             <h5 class="card-title">
-                                ${escapeHtmlMs(model.modelName)}
+                                ${model.modelName}
                                 ${isClosed ? '<i class="bi bi-check-circle-fill text-success float-end"></i>' : ''}
                             </h5>
                             <div class="row text-center mt-3">
-                                <div class="col-6">
-                                    <h6 class="text-muted mb-1">Expected</h6>
-                                    <h2 class="text-primary">${model.expectedQty}</h2>
-                                </div>
-                                <div class="col-6">
-                                    <h6 class="text-muted mb-1">Scanned</h6>
+                                <div class="col-12">
+                                    <h6 class="text-muted">Scanned Count</h6>
                                     <h2 class="text-info">${model.countedQty}</h2>
                                 </div>
                             </div>
-                            ${breakdownHtml}
                             <div class="mt-4 text-center">
-                                ${isClosed ?
+                                ${isClosed ? 
                                     '<span class="badge bg-secondary"><i class="bi bi-lock"></i> Closed</span>' :
                                     `<button class="btn btn-success btn-lg w-100" data-model-id="${modelID}"><i class="bi bi-upc-scan"></i> Click to Scan</button>`
                                 }

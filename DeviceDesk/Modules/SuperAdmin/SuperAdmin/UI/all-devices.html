@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Devices – Super Admin</title>
+    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+    <link rel="stylesheet" href="/css/dashboard-shell.css" />
+    <link rel="stylesheet" href="/css/theme.css?v=2025" />
+    <link rel="icon" href="/favicon.ico" />
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .filter-bar {
+            background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border: 1px solid #e5e7eb;
+        }
+        .panel {
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: box-shadow 0.2s;
+            background: white;
+            overflow: hidden;
+        }
+        .panel:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+        .panel-header {
+            background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+            border-bottom: 2px solid #e5e7eb;
+            padding: 1.25rem 1.5rem;
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 1.1rem;
+        }
+        .btn-export {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-export:hover {
+            background: #4f46e5;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+            color: white;
+        }
+        .table {
+            margin: 0;
+        }
+        .table thead th {
+            background-color: #f9fafb;
+            color: #6b7280;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            border-bottom: 2px solid #e5e7eb;
+            padding: 1rem;
+        }
+        .table tbody tr {
+            border-bottom: 1px solid #f3f4f6;
+            transition: background-color 0.15s;
+        }
+        .table tbody tr:hover {
+            background-color: #f9fafb;
+        }
+        .table tbody td {
+            padding: 1rem;
+            vertical-align: middle;
+        }
+        .btn-custom {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-custom:hover {
+            background: #4f46e5;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+            color: white;
+        }
+        .btn-outline-custom {
+            background: white;
+            color: #6366f1;
+            border: 1px solid #e5e7eb;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-outline-custom:hover {
+            border-color: #6366f1;
+            background: #f5f7ff;
+            color: #6366f1;
+            transform: translateY(-1px);
+        }
+        .pagination-controls {
+            padding: 1.5rem;
+            border-top: 1px solid #e5e7eb;
+            background-color: #f9fafb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .page-info {
+            color: #6b7280;
+            font-weight: 500;
+        }
+        .loading-overlay {
+            position: relative;
+            min-height: 200px;
+        }
+        .loading-spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #667eea;
+        }
+        .spinner-border {
+            border-color: #667eea;
+            border-right-color: transparent;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #9ca3af;
+        }
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            color: #d1d5db;
+        }
+    </style>
+</head>
+<body>
+    <aside class="app-sidebar">
+        <div class="sidebar-brand-global">
+            <img src="/img/ndabase-icon.png" class="sidebar-brand-icon" alt="Logo Icon">
+            <div class="sidebar-brand-text">
+                <span class="brand-line-1"></span>
+                <span class="brand-line-2"></span>
+            </div>
+        </div>
+        
+        <!-- Profile Block -->
+        <div class="sidebar-profile" id="sidebarProfile">
+            <div class="profile-avatar">
+                <span class="avatar-initials" id="profileInitials">SA</span>
+            </div>
+            <div class="profile-info">
+                <div class="profile-name" id="profileName">Super Admin</div>
+                <div class="profile-role" id="profileRole">SuperAdmin</div>
+            </div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <span class="sidebar-section">MAIN MENU</span>
+            <a href="/superadmin/dashboard.html" class="sidebar-link"><i class="bi bi-grid-fill"></i><span>Dashboard</span></a>
+            <a href="/superadmin/all-devices.html" class="sidebar-link active"><i class="bi bi-device-hdd"></i><span>All Devices</span></a>
+            <a href="/superadmin/provincial-analytics.html" class="sidebar-link"><i class="bi bi-bar-chart-fill"></i><span>Provincial Analytics</span></a>
+            <a href="/superadmin/user-management.html" class="sidebar-link"><i class="bi bi-people"></i><span>User Management</span></a>
+            <a href="/superadmin/audit-logs.html" class="sidebar-link"><i class="bi bi-journal-text"></i><span>Audit Logs</span></a>
+            <a href="/superadmin/export-center.html" class="sidebar-link"><i class="bi bi-download"></i><span>Export Center</span></a>
+            <span class="sidebar-section">SYSTEM</span>
+            <a href="#" onclick="handleLogout(); return false;" class="sidebar-link danger"><i class="bi bi-box-arrow-right"></i><span>Logout</span></a>
+        </nav>
+    </aside>
+
+    <div class="app-main">
+        <header class="app-header">
+            <div>
+                <div class="welcome-line">All Devices</div>
+                <div class="welcome-date">Imported Siyanda devices (SuperAdmin view)</div>
+            </div>
+            <div class="header-right">
+                <button id="refreshBtn" class="btn-export">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    <span>Refresh</span>
+                </button>
+                <button class="avatar-btn"><span class="avatar-initials">SA</span></button>
+            </div>
+        </header>
+
+        <main class="app-content">
+            <div class="mb-2">
+                <div class="text-muted small">Super Admin / All Devices</div>
+                <h1 class="h4 fw-semibold mt-1">Imported Siyanda Devices</h1>
+            </div>
+
+            <!-- Filters -->
+            <div class="filter-bar">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="serialFilter" class="form-label small text-muted">Serial Number</label>
+                        <input id="serialFilter" class="form-control form-control-sm" placeholder="Search serial...">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="schoolFilter" class="form-label small text-muted">School</label>
+                        <input id="schoolFilter" class="form-control form-control-sm" placeholder="Search school...">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="districtFilter" class="form-label small text-muted">District</label>
+                        <input id="districtFilter" class="form-control form-control-sm" placeholder="Search district...">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted">&nbsp;</label>
+                        <button id="applyFiltersBtn" class="btn btn-custom w-100">
+                            <i class="bi bi-funnel me-2"></i>Apply Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="panel">
+                <div class="panel-header">
+                    <i class="bi bi-device-hdd me-2"></i>
+                    Imported Siyanda Devices
+                </div>
+                    <div id="tableLoading" class="loading-overlay" style="display:none;">
+                        <div class="loading-spinner">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">Loading devices...</p>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table" id="devicesTable">
+                            <thead>
+                                <tr>
+                                    <th>Serial</th>
+                                    <th>School</th>
+                                    <th>EMIS</th>
+                                    <th>District</th>
+                                    <th>Circuit</th>
+                                    <th>Item Description</th>
+                                    <th>POD</th>
+                                    <th>Date Received</th>
+                                    <th>Imported At</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="pagination-controls">
+                        <button id="prevPageBtn" class="btn btn-outline-custom" disabled>
+                            <i class="bi bi-chevron-left"></i> Previous
+                        </button>
+                        <span id="pageInfo" class="page-info"></span>
+                        <button id="nextPageBtn" class="btn btn-outline-custom" disabled>
+                            Next <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+        </main>
+    </div>
+
+    <script>
+        const state = {
+            page: 1,
+            pageSize: 50,
+            totalCount: 0
+        };
+
+        async function loadDevices() {
+            const serial = document.getElementById('serialFilter').value.trim();
+            const school = document.getElementById('schoolFilter').value.trim();
+            const district = document.getElementById('districtFilter').value.trim();
+
+            const params = new URLSearchParams({
+                page: state.page,
+                pageSize: state.pageSize
+            });
+
+            if (serial) params.append('serial', serial);
+            if (school) params.append('school', school);
+            if (district) params.append('district', district);
+
+            const loadingEl = document.getElementById('tableLoading');
+            loadingEl.style.display = 'block';
+
+            try {
+                const res = await fetch('/api/superadmin/imported-devices?' + params.toString());
+                if (!res.ok) {
+                    throw new Error('Failed to load devices');
+                }
+                const data = await res.json();
+                renderTable(data);
+            } catch (err) {
+                console.error(err);
+                alert('Error loading imported devices. Check console for details.');
+            } finally {
+                loadingEl.style.display = 'none';
+            }
+        }
+
+        function renderTable(data) {
+            state.totalCount = data.totalCount;
+            state.page = data.page;
+            state.pageSize = data.pageSize;
+
+            const tbody = document.querySelector('#devicesTable tbody');
+            tbody.innerHTML = '';
+
+            if (!data.items || data.items.length === 0) {
+                const row = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.colSpan = 9;
+                cell.innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-inbox"></i>
+                        <p>No devices found matching your filters.</p>
+                    </div>
+                `;
+                row.appendChild(cell);
+                tbody.appendChild(row);
+            } else {
+                for (const item of data.items) {
+                    const row = document.createElement('tr');
+
+                    function td(text) {
+                        const c = document.createElement('td');
+                        c.textContent = text ?? '';
+                        return c;
+                    }
+
+                    row.appendChild(td(item.serial));
+                    
+                    // School name as clickable link
+                    const schoolCell = document.createElement('td');
+                    if (item.schoolId || item.emisCode) {
+                        const link = document.createElement('a');
+                        const url = new URL('/superadmin/school-devices.html', window.location.origin);
+                        
+                        if (item.schoolId) {
+                            url.searchParams.set('schoolId', item.schoolId);
+                        } else if (item.emisCode) {
+                            url.searchParams.set('emis', item.emisCode);
+                        }
+                        
+                        link.href = url.toString();
+                        link.textContent = item.schoolName || '(Unknown school)';
+                        link.style.color = '#6366f1';
+                        link.style.textDecoration = 'none';
+                        link.style.fontWeight = '500';
+                        link.onmouseover = function() { this.style.textDecoration = 'underline'; };
+                        link.onmouseout = function() { this.style.textDecoration = 'none'; };
+                        
+                        schoolCell.appendChild(link);
+                    } else {
+                        schoolCell.textContent = item.schoolName || '';
+                    }
+                    row.appendChild(schoolCell);
+                    
+                    row.appendChild(td(item.emisCode));
+                    row.appendChild(td(item.district));
+                    row.appendChild(td(item.circuit));
+                    row.appendChild(td(item.itemDescription));
+                    row.appendChild(td(item.podNumber));
+                    row.appendChild(td(formatDate(item.dateReceived)));
+                    row.appendChild(td(formatDate(item.createdAt)));
+
+                    tbody.appendChild(row);
+                }
+            }
+
+            // Update pagination
+            const maxPage = Math.max(1, Math.ceil(state.totalCount / state.pageSize));
+            document.getElementById('pageInfo').textContent =
+                `Page ${state.page} of ${maxPage}`;
+
+            document.getElementById('prevPageBtn').disabled = state.page <= 1;
+            document.getElementById('nextPageBtn').disabled = state.page >= maxPage;
+        }
+
+        function formatDate(value) {
+            if (!value) return '';
+            const d = new Date(value);
+            if (isNaN(d.getTime())) return '';
+            return d.toLocaleDateString();
+        }
+
+        // Event handlers
+        document.getElementById('applyFiltersBtn').addEventListener('click', () => {
+            state.page = 1;
+            loadDevices();
+        });
+
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            loadDevices();
+        });
+
+        document.getElementById('prevPageBtn').addEventListener('click', () => {
+            if (state.page > 1) {
+                state.page--;
+                loadDevices();
+            }
+        });
+
+        document.getElementById('nextPageBtn').addEventListener('click', () => {
+            const maxPage = Math.max(1, Math.ceil(state.totalCount / state.pageSize));
+            if (state.page < maxPage) {
+                state.page++;
+                loadDevices();
+            }
+        });
+
+        // Allow Enter key to apply filters
+        ['serialFilter', 'schoolFilter', 'districtFilter'].forEach(id => {
+            document.getElementById(id).addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    state.page = 1;
+                    loadDevices();
+                }
+            });
+        });
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDevices();
+        });
+
+        async function handleLogout() {
+            try {
+                const res = await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                // Redirect to login page regardless of response
+                window.location.href = '/login.html';
+            } catch (err) {
+                console.error('Logout error:', err);
+                // Still redirect even if logout fails
+                window.location.href = '/login.html';
+            }
+        }
+    </script>
+</body>
+</html>
+

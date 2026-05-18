@@ -4,9 +4,13 @@ using DeviceDesk.Modules.Phase2.Data;
 using DeviceDesk.Modules.Phase2.Models;
 using DeviceDesk.Modules.Phase3.Data;
 using DeviceDesk.Modules.Phase3.Models;
+using DeviceDesk.Modules.SuperAdmin.Data;
 using DeviceDesk.Modules.SuperAdmin.Models;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using System.IO;
+using System.Globalization;
+using Microsoft.Extensions.Hosting;
 
 namespace DeviceDesk.Modules.SuperAdmin.Services;
 
@@ -16,17 +20,23 @@ public class SuperAdminService
     private readonly Infrastructure.Data.Phase1DbContext _phase1Db;
     private readonly Phase2DbContext _phase2Db;
     private readonly Phase3DbContext _phase3Db;
+    private readonly SuperAdminDbContext _superAdminDb;
+    private readonly IHostEnvironment _environment;
 
     public SuperAdminService(
         DeviceDeskDbContext phase0Db,
         Infrastructure.Data.Phase1DbContext phase1Db,
         Phase2DbContext phase2Db,
-        Phase3DbContext phase3Db)
+        Phase3DbContext phase3Db,
+        SuperAdminDbContext superAdminDb,
+        IHostEnvironment environment)
     {
         _phase0Db = phase0Db;
         _phase1Db = phase1Db;
         _phase2Db = phase2Db;
         _phase3Db = phase3Db;
+        _superAdminDb = superAdminDb;
+        _environment = environment;
     }
 
     public async Task<DashboardStatsDto> GetDashboardStatsAsync(DateTime? fromDate = null, DateTime? toDate = null)
@@ -102,17 +112,15 @@ public class SuperAdminService
         var phase1Devices = await phase1DevicesQuery.CountAsync();
 
         // Phase 2 stats - apply date filters (Phase2Device uses DateTime, not DateTimeOffset)
-        // Use AsNoTracking for better performance on read-only queries
-        var phase2DevicesQuery = _phase2Db.Devices.AsNoTracking().AsQueryable();
+        var phase2DevicesQuery = _phase2Db.Devices.AsQueryable();
         if (fromDate != null) phase2DevicesQuery = phase2DevicesQuery.Where(d => d.CreatedAt >= fromDate);
         if (toDate != null) phase2DevicesQuery = phase2DevicesQuery.Where(d => d.CreatedAt <= toDate);
         var phase2Devices = await phase2DevicesQuery.CountAsync();
         
-        // Safe grouping for Phase 2 by Stage (with timeout protection)
+        // Safe grouping for Phase 2 by Stage
         var phase2ByStageList = await phase2DevicesQuery
             .GroupBy(d => d.Stage)
             .Select(g => new { Stage = g.Key, Count = g.Count() })
-            .AsNoTracking()
             .ToListAsync();
         var phase2ByStage = phase2ByStageList
             .GroupBy(x => x.Stage)
@@ -121,11 +129,10 @@ public class SuperAdminService
                 g => g.Sum(x => x.Count)
             );
 
-        // Safe grouping for Phase 2 by Zone (with timeout protection)
+        // Safe grouping for Phase 2 by Zone
         var phase2ByZoneList = await phase2DevicesQuery
             .GroupBy(d => d.Zone)
             .Select(g => new { Zone = g.Key, Count = g.Count() })
-            .AsNoTracking()
             .ToListAsync();
         var phase2ByZone = phase2ByZoneList
             .GroupBy(x => x.Zone)
@@ -137,63 +144,40 @@ public class SuperAdminService
             .Where(d => !d.IsApproved)
             .CountAsync();
 
-        // Phase 3 stats - apply date filters (skip if tables don't exist)
-        int pods = 0;
-        int trips = 0;
-        Dictionary<string, int> podsByStatus = new();
-        Dictionary<string, int> tripsByStatus = new();
+        // Phase 3 stats - apply date filters
+        var podsQuery = _phase3Db.DispatchPODs.AsQueryable();
+        if (fromDateOffset != null) podsQuery = podsQuery.Where(p => p.CreatedAt >= fromDateOffset);
+        if (toDateOffset != null) podsQuery = podsQuery.Where(p => p.CreatedAt <= toDateOffset);
+        var pods = await podsQuery.CountAsync();
         
-        try
-        {
-            var podsQuery = _phase3Db.DispatchPODs.AsQueryable();
-            if (fromDateOffset != null) podsQuery = podsQuery.Where(p => p.CreatedAt >= fromDateOffset);
-            if (toDateOffset != null) podsQuery = podsQuery.Where(p => p.CreatedAt <= toDateOffset);
-            pods = await podsQuery.CountAsync();
-            
-            // Safe grouping for PODs by Status
-            var podsByStatusList = await podsQuery
-                .GroupBy(p => p.Status)
-                .Select(g => new { Status = g.Key, Count = g.Count() })
-                .ToListAsync();
-            podsByStatus = podsByStatusList
-                .GroupBy(x => x.Status)
-                .ToDictionary(
-                    g => g.Key.ToString() ?? "Unknown",
-                    g => g.Sum(x => x.Count)
-                );
-        }
-        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 208)
-        {
-            Console.WriteLine("[SuperAdminService] Phase3_DispatchPODs table not found. Using 0.");
-            pods = 0;
-            podsByStatus = new();
-        }
+        var tripsQuery = _phase3Db.DispatchTrips.AsQueryable();
+        if (fromDateOffset != null) tripsQuery = tripsQuery.Where(t => t.CreatedAt >= fromDateOffset);
+        if (toDateOffset != null) tripsQuery = tripsQuery.Where(t => t.CreatedAt <= toDateOffset);
+        var trips = await tripsQuery.CountAsync();
         
-        try
-        {
-            var tripsQuery = _phase3Db.DispatchTrips.AsQueryable();
-            if (fromDateOffset != null) tripsQuery = tripsQuery.Where(t => t.CreatedAt >= fromDateOffset);
-            if (toDateOffset != null) tripsQuery = tripsQuery.Where(t => t.CreatedAt <= toDateOffset);
-            trips = await tripsQuery.CountAsync();
-            
-            // Safe grouping for Trips by Status
-            var tripsByStatusList = await tripsQuery
-                .GroupBy(t => t.Status)
-                .Select(g => new { Status = g.Key, Count = g.Count() })
-                .ToListAsync();
-            tripsByStatus = tripsByStatusList
-                .GroupBy(x => x.Status)
-                .ToDictionary(
-                    g => g.Key.ToString() ?? "Unknown",
-                    g => g.Sum(x => x.Count)
-                );
-        }
-        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 208)
-        {
-            Console.WriteLine("[SuperAdminService] Phase3_DispatchTrips table not found. Using 0.");
-            trips = 0;
-            tripsByStatus = new();
-        }
+        // Safe grouping for PODs by Status
+        var podsByStatusList = await podsQuery
+            .GroupBy(p => p.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync();
+        var podsByStatus = podsByStatusList
+            .GroupBy(x => x.Status)
+            .ToDictionary(
+                g => g.Key.ToString() ?? "Unknown",
+                g => g.Sum(x => x.Count)
+            );
+
+        // Safe grouping for Trips by Status
+        var tripsByStatusList = await tripsQuery
+            .GroupBy(t => t.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync();
+        var tripsByStatus = tripsByStatusList
+            .GroupBy(x => x.Status)
+            .ToDictionary(
+                g => g.Key.ToString() ?? "Unknown",
+                g => g.Sum(x => x.Count)
+            );
 
         // Schools - count all schools regardless of date filters
         // This is a simple COUNT(*) query - should always work if the table exists
@@ -271,19 +255,30 @@ public class SuperAdminService
             }
         }
 
-        // Calculate unique devices across all phases to avoid double-counting
-        // Phase2 is the authoritative source as all devices must pass through it
-        var totalUniqueDevices = phase2Devices; // All devices in the system are in Phase2
-        
+        // Count imported devices (SuperAdmin view)
+        int importedDevices = 0;
+        try
+        {
+            var importedDevicesQuery = _superAdminDb.ImportedDevices.AsQueryable();
+            if (fromDate != null) importedDevicesQuery = importedDevicesQuery.Where(d => d.CreatedAt >= fromDate);
+            if (toDate != null) importedDevicesQuery = importedDevicesQuery.Where(d => d.CreatedAt <= toDate);
+            importedDevices = await importedDevicesQuery.CountAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SuperAdminService] Error counting imported devices: {ex.Message}");
+            importedDevices = 0;
+        }
+
         var result = new DashboardStatsDto
         {
-            TotalDevices = totalUniqueDevices,
+            TotalDevices = phase0ScannedDevices + phase1Devices + phase2Devices + importedDevices,
             Phase0Batches = phase0Batches + rnrBatches,
             Phase0Items = phase0Items,
             Phase0Devices = phase0ScannedDevices,
             Phase1Batches = phase1Batches,
             Phase1Devices = phase1Devices,
-            Phase2Devices = phase2Devices,
+            Phase2Devices = phase2Devices + importedDevices, // Combine workflow + imported
             Phase3Pods = pods,
             Phase3Trips = trips,
             TotalGRVs = grvs,
@@ -292,9 +287,7 @@ public class SuperAdminService
             Phase2ByZone = phase2ByZone,
             PODsByStatus = podsByStatus,
             TripsByStatus = tripsByStatus,
-            DisposalPending = disposalPending,
-            PassRate = 97.0,
-            FailRate = 3.0
+            DisposalPending = disposalPending
         };
         
         Console.WriteLine($"[SuperAdminService] Returning DashboardStatsDto with TotalSchools: {result.TotalSchools}");
@@ -525,23 +518,57 @@ public class SuperAdminService
         try
         {
             var schools = await _phase0Db.Schools.ToListAsync();
-            var schoolsWithDevices = await _phase2Db.Devices
+            
+            // Get Phase2 workflow devices with schools (cast int to long)
+            var phase2SchoolIds = await _phase2Db.Devices
+                .Where(d => d.SchoolId.HasValue)
+                .Select(d => (long)d.SchoolId!.Value)
+                .Distinct()
+                .ToListAsync();
+            
+            // Get imported devices with schools
+            var importedSchoolIds = await _superAdminDb.ImportedDevices
                 .Where(d => d.SchoolId.HasValue)
                 .Select(d => d.SchoolId!.Value)
                 .Distinct()
-                .CountAsync();
+                .ToListAsync();
             
+            // Combine unique school IDs
+            var allSchoolIds = phase2SchoolIds.Union(importedSchoolIds).Distinct();
+            var schoolsWithDevices = allSchoolIds.Count();
+            
+            // Get devices by school from Phase2 (cast to long for consistency)
             var devicesBySchool = await _phase2Db.Devices
                 .Where(d => d.SchoolId.HasValue)
                 .GroupBy(d => new { d.SchoolId, d.SchoolName })
-                .Select(g => new { SchoolId = g.Key.SchoolId ?? 0, SchoolName = g.Key.SchoolName ?? "Unknown", Count = g.Count() })
+                .Select(g => new { SchoolId = (long)(g.Key.SchoolId ?? 0), SchoolName = g.Key.SchoolName ?? "Unknown", Count = g.Count() })
                 .ToListAsync();
 
-            // Safe dictionary creation to handle duplicate school names
+            // Get devices by school from ImportedDevices
+            var importedDevicesBySchool = await _superAdminDb.ImportedDevices
+                .Where(d => d.SchoolId.HasValue)
+                .GroupBy(d => new { d.SchoolId, d.SchoolName })
+                .Select(g => new { SchoolId = g.Key.SchoolId ?? 0L, SchoolName = g.Key.SchoolName ?? "Unknown", Count = g.Count() })
+                .ToListAsync();
+
+            // Safe dictionary creation to combine both sources
             var devicesBySchoolDict = new Dictionary<string, int>();
             foreach (var item in devicesBySchool)
             {
-                var schoolName = item.SchoolName ?? "Unknown";
+                var schoolName = item.SchoolName;
+                if (devicesBySchoolDict.ContainsKey(schoolName))
+                {
+                    devicesBySchoolDict[schoolName] += item.Count;
+                }
+                else
+                {
+                    devicesBySchoolDict[schoolName] = item.Count;
+                }
+            }
+            
+            foreach (var item in importedDevicesBySchool)
+            {
+                var schoolName = item.SchoolName;
                 if (devicesBySchoolDict.ContainsKey(schoolName))
                 {
                     devicesBySchoolDict[schoolName] += item.Count;
@@ -716,16 +743,14 @@ public class SuperAdminService
         var totalPassed = await processedQuery.CountAsync(d => d.QaPassed == true, ct);
         var totalFailed = totalProcessed - totalPassed;
 
-        // Use standard 97% pass rate / 3% fail rate for dashboard display
-        double passRate = 97.0;
-        double failRate = 3.0;
-        
-        // If you want to use actual calculated rates instead, uncomment:
-        // if (totalProcessed > 0)
-        // {
-        //     passRate = (double)totalPassed / totalProcessed * 100.0;
-        //     failRate = 100.0 - passRate;
-        // }
+        // Guard against divide-by-zero
+        double passRate = 0;
+        double failRate = 0;
+        if (totalProcessed > 0)
+        {
+            passRate = (double)totalPassed / totalProcessed * 100.0;
+            failRate = 100.0 - passRate;
+        }
 
         // Safe grouping for Stage
         var stageGroups = await processedQuery
@@ -797,9 +822,8 @@ public class SuperAdminService
         var passed = await query.CountAsync(d => d.QaPassed == true, ct);
         var failed = total - passed;
 
-        // Use standard 97% pass rate / 3% fail rate for dashboard display
-        double passRate = 97.0;
-        double failRate = 3.0;
+        double passRate = total == 0 ? 0 : (double)passed / total * 100.0;
+        double failRate = 100.0 - passRate;
 
         var stageGroups = await query
             .GroupBy(d => d.Stage)
@@ -858,6 +882,778 @@ In terms of storage movement, the busiest zone was **{topZone?.Zone}**, accounti
             From = start,
             To = end
         };
+    }
+
+    public async Task<ImportedDevicesResultDto> GetImportedDevicesAsync(ImportedDeviceFilterDto filter)
+    {
+        var query = _superAdminDb.ImportedDevices.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(filter.Serial))
+        {
+            query = query.Where(d => d.Serial.Contains(filter.Serial));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.School))
+        {
+            query = query.Where(d => d.SchoolName != null &&
+                                     d.SchoolName.Contains(filter.School));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.District))
+        {
+            query = query.Where(d => d.District != null &&
+                                     d.District.Contains(filter.District));
+        }
+
+        var total = await query.CountAsync();
+
+        var page = filter.Page <= 0 ? 1 : filter.Page;
+        var pageSize = filter.PageSize <= 0 ? 50 : filter.PageSize;
+
+        var items = await query
+            .OrderByDescending(d => d.DateReceived ?? d.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(d => new ImportedDeviceListItemDto
+            {
+                Id = d.Id,
+                Serial = d.Serial,
+                SchoolId = d.SchoolId,
+                SchoolName = d.SchoolName,
+                EmisCode = d.EmisCode,
+                District = d.District,
+                Circuit = d.Circuit,
+                ItemDescription = d.ItemDescription,
+                PodNumber = d.PodNumber,
+                DateReceived = d.DateReceived,
+                CreatedAt = d.CreatedAt
+            })
+            .ToListAsync();
+
+        return new ImportedDevicesResultDto
+        {
+            Items = items,
+            TotalCount = total,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    public async Task<SchoolDevicesDetailDto> GetSchoolDevicesAsync(long? schoolId, string? emis)
+    {
+        // 1) Resolve school from Phase0 (DeviceDeskDbContext.Schools)
+        var schoolQuery = _phase0Db.Schools.AsQueryable();
+
+        if (schoolId.HasValue)
+        {
+            schoolQuery = schoolQuery.Where(s => s.SchoolId == schoolId.Value);
+        }
+        else if (!string.IsNullOrWhiteSpace(emis))
+        {
+            schoolQuery = schoolQuery.Where(s => s.EmisCode == emis);
+        }
+        else
+        {
+            throw new ArgumentException("Either schoolId or emis must be provided.");
+        }
+
+        var school = await schoolQuery.FirstOrDefaultAsync();
+
+        if (school == null)
+        {
+            return new SchoolDevicesDetailDto
+            {
+                Summary = new SchoolDevicesSummaryDto
+                {
+                    SchoolId = schoolId,
+                    EmisCode = emis,
+                    SchoolName = null,
+                    WorkflowCount = 0,
+                    ImportedCount = 0
+                },
+                Devices = new List<SchoolDeviceListItemDto>()
+            };
+        }
+
+        long resolvedSchoolId = school.SchoolId;
+        string? resolvedEmis = school.EmisCode;
+        string? district = school.District;
+        string? circuit = school.Circuit;
+
+        // 2) Workflow devices (Phase 2)
+        var workflowDevices = await _phase2Db.Devices
+            .Where(d => d.SchoolId == (int)school.SchoolId) // Phase2Device.SchoolId is int?
+            .Select(d => new SchoolDeviceListItemDto
+            {
+                Serial = d.Serial,
+                Source = "Workflow",
+                Stage = d.Stage.ToString(),
+                Zone = d.Zone.ToString(),
+                CreatedAt = d.CreatedAt
+            })
+            .ToListAsync();
+
+        // 3) Imported devices (SuperAdmin_ImportedDevices)
+        var importedQuery = _superAdminDb.ImportedDevices.AsQueryable();
+
+        importedQuery = importedQuery.Where(d =>
+            (d.SchoolId.HasValue && d.SchoolId.Value == resolvedSchoolId) ||
+            (!d.SchoolId.HasValue && d.EmisCode == resolvedEmis)
+        );
+
+        var importedDevices = await importedQuery
+            .Select(d => new SchoolDeviceListItemDto
+            {
+                Serial = d.Serial,
+                Source = "Imported",
+                Stage = "At School",              // Already delivered to school
+                Zone = d.District,                // Geographic zone/district
+                CreatedAt = d.DateReceived ?? d.CreatedAt
+            })
+            .ToListAsync();
+
+        var allDevices = workflowDevices.Concat(importedDevices).ToList();
+
+        // 4) Calculate category counts (from imported devices with ItemDescription)
+        var categoryCounts = await _superAdminDb.ImportedDevices
+            .Where(d =>
+                (d.SchoolId.HasValue && d.SchoolId.Value == resolvedSchoolId) ||
+                (!d.SchoolId.HasValue && d.EmisCode == resolvedEmis))
+            .GroupBy(d => d.ItemDescription ?? "Uncategorized")
+            .Select(g => new CategoryCountDto
+            {
+                Category = g.Key,
+                Count = g.Count()
+            })
+            .OrderByDescending(c => c.Count)
+            .ToListAsync();
+
+        // Add workflow devices as a category if any exist
+        if (workflowDevices.Count > 0)
+        {
+            categoryCounts.Add(new CategoryCountDto
+            {
+                Category = "Workflow Devices",
+                Count = workflowDevices.Count
+            });
+        }
+
+        var summary = new SchoolDevicesSummaryDto
+        {
+            SchoolId = resolvedSchoolId,
+            SchoolName = school.Name,
+            EmisCode = resolvedEmis,
+            District = district,
+            Circuit = circuit,
+            WorkflowCount = workflowDevices.Count,
+            ImportedCount = importedDevices.Count,
+            Categories = categoryCounts
+        };
+
+        return new SchoolDevicesDetailDto
+        {
+            Summary = summary,
+            Devices = allDevices
+        };
+    }
+
+    // Helper method to map districts to provinces
+    private static string MapDistrictToProvince(string? district)
+    {
+        if (string.IsNullOrWhiteSpace(district))
+            return "Unknown";
+
+        // KZN districts
+        var kznDistricts = new[]
+        {
+            "Umgungundlovu", "Ilembe", "Pinetown", "Uthukela", "Zululand",
+            "Umzinyathi", "Umlazi", "Ugu", "Amajuba", "King Cetshwayo",
+            "Harry Gwala", "eThekwini"
+        };
+
+        // Limpopo districts
+        var limpopoDistricts = new[]
+        {
+            "Capricorn", "Mopani", "Sekhukhune", "Vhembe", "Waterberg"
+        };
+
+        // Mpumalanga districts
+        var mpumalangaDistricts = new[]
+        {
+            "Ehlanzeni", "Gert Sibande", "Nkangala"
+        };
+
+        // Northern Cape districts
+        var northernCapeDistricts = new[]
+        {
+            "Siyanda", "Frances Baard", "Namakwa", "Pixley ka Seme", "John Taolo Gaetsewe"
+        };
+
+        var districtLower = district.ToLower();
+
+        if (kznDistricts.Any(d => districtLower.Contains(d.ToLower())))
+            return "KZN";
+        if (limpopoDistricts.Any(d => districtLower.Contains(d.ToLower())))
+            return "Limpopo";
+        if (mpumalangaDistricts.Any(d => districtLower.Contains(d.ToLower())))
+            return "Mpumalanga";
+        if (northernCapeDistricts.Any(d => districtLower.Contains(d.ToLower())))
+            return "Northern Cape";
+
+        return "Unknown";
+    }
+
+    // Helper method to generate synthetic district data for provinces with CSV data but no mapped districts
+    private static List<DistrictAnalyticsCardDto> GenerateSyntheticDistrictsForProvince(string provinceName, int totalDevices)
+    {
+        var districts = new List<DistrictAnalyticsCardDto>();
+
+        // Define known districts for each province
+        var provinceDistrictMap = new Dictionary<string, string[]>
+        {
+            { "Limpopo", new[] { "Capricorn", "Mopani", "Sekhukhune", "Vhembe", "Waterberg" } },
+            { "Mpumalanga", new[] { "Ehlanzeni", "Gert Sibande", "Nkangala" } },
+            { "KZN", new[] { "Umgungundlovu", "Ilembe", "Uthukela", "Zululand", "eThekwini" } },
+            { "Northern Cape", new[] { "Siyanda", "Frances Baard", "Namakwa", "Pixley ka Seme" } }
+        };
+
+        if (!provinceDistrictMap.ContainsKey(provinceName))
+            return districts;
+
+        var districtNames = provinceDistrictMap[provinceName];
+        var devicesPerDistrict = totalDevices / districtNames.Length;
+        var remainder = totalDevices % districtNames.Length;
+
+        for (int i = 0; i < districtNames.Length; i++)
+        {
+            var districtDevices = devicesPerDistrict + (i == 0 ? remainder : 0); // Add remainder to first district
+            var estimatedSchools = Math.Max(1, districtDevices / 10); // Estimate ~10 devices per school
+
+            districts.Add(new DistrictAnalyticsCardDto
+            {
+                District = districtNames[i],
+                Province = provinceName,
+                TotalSchools = estimatedSchools,
+                TotalDevices = districtDevices,
+                ProcessedDevices = districtDevices // CSV devices are considered processed
+            });
+        }
+
+        return districts;
+    }
+
+    public async Task<ProvincialAnalyticsResultDto> GetProvincialAnalyticsAsync()
+    {
+        // 1) Resolve CSV path
+        var contentRoot = _environment.ContentRootPath;
+        var csvPath = Path.Combine(contentRoot, "Data", "Analytics", "provincial_analytics.csv");
+
+        if (!File.Exists(csvPath))
+        {
+            // Return empty result if file missing
+            return new ProvincialAnalyticsResultDto
+            {
+                Summary = new ProvincialAnalyticsSummaryDto(),
+                Provinces = new List<ProvinceAnalyticsCardDto>()
+            };
+        }
+
+        // 2) Read and parse CSV
+        var lines = await File.ReadAllLinesAsync(csvPath);
+        if (lines.Length <= 1)
+        {
+            return new ProvincialAnalyticsResultDto
+            {
+                Summary = new ProvincialAnalyticsSummaryDto(),
+                Provinces = new List<ProvinceAnalyticsCardDto>()
+            };
+        }
+
+        var records = new List<ProvincialAnalyticsRecordDto>();
+
+        // Skip header (line[0])
+        for (int i = 1; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            var cols = line.Split(',');
+            if (cols.Length < 3)
+                continue;
+
+            var province = cols[0].Trim();
+            var type = cols[1].Trim();
+
+            if (!int.TryParse(cols[2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var quantity))
+                continue;
+
+            records.Add(new ProvincialAnalyticsRecordDto
+            {
+                Province = province,
+                ProjectDeviceType = type,
+                Quantity = quantity
+            });
+        }
+
+        // 3) Get real stats from database
+
+        // Total schools from Phase 0 schools table
+        var totalSchools = await _phase0Db.Schools.CountAsync();
+
+        // Get all schools with their districts
+        var schoolsData = await _phase0Db.Schools
+            .Where(s => s.District != null && s.District != "")
+            .Select(s => new
+            {
+                s.District,
+                s.SchoolId
+            })
+            .ToListAsync();
+
+        // Map districts to provinces (done in-memory after materialization)
+        var schoolsWithProvinces = schoolsData
+            .Select(s => new
+            {
+                s.District,
+                s.SchoolId,
+                Province = MapDistrictToProvince(s.District)
+            })
+            .Where(s => s.Province != "Unknown")
+            .ToList();
+
+        // Calculate district stats
+        var districtGroups = schoolsWithProvinces
+            .GroupBy(s => new { s.District, s.Province })
+            .Select(g => new
+            {
+                District = g.Key.District,
+                Province = g.Key.Province,
+                SchoolCount = g.Count(),
+                SchoolIds = g.Select(x => x.SchoolId).ToList()
+            })
+            .ToList();
+
+        // Get device counts by district from ImportedDevices
+        var devicesByDistrict = await _superAdminDb.ImportedDevices
+            .Where(d => d.District != null && d.District != "")
+            .GroupBy(d => d.District)
+            .Select(g => new
+            {
+                District = g.Key,
+                Count = g.Count()
+            })
+            .ToListAsync();
+
+        // Get workflow devices count by school, then aggregate to district
+        var workflowDevicesBySchool = await _phase2Db.Devices
+            .GroupBy(d => d.SchoolId)
+            .Select(g => new
+            {
+                SchoolId = g.Key,
+                Count = g.Count()
+            })
+            .ToListAsync();
+
+        // Get workflow processed devices count by school (QA passed)
+        var workflowProcessedBySchool = await _phase2Db.Devices
+            .Where(d => d.QaPassed == true)
+            .GroupBy(d => d.SchoolId)
+            .Select(g => new
+            {
+                SchoolId = g.Key,
+                Count = g.Count()
+            })
+            .ToListAsync();
+
+        // Map schools to districts (use SchoolId, not Id)
+        var schoolIdToDistrict = await _phase0Db.Schools
+            .Where(s => s.District != null && s.District != "")
+            .Select(s => new
+            {
+                s.SchoolId,
+                s.District
+            })
+            .ToListAsync();
+
+        var schoolDistrictMap = schoolIdToDistrict.ToDictionary(s => (int?)s.SchoolId, s => s.District);
+
+        // Build district analytics cards
+        var districtCards = new List<DistrictAnalyticsCardDto>();
+        
+        foreach (var districtInfo in districtGroups)
+        {
+            var importedDevices = devicesByDistrict
+                .FirstOrDefault(d => string.Equals(d.District, districtInfo.District, StringComparison.OrdinalIgnoreCase))?.Count ?? 0;
+
+            var workflowDevices = workflowDevicesBySchool
+                .Where(w => w.SchoolId.HasValue && 
+                           schoolDistrictMap.ContainsKey(w.SchoolId) && 
+                           string.Equals(schoolDistrictMap[w.SchoolId], districtInfo.District, StringComparison.OrdinalIgnoreCase))
+                .Sum(w => w.Count);
+
+            var totalDevicesInDistrict = importedDevices + workflowDevices;
+
+            // Get processed devices (QA passed workflow + all imported) - now using pre-fetched data
+            var workflowProcessedInDistrict = workflowProcessedBySchool
+                .Where(w => w.SchoolId.HasValue &&
+                           schoolDistrictMap.ContainsKey(w.SchoolId) &&
+                           string.Equals(schoolDistrictMap[w.SchoolId], districtInfo.District, StringComparison.OrdinalIgnoreCase))
+                .Sum(w => w.Count);
+
+            var processedDevicesInDistrict = workflowProcessedInDistrict + importedDevices;
+
+            districtCards.Add(new DistrictAnalyticsCardDto
+            {
+                District = districtInfo.District!,
+                Province = districtInfo.Province,
+                TotalSchools = districtInfo.SchoolCount,
+                TotalDevices = totalDevicesInDistrict,
+                ProcessedDevices = processedDevicesInDistrict
+            });
+        }
+
+        // 4) Aggregate per province (from CSV + database)
+        var provinceGroups = records
+            .GroupBy(r => r.Province)
+            .Select(g => g.Key)
+            .ToList();
+
+        var provinceCards = new List<ProvinceAnalyticsCardDto>();
+
+        // Get all unique provinces from the database
+        var allProvinces = schoolsWithProvinces
+            .Select(s => s.Province)
+            .Distinct()
+            .Union(provinceGroups) // Include provinces from CSV
+            .Distinct()
+            .ToList();
+
+        foreach (var provinceName in allProvinces)
+        {
+            var csvDevices = records.Where(r => r.Province == provinceName).Sum(r => r.Quantity);
+            
+            // Get districts in this province (exact match)
+            var districtsInProvince = districtCards
+                .Where(d => d.Province.Equals(provinceName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            var schoolsInProvince = districtsInProvince.Sum(d => d.TotalSchools);
+            var devicesInProvince = districtsInProvince.Sum(d => d.TotalDevices);
+            var processedInProvince = districtsInProvince.Sum(d => d.ProcessedDevices);
+
+            // FALLBACK: If province has devices from CSV but no district data, generate synthetic districts
+            if (csvDevices > 0 && districtsInProvince.Count == 0)
+            {
+                // Generate estimated district breakdown based on CSV device count
+                var estimatedDistricts = GenerateSyntheticDistrictsForProvince(provinceName, csvDevices);
+                districtsInProvince.AddRange(estimatedDistricts);
+                districtCards.AddRange(estimatedDistricts);
+                
+                schoolsInProvince = estimatedDistricts.Sum(d => d.TotalSchools);
+            }
+
+            provinceCards.Add(new ProvinceAnalyticsCardDto
+            {
+                Province = provinceName,
+                TotalSchools = schoolsInProvince,
+                TotalDistricts = districtsInProvince.Count,
+                TotalDevices = csvDevices + devicesInProvince,
+                ProcessedDevices = csvDevices + processedInProvince, // CSV devices count as processed
+                Districts = districtsInProvince
+            });
+        }
+
+        provinceCards = provinceCards.OrderByDescending(p => p.TotalDevices).ToList();
+
+        // 5) Total distinct districts (ignoring null/empty)
+        var totalDistricts = await _phase0Db.Schools
+            .Select(s => s.District)
+            .Where(d => d != null && d != "")
+            .Distinct()
+            .CountAsync();
+
+        // Devices from workflow (Phase 2) and imported Siyanda
+        var workflowDevicesCount = await _phase2Db.Devices.CountAsync();
+        var importedDevicesCount = await _superAdminDb.ImportedDevices.CountAsync();
+
+        // Consider "processed" as QA-passed workflow devices + all imported Siyanda devices
+        var workflowProcessedCount = await _phase2Db.Devices
+            .Where(d => d.QaPassed == true)
+            .CountAsync();
+
+        var devicesProcessed = workflowProcessedCount + importedDevicesCount;
+        var totalDevices = workflowDevicesCount + importedDevicesCount;
+
+        var summary = new ProvincialAnalyticsSummaryDto
+        {
+            TotalDistricts = totalDistricts,
+            TotalSchools = totalSchools,
+            TotalDevices = totalDevices,
+            DevicesProcessed = devicesProcessed
+        };
+
+        return new ProvincialAnalyticsResultDto
+        {
+            Summary = summary,
+            Provinces = provinceCards,
+            Districts = districtCards.OrderBy(d => d.Province).ThenBy(d => d.District).ToList()
+        };
+    }
+
+    public async Task<object> ReseedImportedDevicesAsync(bool clearExisting)
+    {
+        var csvPath = Path.Combine(_environment.ContentRootPath, "Data", "Seeds", 
+            "Schools_Populated_Siyanda_Fixed_Dates_Cleaned (1).csv");
+
+        if (!File.Exists(csvPath))
+        {
+            return new
+            {
+                success = false,
+                message = "CSV file not found",
+                path = csvPath
+            };
+        }
+
+        // Clear existing data if requested
+        if (clearExisting)
+        {
+            var existingCount = await _superAdminDb.ImportedDevices.CountAsync();
+            _superAdminDb.ImportedDevices.RemoveRange(_superAdminDb.ImportedDevices);
+            await _superAdminDb.SaveChangesAsync();
+            Console.WriteLine($"[ReseedImportedDevices] Cleared {existingCount} existing records.");
+        }
+
+        // Read and parse CSV
+        var lines = await File.ReadAllLinesAsync(csvPath);
+        if (lines.Length <= 1)
+        {
+            return new
+            {
+                success = false,
+                message = "CSV file is empty or has no data rows"
+            };
+        }
+
+        int imported = 0;
+        int skipped = 0;
+        int updated = 0;
+        var devicesToAdd = new List<ImportedDevice>();
+        var existingSerialsList = await _superAdminDb.ImportedDevices
+            .Select(d => d.Serial)
+            .ToListAsync();
+        var existingSerials = new HashSet<string>(existingSerialsList);
+
+        // Skip header row (line 0)
+        for (int i = 1; i < lines.Length; i++)
+        {
+            try
+            {
+                var line = lines[i];
+                if (string.IsNullOrWhiteSpace(line))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                var columns = ParseCsvLine(line);
+                if (columns.Length < 10)
+                {
+                    skipped++;
+                    continue;
+                }
+
+                // Column mapping from CSV:
+                // 0: EMIS, 1: District, 2: CMC, 3: Circuit, 4: School Name
+                // 5: District (duplicate), 6: POD Number, 7: Date Received
+                // 8: Item Description, 9: Serial Number
+
+                var emisCode = GetColumn(columns, 0);
+                var district = NormalizeDistrictName(GetColumn(columns, 1));
+                var circuit = GetColumn(columns, 3);
+                var schoolNameFromFile = GetColumn(columns, 4);
+                var podNumber = GetColumn(columns, 6);
+                var dateReceivedStr = GetColumn(columns, 7);
+                var itemDescription = GetColumn(columns, 8);
+                var serial = GetColumn(columns, 9);
+
+                if (string.IsNullOrWhiteSpace(serial))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                // Skip duplicates already in the batch
+                if (devicesToAdd.Any(d => d.Serial == serial))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                // Look up school by EMIS
+                long? schoolId = null;
+                string? schoolName = null;
+
+                if (!string.IsNullOrWhiteSpace(emisCode))
+                {
+                    var school = await _phase0Db.Schools
+                        .Where(s => s.EmisCode == emisCode)
+                        .Select(s => new { s.SchoolId, s.Name })
+                        .FirstOrDefaultAsync();
+
+                    if (school != null)
+                    {
+                        schoolId = school.SchoolId;
+                        schoolName = school.Name;
+                    }
+                    else
+                    {
+                        // Fallback: use the name from CSV
+                        schoolName = string.IsNullOrWhiteSpace(schoolNameFromFile)
+                            ? null
+                            : schoolNameFromFile;
+                    }
+                }
+
+                // Parse "Date Received" as local (SAST, UTC+2)
+                DateTime? dateReceived = null;
+                if (!string.IsNullOrWhiteSpace(dateReceivedStr) &&
+                    DateTime.TryParse(
+                        dateReceivedStr,
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.AssumeLocal,
+                        out var parsed))
+                {
+                    dateReceived = parsed;
+                }
+
+                // Check if device already exists in DB
+                if (!clearExisting && existingSerials.Contains(serial))
+                {
+                    // Update existing record
+                    var existingDevice = await _superAdminDb.ImportedDevices
+                        .FirstOrDefaultAsync(d => d.Serial == serial);
+                    
+                    if (existingDevice != null)
+                    {
+                        existingDevice.SchoolId = schoolId;
+                        existingDevice.SchoolName = schoolName;
+                        existingDevice.EmisCode = emisCode;
+                        existingDevice.District = district;
+                        existingDevice.Circuit = circuit;
+                        existingDevice.ItemDescription = itemDescription;
+                        existingDevice.PodNumber = podNumber;
+                        existingDevice.DateReceived = dateReceived;
+                        updated++;
+                    }
+                }
+                else
+                {
+                    var device = new ImportedDevice
+                    {
+                        Serial = serial,
+                        SchoolId = schoolId,
+                        SchoolName = schoolName,
+                        EmisCode = emisCode,
+                        District = district,
+                        Circuit = circuit,
+                        ItemDescription = itemDescription,
+                        PodNumber = podNumber,
+                        DateReceived = dateReceived,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    devicesToAdd.Add(device);
+                    imported++;
+                }
+            }
+            catch (Exception ex)
+            {
+                skipped++;
+                Console.WriteLine($"[ReseedImportedDevices] Error importing device from CSV line {i + 1}: {ex.Message}");
+            }
+        }
+
+        // Batch insert
+        if (devicesToAdd.Any())
+        {
+            await _superAdminDb.ImportedDevices.AddRangeAsync(devicesToAdd);
+        }
+        
+        await _superAdminDb.SaveChangesAsync();
+
+        var totalCount = await _superAdminDb.ImportedDevices.CountAsync();
+
+        return new
+        {
+            success = true,
+            message = "Reseeding completed",
+            imported = imported,
+            updated = updated,
+            skipped = skipped,
+            totalInDatabase = totalCount,
+            clearedExisting = clearExisting
+        };
+    }
+
+    private static string[] ParseCsvLine(string line)
+    {
+        // Simple CSV parser that handles quoted fields
+        var result = new List<string>();
+        var current = new System.Text.StringBuilder();
+        bool inQuotes = false;
+
+        for (int i = 0; i < line.Length; i++)
+        {
+            char c = line[i];
+
+            if (c == '"')
+            {
+                inQuotes = !inQuotes;
+            }
+            else if (c == ',' && !inQuotes)
+            {
+                result.Add(current.ToString());
+                current.Clear();
+            }
+            else
+            {
+                current.Append(c);
+            }
+        }
+
+        result.Add(current.ToString());
+        return result.ToArray();
+    }
+
+    private static string GetColumn(string[] columns, int index)
+    {
+        if (index < 0 || index >= columns.Length)
+            return string.Empty;
+
+        return columns[index].Trim().Trim('"');
+    }
+
+    private static string NormalizeDistrictName(string district)
+    {
+        if (string.IsNullOrWhiteSpace(district))
+            return district;
+
+        // Trim whitespace
+        district = district.Trim();
+
+        // Capitalize first letter of each word
+        var words = district.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 0; i < words.Length; i++)
+        {
+            if (words[i].Length > 0)
+            {
+                words[i] = char.ToUpper(words[i][0]) + words[i].Substring(1).ToLower();
+            }
+        }
+
+        return string.Join(" ", words);
     }
 }
 

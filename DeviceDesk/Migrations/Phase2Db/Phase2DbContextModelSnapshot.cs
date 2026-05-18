@@ -51,8 +51,8 @@ namespace DeviceDesk.netcore.Migrations.Phase2Db
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
-                    b.Property<DateTime>("Timestamp")
-                        .HasColumnType("datetime2");
+                    b.Property<DateTimeOffset>("Timestamp")
+                        .HasColumnType("datetimeoffset");
 
                     b.HasKey("Id");
 
@@ -304,8 +304,8 @@ namespace DeviceDesk.netcore.Migrations.Phase2Db
                     b.Property<int>("AttentionRequired")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<int?>("DispatchStatus")
                         .HasColumnType("int");
@@ -317,8 +317,11 @@ namespace DeviceDesk.netcore.Migrations.Phase2Db
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
-                    b.Property<DateTime?>("InspectionDate")
-                        .HasColumnType("datetime2");
+                    b.Property<DateTimeOffset?>("InspectionDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsQuarantined")
+                        .HasColumnType("bit");
 
                     b.Property<string>("PreAssessmentInspectorId")
                         .HasMaxLength(128)
@@ -337,11 +340,17 @@ namespace DeviceDesk.netcore.Migrations.Phase2Db
                     b.Property<bool?>("QaPassed")
                         .HasColumnType("bit");
 
+                    b.Property<string>("QuarantineReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset?>("QuarantinedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<int?>("ReceiptId")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("ReceivingDate")
-                        .HasColumnType("datetime2");
+                    b.Property<DateTimeOffset?>("ReceivingDate")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("RepairCategory")
                         .HasMaxLength(256)
@@ -353,8 +362,8 @@ namespace DeviceDesk.netcore.Migrations.Phase2Db
                     b.Property<int>("ReworkCount")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("ScannedOutAt")
-                        .HasColumnType("datetime2");
+                    b.Property<DateTimeOffset?>("ScannedOutAt")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("ScannedOutByUserId")
                         .HasMaxLength(128)
@@ -381,8 +390,8 @@ namespace DeviceDesk.netcore.Migrations.Phase2Db
                     b.Property<bool?>("UnderWarranty")
                         .HasColumnType("bit");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<bool?>("VerificationStatus")
                         .HasColumnType("bit");
@@ -397,6 +406,113 @@ namespace DeviceDesk.netcore.Migrations.Phase2Db
                     b.HasIndex("Serial");
 
                     b.ToTable("Phase2Devices", (string)null);
+                });
+
+            modelBuilder.Entity("DeviceDesk.Modules.Phase2.Models.Phase2RepairPart", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("PartName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PartNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RepairRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Supplier")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal?>("UnitCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RepairRequestId");
+
+                    b.ToTable("Phase2RepairParts", (string)null);
+                });
+
+            modelBuilder.Entity("DeviceDesk.Modules.Phase2.Models.Phase2RepairRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int>("DeviceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DeviceSerial")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal?>("EstimatedLabourHours")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("HardwareChecklistSummary")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsUnderWarranty")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Priority")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("RecommendedAction")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SymptomDescription")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TechnicianFindings")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("WarrantyRoute")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("DeviceId");
+
+                    b.HasIndex("DeviceSerial");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("Phase2RepairRequests", (string)null);
                 });
 
             modelBuilder.Entity("DeviceDesk.Modules.Phase2.Models.PickingSlip", b =>
@@ -763,6 +879,28 @@ namespace DeviceDesk.netcore.Migrations.Phase2Db
                     b.Navigation("Receipt");
                 });
 
+            modelBuilder.Entity("DeviceDesk.Modules.Phase2.Models.Phase2RepairPart", b =>
+                {
+                    b.HasOne("DeviceDesk.Modules.Phase2.Models.Phase2RepairRequest", "RepairRequest")
+                        .WithMany("Parts")
+                        .HasForeignKey("RepairRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RepairRequest");
+                });
+
+            modelBuilder.Entity("DeviceDesk.Modules.Phase2.Models.Phase2RepairRequest", b =>
+                {
+                    b.HasOne("DeviceDesk.Modules.Phase2.Models.Phase2Device", "Device")
+                        .WithMany()
+                        .HasForeignKey("DeviceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Device");
+                });
+
             modelBuilder.Entity("DeviceDesk.Modules.Phase2.Models.PickingSlipItem", b =>
                 {
                     b.HasOne("DeviceDesk.Modules.Phase2.Models.Phase2Device", "Phase2Device")
@@ -807,6 +945,11 @@ namespace DeviceDesk.netcore.Migrations.Phase2Db
             modelBuilder.Entity("DeviceDesk.Modules.Phase2.Models.BulkAllocationSession", b =>
                 {
                     b.Navigation("Allocations");
+                });
+
+            modelBuilder.Entity("DeviceDesk.Modules.Phase2.Models.Phase2RepairRequest", b =>
+                {
+                    b.Navigation("Parts");
                 });
 
             modelBuilder.Entity("DeviceDesk.Modules.Phase2.Models.PickingSlip", b =>

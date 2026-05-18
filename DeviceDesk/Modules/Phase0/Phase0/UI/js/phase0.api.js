@@ -8,56 +8,11 @@
 
   window.PHASE0 = {
     API_BASE: apiBase,
-    async fetchJson(url, opts = {}) {
-      const res = await fetch(url, { credentials: "include", ...opts });
-      const ct = res.headers.get("content-type") || "";
-      if (!res.ok) {
-        let msg = res.statusText;
-        if (ct.includes("application/json")) {
-          try {
-            const data = await res.json();
-            if (data.errors && Array.isArray(data.errors))
-              msg = data.errors.map((e) => e.message || e.field || "").filter(Boolean).join("; ") || msg;
-            else msg = data.details || data.message || data.error || msg;
-          } catch {
-            try {
-              msg = await res.text();
-            } catch {}
-          }
-        } else {
-          try {
-            msg = await res.text();
-          } catch {}
-        }
-        throw new Error(msg || res.statusText);
-      }
-      if (res.status === 204) return null;
-      if (ct.includes("application/json")) {
-        return res.json();
-      }
-      const text = await res.text();
-      try { return text ? JSON.parse(text) : null; } catch { return text; }
-    },
-    async fetchBlob(url, opts = {}) {
-      const res = await fetch(url, { credentials: "include", ...opts });
-      const ct = res.headers.get("content-type") || "";
-      if (!res.ok) {
-        let msg = res.statusText;
-        if (ct.includes("application/json")) {
-          try {
-            const data = await res.json();
-            if (data.errors && Array.isArray(data.errors))
-              msg = data.errors.map((e) => e.message || e.field || "").filter(Boolean).join("; ") || msg;
-            else msg = data.details || data.message || data.error || msg;
-          } catch {
-            try {
-              msg = await res.text();
-            } catch {}
-          }
-        }
-        throw new Error(msg || res.statusText);
-      }
-      return res.blob();
+    async fetchJson(url, opts) {
+      const res = await fetch(url, opts);
+      let data = null; try { data = await res.json(); } catch {}
+      if (!res.ok) throw new Error((data && (data.message||data.error)) || res.statusText);
+      return data;
     },
     rowsOrEmpty(data){ return (data && Array.isArray(data.rows)) ? data.rows : []; },
     toast(msg){ const el = document.getElementById('alert'); if(!el) return; el.innerHTML = `<div class="alert alert-info">${msg}</div>`; },

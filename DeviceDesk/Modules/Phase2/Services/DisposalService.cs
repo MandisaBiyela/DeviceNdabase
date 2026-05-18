@@ -40,7 +40,7 @@ public class DisposalService
 
         // Create a new pending disposal request
         device.DisposalRequested = true;
-        device.UpdatedAt = DateTime.UtcNow;
+        device.UpdatedAt = DateTimeOffset.UtcNow;
 
         var disposal = new DisposalRecord
         {
@@ -79,7 +79,7 @@ public class DisposalService
         // Only at manager approval does the device move to Disposal
         device.Stage = Phase2Stage.Disposal;
         device.DisposalRequested = false;
-        device.UpdatedAt = DateTime.UtcNow;
+        device.UpdatedAt = DateTimeOffset.UtcNow;
         
         await _db.SaveChangesAsync();
         

@@ -1,4 +1,7 @@
+using DeviceDesk.Infrastructure.Data;
 using DeviceDesk.Modules.Phase0.Services;
+using DeviceDesk.Modules.Phase1.Models;
+using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -12,11 +15,13 @@ namespace DeviceDesk.Modules.Phase1.Services
     public class RnrGrvService
     {
         private readonly RnrBatchService _rnrBatchService;
+        private readonly DeviceDeskDbContext _coreDb;
         private readonly ILogger<RnrGrvService> _logger;
 
-        public RnrGrvService(RnrBatchService rnrBatchService, ILogger<RnrGrvService> logger)
+        public RnrGrvService(RnrBatchService rnrBatchService, DeviceDeskDbContext coreDb, ILogger<RnrGrvService> logger)
         {
             _rnrBatchService = rnrBatchService;
+            _coreDb = coreDb;
             _logger = logger;
             
             // Set QuestPDF license (Community license for non-commercial use)
@@ -314,5 +319,113 @@ namespace DeviceDesk.Modules.Phase1.Services
                 text.Span($" | Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}").FontSize(8).FontColor(Colors.Grey.Darken1);
             });
         }
+
+        #region Device Allocation Methods
+
+        /// <summary>
+        /// Set allocation for a single device
+        /// </summary>
+        public async Task SetDeviceAllocationAsync(Guid batchId, DeviceAllocationDto dto, string userId)
+        {
+            var device = await _coreDb.Devices
+                .FirstOrDefaultAsync(d => d.Id == dto.DeviceId);
+            
+            if (device == null)
+                throw new InvalidOperationException("Device not found");
+            
+            ApplyAllocationToDevice(device, dto, userId);
+            await _coreDb.SaveChangesAsync();
+            
+            _logger.LogInformation("[RnR Allocation] Device {DeviceId} allocated as {Type} by {UserId}", 
+                dto.DeviceId, dto.AllocationType, userId);
+        }
+
+        /// <summary>
+        /// Set allocations for multiple devices in bulk
+        /// </summary>
+        public async Task SetBulkAllocationsAsync(BulkAllocationRequest request, string userId)
+        {
+            var deviceIds = request.Allocations.Select(a => a.DeviceId).ToList();
+            var devices = await _coreDb.Devices
+                .Where(d => deviceIds.Contains(d.Id))
+                .ToListAsync();
+            
+            foreach (var allocation in request.Allocations)
+            {
+                var device = devices.FirstOrDefault(d => d.Id == allocation.DeviceId);
+                if (device == null)
+                {
+                    _logger.LogWarning("[RnR Allocation] Device {DeviceId} not found, skipping", allocation.DeviceId);
+                    continue;
+                }
+                
+                ApplyAllocationToDevice(device, allocation, userId);
+            }
+            
+            await _coreDb.SaveChangesAsync();
+            
+            _logger.LogInformation("[RnR Allocation] Bulk allocation completed for {Count} devices by {UserId}", 
+                request.Allocations.Count, userId);
+        }
+
+        /// <summary>
+        /// Get current allocations for devices in a batch
+        /// </summary>
+        public async Task<List<DeviceAllocationDto>> GetAllocationsAsync(Guid batchId)
+        {
+            // Get devices linked to this RnR batch
+            var devices = await _coreDb.Devices
+                .Where(d => d.BatchId == batchId)
+                .Select(d => new DeviceAllocationDto
+                {
+                    DeviceId = d.Id,
+                    AllocationType = (AllocationTypeDto)d.AllocationType,
+                    StudentName = d.StudentName,
+                    StudentIdNumber = d.StudentIdNumber,
+                    TeacherName = d.TeacherName,
+                    TeacherPersalNumber = d.TeacherPersalNumber
+                })
+                .ToListAsync();
+            
+            return devices;
+        }
+
+        /// <summary>
+        /// Apply allocation data to a device entity
+        /// </summary>
+        private void ApplyAllocationToDevice(Device device, DeviceAllocationDto dto, string userId)
+        {
+            device.AllocationType = (AllocationType)dto.AllocationType;
+            
+            if (dto.AllocationType == AllocationTypeDto.Student)
+            {
+                // Set student fields, clear teacher fields
+                device.StudentName = dto.StudentName?.Trim();
+                device.StudentIdNumber = dto.StudentIdNumber?.Trim();
+                device.TeacherName = null;
+                device.TeacherPersalNumber = null;
+            }
+            else if (dto.AllocationType == AllocationTypeDto.Teacher)
+            {
+                // Set teacher fields, clear student fields
+                device.TeacherName = dto.TeacherName?.Trim();
+                device.TeacherPersalNumber = dto.TeacherPersalNumber?.Trim();
+                device.StudentName = null;
+                device.StudentIdNumber = null;
+            }
+            else
+            {
+                // Clear all allocation fields
+                device.StudentName = null;
+                device.StudentIdNumber = null;
+                device.TeacherName = null;
+                device.TeacherPersalNumber = null;
+            }
+            
+            device.AllocatedAt = DateTimeOffset.UtcNow;
+            device.AllocatedByUserId = userId;
+        }
+
+        #endregion
     }
 }

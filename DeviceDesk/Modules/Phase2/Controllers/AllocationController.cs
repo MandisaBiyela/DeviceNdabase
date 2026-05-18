@@ -1,11 +1,13 @@
 using System;
 using System.Linq;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DeviceDesk.Infrastructure.Data;
 using DeviceDesk.Infrastructure.Data.Enums;
 using DeviceDesk.Infrastructure.Identity;
+using DeviceDesk.Modules.Phase1.Models;
 using DeviceDesk.Modules.Phase2.Data;
 using DeviceDesk.Modules.Phase2.Models;
 using DeviceDesk.Modules.Phase2.Services;
@@ -25,6 +27,7 @@ public class AllocationController : ControllerBase
     private readonly DeviceDeskDbContext _coreDb;
     private readonly ILocationService _locationService;
     private readonly AllocationService _allocationService;
+    private readonly IPhase2AllocationService _phase2AllocationService;
     private readonly AuditService _audit;
     private readonly UserManager<ApplicationUser> _userManager;
 
@@ -33,6 +36,7 @@ public class AllocationController : ControllerBase
         DeviceDeskDbContext coreDb,
         ILocationService locationService,
         AllocationService allocationService,
+        IPhase2AllocationService phase2AllocationService,
         AuditService audit,
         UserManager<ApplicationUser> userManager)
     {
@@ -40,6 +44,7 @@ public class AllocationController : ControllerBase
         _coreDb = coreDb;
         _locationService = locationService;
         _allocationService = allocationService;
+        _phase2AllocationService = phase2AllocationService;
         _audit = audit;
         _userManager = userManager;
     }
@@ -293,22 +298,65 @@ public class AllocationController : ControllerBase
         string? Notes = null);
 
     /// <summary>
+    /// Format a pattern string by replacing {n:00} with the number.
+    /// Examples: "Rack {n:00}" with n=1 becomes "Rack 01"
+    /// </summary>
+    private string FormatPattern(string pattern, int number)
+    {
+        if (string.IsNullOrWhiteSpace(pattern))
+            return $"Item {number.ToString().PadLeft(2, '0')}";
+            
+        // Match {n:00} or {n:0} patterns
+        var regex = new Regex(@"\{n:(\d+)\}");
+        var match = regex.Match(pattern);
+        
+        if (match.Success)
+        {
+            var format = match.Groups[1].Value;
+            var paddedNumber = number.ToString($"D{format.Length}");
+            return regex.Replace(pattern, paddedNumber);
+        }
+        
+        // Fallback: replace {n} with number
+        return pattern.Replace("{n}", number.ToString());
+    }
+
+    /// <summary>
     /// Generate unique bin locations for bulk allocation.
     /// Devices share Building/Room/Rack/Shelf until full, but each gets unique bin.
+    /// Uses school's zone template patterns if provided.
     /// </summary>
     private List<(string Building, string Room, string Rack, string Shelf, string Bin)> 
         GenerateUniqueBinsForBulkAllocation(
             string building, string room, string rack, string shelf,
             int deviceCount,
-            HashSet<string> occupiedLocations)
+            HashSet<string> occupiedLocations,
+            SchoolStorageTemplate? zoneTemplate = null)
     {
         var locations = new List<(string, string, string, string, string)>();
         
-        // Parse starting shelf and bin numbers
+        // Use zone template patterns if available
+        string rackPattern = zoneTemplate?.RackPattern ?? "Rack {n:00}";
+        string shelfPattern = zoneTemplate?.ShelfPattern ?? "Shelf {n:00}";
+        string binPattern = zoneTemplate?.BinPattern ?? "Bin {n:00}";
+        int maxRacks = zoneTemplate?.MaxRacks ?? 10;
+        int maxShelvesPerRack = zoneTemplate?.MaxShelvesPerRack ?? 10;
+        int maxBinsPerShelf = zoneTemplate?.MaxBinsPerShelf ?? 10;
+        
+        // Parse starting rack, shelf and bin numbers from suggested location
+        int currentRack = 1;
         int currentShelf = 1;
         int currentBin = 1;
         
-        // Try to parse shelf (handle "Shelf 01" or "01")
+        // Try to parse rack number
+        if (!string.IsNullOrWhiteSpace(rack))
+        {
+            var rackStr = rack.Replace("Rack", "").Replace("rack", "").Replace("RACK", "").Trim();
+            if (int.TryParse(rackStr, out var rackNum))
+                currentRack = rackNum;
+        }
+        
+        // Try to parse shelf number
         if (!string.IsNullOrWhiteSpace(shelf))
         {
             var shelfStr = shelf.Replace("Shelf", "").Replace("shelf", "").Replace("SHELF", "").Trim();
@@ -316,13 +364,12 @@ public class AllocationController : ControllerBase
                 currentShelf = shelfNum;
         }
         
-        // Find next available starting bin for this shelf
+        // Find next available starting bin for current shelf/rack
         // Check existing bins in this shelf to find the highest
         int maxBinInShelf = 0;
-        string shelfFormattedCheck = shelf?.Contains("Shelf", StringComparison.OrdinalIgnoreCase) == true
-            ? $"Shelf {currentShelf.ToString().PadLeft(2, '0')}"
-            : currentShelf.ToString().PadLeft(2, '0');
-        var shelfPrefix = $"{building}|{room}|{rack}|{shelfFormattedCheck}|";
+        string currentRackFormatted = FormatPattern(rackPattern, currentRack);
+        string currentShelfFormatted = FormatPattern(shelfPattern, currentShelf);
+        var shelfPrefix = $"{building}|{room}|{currentRackFormatted}|{currentShelfFormatted}|";
         
         foreach (var occupied in occupiedLocations)
         {
@@ -331,7 +378,9 @@ public class AllocationController : ControllerBase
                 var parts = occupied.Split('|');
                 if (parts.Length > 4 && !string.IsNullOrWhiteSpace(parts[4]))
                 {
-                    var binStr = parts[4].Replace("Bin", "").Replace("bin", "").Replace("BIN", "").Trim();
+                    var binStr = parts[4];
+                    // Try to extract number from bin string (handle "Bin 01" or "01")
+                    binStr = binStr.Replace("Bin", "").Replace("bin", "").Replace("BIN", "").Trim();
                     if (int.TryParse(binStr, out var binNum))
                     {
                         maxBinInShelf = Math.Max(maxBinInShelf, binNum);
@@ -341,35 +390,28 @@ public class AllocationController : ControllerBase
         }
         currentBin = maxBinInShelf + 1;
 
-        const int maxShelf = 50;
-        const int maxBin = 50;
-
         for (int i = 0; i < deviceCount; i++)
         {
             // Try to find next available bin
             int attempts = 0;
             bool found = false;
-            const int maxAttempts = maxBin * maxShelf;
+            int maxAttempts = maxBinsPerShelf * maxShelvesPerRack * maxRacks;
             
             while (!found && attempts < maxAttempts)
             {
-                string binPadded = currentBin.ToString().PadLeft(2, '0');
-                string shelfPadded = currentShelf.ToString().PadLeft(2, '0');
+                // Format using zone template patterns
+                string rackFormatted = FormatPattern(rackPattern, currentRack);
+                string shelfFormatted = FormatPattern(shelfPattern, currentShelf);
+                string binFormatted = FormatPattern(binPattern, currentBin);
                 
-                // Format shelf and bin (handle "Shelf 01" format if original had it)
-                string shelfFormatted = shelf?.Contains("Shelf", StringComparison.OrdinalIgnoreCase) == true 
-                    ? $"Shelf {shelfPadded}" 
-                    : shelfPadded;
-                string binFormatted = $"Bin {binPadded}";
-                
-                var locationKey = $"{building}|{room}|{rack}|{shelfFormatted}|{binFormatted}";
+                var locationKey = $"{building}|{room}|{rackFormatted}|{shelfFormatted}|{binFormatted}";
                 
                 if (!occupiedLocations.Contains(locationKey))
                 {
                     locations.Add((
                         building, 
                         room, 
-                        rack, 
+                        rackFormatted, 
                         shelfFormatted, 
                         binFormatted
                     ));
@@ -377,16 +419,23 @@ public class AllocationController : ControllerBase
                     found = true;
                 }
                 
+                // Move to next bin
                 currentBin++;
-                if (currentBin > maxBin)
+                if (currentBin > maxBinsPerShelf)
                 {
                     currentBin = 1;
                     currentShelf++;
                 }
-                if (currentShelf > maxShelf)
+                if (currentShelf > maxShelvesPerRack)
+                {
+                    currentShelf = 1;
+                    currentRack++;
+                }
+                if (currentRack > maxRacks)
                 {
                     throw new InvalidOperationException(
-                        $"Not enough available storage space. Found {locations.Count} available bins for {deviceCount} devices.");
+                        $"Not enough available storage space. Found {locations.Count} available bins for {deviceCount} devices. " +
+                        $"Reached maximum racks ({maxRacks}) for this school's zone template.");
                 }
                 attempts++;
             }
@@ -459,18 +508,42 @@ public class AllocationController : ControllerBase
             var firstDevice = devices.First();
             var suggestedAllocation = await _allocationService.GetSuggestedAllocationAsync(firstDevice.Id, ct);
             
-            // Determine base location - use provided values, suggested allocation, or defaults
-            string building = request.Building ?? suggestedAllocation?.Building ?? "ICT Centre Main";
-            string room = request.Room ?? suggestedAllocation?.Room ?? "Room 1";
-            string rack = request.Rack ?? suggestedAllocation?.Rack ?? "Rack 01";
-            string shelf = request.Shelf ?? suggestedAllocation?.Shelf ?? "Shelf 01";
+            // Get device category to find the correct zone template
+            var coreDevice = await _coreDb.Devices
+                .AsNoTracking()
+                .FirstOrDefaultAsync(d => d.SerialNumber == firstDevice.Serial, ct);
+            var deviceCategory = coreDevice?.Category ?? DeviceCategory.Unknown;
+            
+            // Get school's zone template for this category (or any active template if category unknown)
+            var zoneTemplate = await _phase2Db.SchoolStorageTemplates
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => 
+                    t.SchoolId == schoolId && 
+                    (deviceCategory == DeviceCategory.Unknown || t.Category == deviceCategory) && 
+                    t.IsActive, ct);
+            
+            // If no category-specific template, try any active template for the school
+            if (zoneTemplate == null)
+            {
+                zoneTemplate = await _phase2Db.SchoolStorageTemplates
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(t => t.SchoolId == schoolId && t.IsActive, ct);
+            }
+            
+            // Determine base location - use provided values, suggested allocation, or template defaults
+            string building = request.Building ?? suggestedAllocation?.Building ?? zoneTemplate?.Building ?? "ICT Centre Main";
+            string room = request.Room ?? suggestedAllocation?.Room ?? zoneTemplate?.Room ?? "Room 1";
+            string rack = request.Rack ?? suggestedAllocation?.Rack ?? (zoneTemplate != null ? FormatPattern(zoneTemplate.RackPattern, 1) : "Rack 01");
+            string shelf = request.Shelf ?? suggestedAllocation?.Shelf ?? (zoneTemplate != null ? FormatPattern(zoneTemplate.ShelfPattern, 1) : "Shelf 01");
 
-            // Get all occupied locations to avoid conflicts
+            // Get all occupied locations for this school in this building/room to avoid conflicts
+            // Check across all racks, not just one
             var occupiedLocations = await _phase2Db.DeviceStorageLocations
                 .Where(s => s.Status == "Active" && 
                            s.Building == building && 
-                           s.Room == room && 
-                           s.Rack == rack)
+                           s.Room == room &&
+                           s.Phase2Device != null &&
+                           s.Phase2Device.SchoolId == schoolId)
                 .Select(s => new { s.Building, s.Room, s.Rack, s.Shelf, s.Bin })
                 .ToListAsync(ct);
 
@@ -484,11 +557,12 @@ public class AllocationController : ControllerBase
                 }
             }
 
-            // Generate unique locations for each device
+            // Generate unique locations for each device using zone template patterns
             var uniqueLocations = GenerateUniqueBinsForBulkAllocation(
                 building, room, rack, shelf,
                 request.DeviceSerials.Count,
-                occupiedSet);
+                occupiedSet,
+                zoneTemplate);
 
             // Get or create bulk allocation session
             var bulkSession = new BulkAllocationSession
@@ -1209,5 +1283,225 @@ public class AllocationController : ControllerBase
         public string? Bin { get; set; }
         public string? Error { get; set; }
     }
+
+    #region Student/Teacher Allocation Endpoints
+
+    /// <summary>
+    /// Get receipted devices ready for student/teacher allocation.
+    /// Shows ALL devices from Received stage onwards, including those already allocated or in storage.
+    /// Allows viewing and modifying allocations for devices throughout the workflow.
+    /// Supports pagination for better performance with large datasets.
+    /// </summary>
+    [HttpGet("ready-for-assignment")]
+    [Authorize(Roles = $"{UserRoles.IctAllocator},{UserRoles.IctManager},{UserRoles.Admin}")]
+    public async Task<IActionResult> GetReadyForAssignment(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 100,
+        [FromQuery] string? search = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            // Show devices right after receipting through entire workflow until dispatch
+            var readyStages = new[]
+            {
+                Phase2Stage.Received,           // Right after receipting ← PRIMARY
+                Phase2Stage.PreAssessment,      // During pre-assessment
+                Phase2Stage.DetailedInspection, // During inspection
+                Phase2Stage.HardwareDept,       // In hardware repair
+                Phase2Stage.SoftwareDept,       // In software repair
+                Phase2Stage.QualityAssessment,  // At QA
+                Phase2Stage.AwaitingDispatch    // Waiting dispatch
+            };
+
+            // Validate pagination parameters
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 100;
+            if (pageSize > 500) pageSize = 500; // Max limit to prevent abuse
+            
+            var skip = (page - 1) * pageSize;
+
+            // Build base query with stage, disposal, and school filters
+            var query = _phase2Db.Devices
+                .Where(p2 => readyStages.Contains(p2.Stage) 
+                      && (p2.DisposalRequested == null || p2.DisposalRequested == false)
+                      && p2.SchoolId != null); // Only show devices with schools assigned
+
+            // Add server-side search filtering if search term provided
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var searchTerm = search.Trim();
+                query = query.Where(p2 => 
+                    p2.Serial.Contains(searchTerm) || 
+                    (p2.SchoolName != null && p2.SchoolName.Contains(searchTerm)));
+            }
+
+            // Step 1: Get total count for pagination info
+            var totalCount = await query.CountAsync(ct);
+
+            // Step 2: Get Phase2 devices that are in the right stages (paginated)
+            // Order by newest first (ReceivingDate DESC), then by school and serial for consistency
+            var phase2Devices = await query
+                .OrderByDescending(p2 => p2.ReceivingDate ?? p2.CreatedAt)
+                .ThenBy(p2 => p2.SchoolName)
+                .ThenBy(p2 => p2.Serial)
+                .Skip(skip)
+                .Take(pageSize)
+                .ToListAsync(ct);
+
+            // Step 3: Get devices with active storage locations (these should be prioritized)
+            var devicesInStorageList = await _phase2Db.DeviceStorageLocations
+                .Where(x => x.Status == "Active")
+                .Select(x => x.Phase2DeviceId)
+                .ToListAsync(ct);
+            var devicesInStorage = new HashSet<int>(devicesInStorageList);
+
+            // Step 4: Get serials to look up in core Devices
+            var serials = phase2Devices.Select(p => p.Serial).ToList();
+            
+            // Step 5: Get allocation info from core Devices first
+            // With pagination, we now only query 100 devices max, so no need for batching
+            var coreDevicesList = await _coreDb.Devices
+                .Where(cd => cd.SerialNumber != null && serials.Contains(cd.SerialNumber))
+                .Select(cd => new {
+                    cd.SerialNumber,
+                    cd.SchoolId,
+                    cd.SchoolName,
+                    cd.AllocationType,
+                    cd.StudentName,
+                    cd.StudentIdNumber,
+                    cd.TeacherName,
+                    cd.TeacherPersalNumber
+                })
+                .ToListAsync(ct);
+            
+            // Step 6: Collect ALL school IDs from both Phase2 and Core devices for Schools table lookup
+            var schoolIds = new List<long>();
+            
+            // Add SchoolIds from Phase2Devices
+            schoolIds.AddRange(phase2Devices
+                .Where(p => p.SchoolId.HasValue)
+                .Select(p => (long)p.SchoolId!.Value));
+            
+            // Add SchoolIds from CoreDevices
+            schoolIds.AddRange(coreDevicesList
+                .Where(c => c.SchoolId.HasValue)
+                .Select(c => c.SchoolId!.Value));
+            
+            schoolIds = schoolIds.Distinct().ToList();
+            
+            // Query Schools table for all collected SchoolIds
+            var schoolsDict = await _coreDb.Schools
+                .Where(s => schoolIds.Contains(s.SchoolId))
+                .ToDictionaryAsync(s => (int)s.SchoolId, s => s.Name, ct);
+            
+            var coreDevicesDict = coreDevicesList
+                .Where(cd => cd.SerialNumber != null)
+                .ToDictionary(cd => cd.SerialNumber!, cd => (cd.SchoolId, cd.SchoolName, cd.AllocationType, cd.StudentName, 
+                    cd.StudentIdNumber, cd.TeacherName, cd.TeacherPersalNumber));
+
+            // Step 7: LEFT JOIN in memory - include Phase2 devices even without core Device match
+            var items = phase2Devices.Select(p2 =>
+            {
+                // Try to get core device info, but don't require it
+                var hasCoreDevice = coreDevicesDict.TryGetValue(p2.Serial, out var cd);
+                
+                // Determine school info with proper fallback chain:
+                // 1. Try Phase2Device.SchoolId -> Schools table
+                // 2. Fall back to Phase2Device.SchoolName (if populated)
+                // 3. Fall back to CoreDevice.SchoolId -> Schools table
+                // 4. Fall back to CoreDevice.SchoolName (if populated)
+                int? finalSchoolId = p2.SchoolId;
+                string? finalSchoolName = null;
+                
+                // First priority: lookup school name from Schools table using Phase2Device.SchoolId
+                if (p2.SchoolId.HasValue && schoolsDict.TryGetValue(p2.SchoolId.Value, out var schoolName))
+                {
+                    finalSchoolName = schoolName;
+                }
+                // Second priority: use Phase2Device.SchoolName if populated
+                else if (!string.IsNullOrWhiteSpace(p2.SchoolName))
+                {
+                    finalSchoolName = p2.SchoolName;
+                }
+                // Third priority: if core device has different SchoolId, lookup from Schools table
+                else if (hasCoreDevice && cd.SchoolId.HasValue && schoolsDict.TryGetValue((int)cd.SchoolId.Value, out var coreSchoolName))
+                {
+                    finalSchoolName = coreSchoolName;
+                    if (!finalSchoolId.HasValue)
+                    {
+                        finalSchoolId = (int)cd.SchoolId.Value;
+                    }
+                }
+                // Fourth priority: use CoreDevice.SchoolName if populated
+                else if (hasCoreDevice && !string.IsNullOrWhiteSpace(cd.SchoolName))
+                {
+                    finalSchoolName = cd.SchoolName;
+                    if (!finalSchoolId.HasValue && cd.SchoolId.HasValue)
+                    {
+                        finalSchoolId = (int)cd.SchoolId.Value;
+                    }
+                }
+                
+                return new Phase2AllocationListItemDto
+                {
+                    Phase2DeviceId = p2.Id,
+                    Serial = p2.Serial,
+                    Zone = p2.Zone,
+                    Stage = p2.Stage,
+                    SchoolId = finalSchoolId,
+                    SchoolName = finalSchoolName,
+                    QaPassed = p2.QaPassed,
+                    IsInStorage = devicesInStorage.Contains(p2.Id),
+                    // Use core device allocation info if available, otherwise default to None
+                    AllocationType = hasCoreDevice ? cd.AllocationType : AllocationType.None,
+                    StudentName = hasCoreDevice ? cd.StudentName : null,
+                    StudentIdNumber = hasCoreDevice ? cd.StudentIdNumber : null,
+                    TeacherName = hasCoreDevice ? cd.TeacherName : null,
+                    TeacherPersalNumber = hasCoreDevice ? cd.TeacherPersalNumber : null
+                };
+            }).ToList();
+
+            // Return paginated result with metadata
+            var result = new
+            {
+                items,
+                page,
+                pageSize,
+                totalCount,
+                totalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+            };
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to get ready devices", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Assign student/teacher allocation for a single Phase 2 device.
+    /// </summary>
+    [HttpPost("devices/{phase2DeviceId:int}/assign")]
+    [Authorize(Roles = $"{UserRoles.IctAllocator},{UserRoles.IctManager},{UserRoles.Admin}")]
+    public async Task<IActionResult> AssignStudentTeacher(
+        int phase2DeviceId,
+        [FromBody] DeviceAllocationDto dto,
+        CancellationToken ct)
+    {
+        try
+        {
+            var userId = User?.Identity?.Name ?? "system";
+            await _phase2AllocationService.AssignStudentTeacherAsync(phase2DeviceId, dto, userId, ct);
+            return Ok(new { success = true, message = "Allocation saved successfully" });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    #endregion
 }
 

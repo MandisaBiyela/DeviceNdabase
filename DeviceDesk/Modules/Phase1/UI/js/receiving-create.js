@@ -23,23 +23,9 @@
     
     let currentBatchId = null;
 
-    // Handle hash navigation for New Stock. Accept "#newstock" or
-    // "#newstock?batchId=<guid>" (document-ingest deep link).
-    const rawHash = window.location.hash || '';
-    if (rawHash.startsWith('#newstock')) {
+    // Handle hash navigation for New Stock
+    if (window.location.hash === '#newstock') {
         selectedSourceType = 1;
-        const hashQuery = rawHash.includes('?') ? rawHash.substring(rawHash.indexOf('?')) : '';
-        if (hashQuery) {
-            const hp = new URLSearchParams(hashQuery);
-            const b = hp.get('batchId');
-            if (b) {
-                // Re-write the location so loadOrders() pre-selects this batch
-                const newSearch = location.search
-                    ? location.search + '&batchId=' + encodeURIComponent(b)
-                    : '?batchId=' + encodeURIComponent(b);
-                history.replaceState(null, '', location.pathname + newSearch + '#newstock');
-            }
-        }
         showStep2();
     }
     
@@ -127,26 +113,18 @@
             const res = await fetch(`${API_BASE}/orders`);
             if (!res.ok) throw new Error('Failed to load orders');
             orders = await res.json();
-
+            
             console.log('[Phase 1] Loaded orders from Phase 0:', orders);
-
+            
             orderIdSelect.innerHTML = '<option value="">-- Select Order --</option>';
             orders.forEach(o => {
                 const opt = document.createElement('option');
                 opt.value = o.orderId;
-                opt.textContent = formatOrderOption(o);
+                // Fixed: Use totalQuantity instead of totalOrdered
+                opt.textContent = `${o.orderNumber} - ${o.supplierName || 'N/A'} (${o.totalQuantity} items)`;
                 orderIdSelect.appendChild(opt);
             });
-
-            // Pre-select from ?batchId= query param when navigating here from
-            // document-ingest or the order detail page.
-            const params = new URLSearchParams(location.search);
-            const preselect = params.get('batchId') || params.get('id');
-            if (preselect && orders.some(o => o.orderId === preselect)) {
-                orderIdSelect.value = preselect;
-                orderIdSelect.dispatchEvent(new Event('change'));
-            }
-
+            
             if (orders.length === 0) {
                 showAlert('No approved orders found in Phase 0. Please create and approve an order first.', 'warning');
             }
@@ -154,21 +132,6 @@
             console.error('[Phase 1] Error loading orders:', err);
             showAlert('Error loading orders: ' + err.message, 'danger');
         }
-    }
-
-    function formatOrderOption(o) {
-        // Prefer the procurement-order surface: "{PONumber} — {Project} ({FY}) — {n} devices"
-        const po = o.poNumber || o.orderNumber;
-        const project = o.projectName ? ` — ${o.projectName}` : '';
-        const fy = o.financialYear ? ` (${o.financialYear})` : '';
-        const qty = typeof o.totalQuantity === 'number' ? ` — ${o.totalQuantity} device${o.totalQuantity === 1 ? '' : 's'}` : '';
-        return `${po}${project}${fy}${qty}`;
-    }
-
-    function escapeHtml(s) {
-        const d = document.createElement('div');
-        d.textContent = s == null ? '' : String(s);
-        return d.innerHTML;
     }
 
     async function loadCollectionSlips(sourceType) {
@@ -199,33 +162,17 @@
 
         const order = orders.find(o => o.orderId === orderId);
         if (order) {
-            const schools = Array.isArray(order.schoolNames) && order.schoolNames.length
-                ? order.schoolNames
-                : null;
-            const schoolsHtml = schools
-                ? `<ul class="mb-2">${schools.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>`
-                : '<p class="text-muted small mb-2">No school breakdown available.</p>';
-
             document.getElementById('orderDetailsContent').innerHTML = `
-                <p><strong>PO Number:</strong> ${escapeHtml(order.poNumber || order.orderNumber)}</p>
-                <p><strong>Project:</strong> ${escapeHtml(order.projectName || 'N/A')}</p>
-                <p><strong>Financial Year:</strong> ${escapeHtml(order.financialYear || 'N/A')}</p>
-                <p><strong>Supplier:</strong> ${escapeHtml(order.supplierName || 'N/A')}</p>
-                <p><strong>Invoice:</strong> ${escapeHtml(order.invoiceNumber || '— set during receiving')}</p>
+                <p><strong>Order Number:</strong> ${order.orderNumber}</p>
+                <p><strong>Invoice:</strong> ${order.invoiceNumber || 'N/A'}</p>
+                <p><strong>Supplier:</strong> ${order.supplierName || 'N/A'}</p>
                 <p><strong>Order Date:</strong> ${new Date(order.orderDate).toLocaleDateString()}</p>
-                <p><strong>Status:</strong> ${escapeHtml(order.status)}</p>
-                <p><strong>Total Expected:</strong> ${order.totalQuantity}</p>
-                <p><strong>Schools (${order.schoolCount || (schools ? schools.length : 0)}):</strong></p>
-                ${schoolsHtml}
+                <p><strong>Status:</strong> ${order.status}</p>
+                <p><strong>Total Ordered:</strong> ${order.totalQuantity}</p>
+                <p><strong>Total Received:</strong> ${order.receivedQuantity}</p>
             `;
             orderDetails.style.display = 'block';
             selectedOrderId = orderId;
-
-            // Pre-fill optional fields the receiving form already exposes
-            const supplierInp = document.getElementById('supplierName');
-            if (supplierInp && order.supplierName) supplierInp.value = order.supplierName;
-            const invoiceInp = document.getElementById('invoiceNumber');
-            if (invoiceInp && order.invoiceNumber) invoiceInp.value = order.invoiceNumber;
         }
     });
 
@@ -287,10 +234,6 @@
         
         const receivedBy = document.getElementById('receivedBy').value.trim();
         const notes = document.getElementById('notes').value.trim();
-        const supplierEl = document.getElementById('supplierName');
-        const invoiceEl = document.getElementById('invoiceNumber');
-        const supplierName = supplierEl ? supplierEl.value.trim() : '';
-        const invoiceNumber = invoiceEl ? invoiceEl.value.trim() : '';
 
         const payload = {
             sourceType: selectedSourceType,
@@ -298,9 +241,7 @@
             collectionSlipId: selectedSourceType !== 1 ? selectedSlipId : null,
             schoolId: null, // Will be populated from collection slip on server
             receivedBy: receivedBy || null,
-            notes: notes || null,
-            supplierName: supplierName || null,
-            invoiceNumber: invoiceNumber || null
+            notes: notes || null
         };
 
         console.log('Payload:', JSON.stringify(payload, null, 2));

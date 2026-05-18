@@ -17,7 +17,25 @@ public class Phase2AssessmentController : ControllerBase
     public Phase2AssessmentController(AssessmentService service, Phase2DbContext db) { _service = service; _db = db; }
 
     public record PreAssessRequest(int DeviceId, bool Passed, AttentionRequired AttentionRequired, string? Notes);
-    public record DetailedInspectRequest(int DeviceId, bool UnderWarranty, bool? Repairable, InspectionCategory Category, string? Notes, string? DocumentRef, Phase2Stage? Destination);
+    public record DetailedInspectRequest(
+        int DeviceId,
+        bool UnderWarranty,
+        bool? Repairable,
+        InspectionCategory Category,
+        string? Notes,
+        string? DocumentRef,
+        Phase2Stage? Destination,
+        // New structured fields
+        string? Symptoms,
+        string? Findings,
+        List<string>? FaultChecklist,
+        List<PartDto>? Parts,
+        string? RecommendedAction,
+        string? Priority,
+        decimal? EstimatedLabourHours
+    );
+
+    public record PartDto(string PartName, string? PartCode, int Quantity, string? Notes);
 
     [HttpPost("pre")]
     [Authorize(Roles = UserRoles.IctInspector)]
@@ -41,7 +59,26 @@ public class Phase2AssessmentController : ControllerBase
             User.FindFirst("email")?.Value ??
             User.Identity?.Name ?? "unknown";
 
-        await _service.DetailedInspectionAsync(req.DeviceId, technicianId, req.UnderWarranty, req.Repairable, req.Category, req.Notes, req.DocumentRef, req.Destination);
+        // Convert PartDto to tuple for service
+        var partsTuples = req.Parts?.Select(p => (p.PartName, p.PartCode, p.Quantity, p.Notes)).ToList();
+
+        await _service.DetailedInspectionAsync(
+            req.DeviceId,
+            technicianId,
+            req.UnderWarranty,
+            req.Repairable,
+            req.Category,
+            req.Notes,
+            req.DocumentRef,
+            req.Destination,
+            req.Symptoms,
+            req.Findings,
+            req.FaultChecklist,
+            partsTuples,
+            req.RecommendedAction,
+            req.Priority,
+            req.EstimatedLabourHours
+        );
         return Ok();
     }
 

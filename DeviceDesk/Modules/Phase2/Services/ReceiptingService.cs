@@ -95,10 +95,9 @@ public class ReceiptingService
         {
             // Look up core device to get school info
             var coreDevice = await _coreDb.Devices
-                .AsNoTracking()
                 .FirstOrDefaultAsync(d => d.SerialNumber == it.serial.Trim());
 
-            // Prefer Device record, fallback to batch/slip school info
+            // Determine school info from batch/slip as fallback
             int? schoolId = null;
             string? schoolName = null;
             
@@ -125,18 +124,38 @@ public class ReceiptingService
                 schoolName = school?.Name;
             }
 
+            // **FIX: Create Core Device record if it doesn't exist**
+            // This ensures devices show up in Student/Teacher Allocation
+            if (coreDevice == null)
+            {
+                coreDevice = new Device
+                {
+                    SerialNumber = it.serial.Trim(),
+                    AllocationType = AllocationType.None, // Ready for allocation
+                    SchoolId = schoolId.HasValue ? schoolId.Value : null,
+                    SchoolName = schoolName,
+                    Source = "RNR", // Phase 2 receipting
+                    ImportedAt = DateTimeOffset.UtcNow
+                };
+                _coreDb.Devices.Add(coreDevice);
+            }
+
             receipt.Devices.Add(new Phase2Device
             {
                 Serial = it.serial.Trim(),
                 Zone = it.zone,
                 Stage = Phase2Stage.Received,
                 IctClerkId = clerkId,
-                ReceivingDate = DateTime.UtcNow,
+                ReceivingDate = DateTimeOffset.UtcNow,
                 VerificationStatus = true,
                 SchoolId = schoolId,
                 SchoolName = schoolName
             });
         }
+        
+        // Save Core Device records first (must exist before Phase2Device records reference them)
+        await _coreDb.SaveChangesAsync();
+        
         _db.Receipts.Add(receipt);
         await _db.SaveChangesAsync();
 

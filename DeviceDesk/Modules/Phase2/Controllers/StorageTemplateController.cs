@@ -36,18 +36,19 @@ public class StorageTemplateController : ControllerBase
             .ThenBy(t => t.Category)
             .ToListAsync(ct);
 
-        // Get school names
+        // Get school names and EMIS codes
         var schoolIds = templates.Select(t => t.SchoolId).Distinct().ToList();
         var schools = await _coreDb.Schools
             .AsNoTracking()
             .Where(s => schoolIds.Contains(s.SchoolId))
-            .ToDictionaryAsync(s => s.SchoolId, s => s.Name, ct);
+            .ToDictionaryAsync(s => s.SchoolId, s => new { s.Name, s.EmisCode }, ct);
 
         var result = templates.Select(t => new
         {
             t.Id,
             t.SchoolId,
-            schoolName = schools.GetValueOrDefault(t.SchoolId) ?? $"School {t.SchoolId}",
+            schoolName = schools.GetValueOrDefault(t.SchoolId)?.Name ?? $"School {t.SchoolId}",
+            schoolEmisCode = schools.GetValueOrDefault(t.SchoolId)?.EmisCode,
             category = t.Category.ToString(),
             t.Building,
             t.Room,
