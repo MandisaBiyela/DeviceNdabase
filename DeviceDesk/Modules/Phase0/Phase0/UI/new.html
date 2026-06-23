@@ -307,12 +307,12 @@
       <div class="container my-4">
       <div class="mb-3">
         <a href="/phase0/new-batches.html" class="sr-breadcrumb-link">NEW Stock</a>
-        <h1 class="sr-page-title">Upload NEW Stock Batch (CSV)</h1>
+        <h1 class="sr-page-title">Upload NEW Stock Batch (CSV or Excel)</h1>
       </div>
 
       <!-- Card 1 -->
       <div class="sr-card">
-        <div class="sr-title">Upload NEW Stock Batch (CSV)</div>
+        <div class="sr-title">Upload NEW Stock Batch (CSV or Excel)</div>
         <div class="sr-spec-line">
           Required: <strong style="color:#111827;">DeviceType</strong>, <strong style="color:#111827;">Quantity</strong>. Optional:
           <strong style="color:#111827;">Brand</strong>, <strong style="color:#111827;">Model</strong>, <strong style="color:#111827;">Description</strong>.
@@ -324,10 +324,10 @@
           <div><em>Optional: Include <strong style="font-style:normal;color:#111827;">OrderNumber</strong> column to link batch to an order (visible in Phase 1).</em></div>
         </div>
 
-        <div id="newDropZone" class="sr-dropzone" tabindex="0" role="button" aria-label="Upload CSV">
+        <div id="newDropZone" class="sr-dropzone" tabindex="0" role="button" aria-label="Upload CSV or Excel">
           <div class="d-flex align-items-center flex-column gap-2">
             <i data-lucide="upload-cloud" style="width:32px; height:32px; color:#9CA3AF;"></i>
-            <div class="small" style="color:#6B7280;">Drag &amp; drop CSV here, or</div>
+            <div class="small" style="color:#6B7280;">Drag &amp; drop CSV or Excel here, or</div>
             <a id="newChooseCsvLink" href="#" class="sr-link-inline" style="margin-left:0;">Choose File</a>
             <input type="file" id="newCsvInput" accept=".csv,.txt,.xls,.xlsx" style="display:none" />
           </div>
@@ -412,6 +412,6 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/phase0.api.js"></script>
   <script src="js/sidebar.js"></script>
-  <script type="module" src="js/new.js?v=6"></script>
+  <script type="module" src="js/new.js?v=7"></script>
 </body>
 </html>

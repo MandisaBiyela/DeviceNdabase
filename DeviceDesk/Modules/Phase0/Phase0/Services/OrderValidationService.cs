@@ -5,7 +5,9 @@ namespace DeviceDesk.Modules.Phase0.Services
 {
     public class OrderValidationService
     {
-        public void ValidateCreateRequest(CreateProcurementOrderRequest request)
+        private readonly ProcurementOrderFinancialService _financials = new();
+
+        public void ValidateCreateRequest(CreateProcurementOrderRequest request, bool requireBalancedAllocation = false)
         {
             if (string.IsNullOrWhiteSpace(request.PoNumber))
                 throw new ValidationException("poNumber", "PO Number is required.");
@@ -18,6 +20,13 @@ namespace DeviceDesk.Modules.Phase0.Services
                 request.TotalPaidByDepartment < 0m || request.TotalPaidToSuppliers < 0m)
             {
                 throw new ValidationException("financials", "Financial values cannot be negative.");
+            }
+
+            if (request.ManagementFeePercentage < 0m || request.ManagementFeePercentage > 100m)
+            {
+                throw new ValidationException(
+                    "managementFeePercentage",
+                    "Management fee percentage must be between 0 and 100.");
             }
 
             if (request.Schools == null || request.Schools.Count == 0)
@@ -72,15 +81,46 @@ namespace DeviceDesk.Modules.Phase0.Services
                 schoolTotal += computedSubTotal;
             }
 
-            var parentTotal = RoundCurrency(request.TotalOrderValue);
+            var (_, supplierFee) = _financials.ComputeFees(request.TotalOrderValue, request.ManagementFeePercentage);
             var allSchoolTotals = RoundCurrency(schoolTotal);
-            if (parentTotal != allSchoolTotals)
+            var allocationVariance = _financials.ComputeAllocationVariance(supplierFee, allSchoolTotals);
+
+            if (requireBalancedAllocation && allocationVariance != 0m)
             {
                 throw new BusinessRuleException(
-                    $"Order total mismatch. Parent total is {parentTotal:0.00} but school totals are {allSchoolTotals:0.00}.");
+                    "School allocations must equal the Supplier Fee before close-out. " +
+                    $"Supplier Fee is {supplierFee:0.00} but school totals are {allSchoolTotals:0.00} " +
+                    $"(variance {allocationVariance:0.00}).");
             }
         }
 
-        private static decimal RoundCurrency(decimal value) => decimal.Round(value, 2, MidpointRounding.AwayFromZero);
+        public void ValidateForCloseOut(ProcurementOrder order)
+        {
+            var errors = new List<ValidationError>();
+
+            if (string.IsNullOrWhiteSpace(order.PoNumber))
+                errors.Add(new ValidationError("poNumber", "PO Number is required for the close-out report."));
+            if (string.IsNullOrWhiteSpace(order.ProjectName))
+                errors.Add(new ValidationError("projectName", "Project Name is required for the close-out report."));
+            if (string.IsNullOrWhiteSpace(order.FinancialYear))
+                errors.Add(new ValidationError("financialYear", "Financial Year is required for the close-out report."));
+            if (order.Schools == null || order.Schools.Count == 0)
+                errors.Add(new ValidationError("schools", "No schools linked to this order."));
+
+            if (errors.Count > 0)
+                throw new ValidationException(errors);
+
+            var summary = _financials.Summarize(order);
+            if (summary.AllocationBalanceStatus != AllocationBalanceStatus.Balanced)
+            {
+                throw new BusinessRuleException(
+                    "School allocations must equal the Supplier Fee before close-out. " +
+                    $"Supplier Fee is {summary.SupplierFee:0.00} but school totals are {summary.TotalAllocatedToSchools:0.00} " +
+                    $"(variance {summary.AllocationVariance:0.00}).");
+            }
+        }
+
+        private static decimal RoundCurrency(decimal value) =>
+            ProcurementOrderFinancialService.RoundCurrency(value);
     }
 }

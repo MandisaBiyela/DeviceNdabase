@@ -53,14 +53,29 @@
               </select>
             </div>
             <div class="col-lg-3 col-md-6">
-              <label class="orders-label" for="totalOrderValue">Total Order Value</label>
+              <label class="orders-label" for="totalOrderValue">DOE Order Value</label>
               <div class="input-r-prefix">
                 <span class="input-r-prefix__sym">R</span>
                 <input id="totalOrderValue" class="orders-input" type="number" min="0" step="0.01" placeholder="0.00" />
               </div>
             </div>
+            <div class="col-lg-3 col-md-6">
+              <label class="orders-label" for="managementFeePercentage">Management Fee %</label>
+              <div class="input-r-prefix">
+                <input id="managementFeePercentage" class="orders-input" type="number" min="0" max="100" step="0.01" value="0" placeholder="0.00" />
+                <span class="input-r-prefix__sym">%</span>
+              </div>
+            </div>
           </div>
           <div class="row g-4 mt-1">
+            <div class="col-lg-3 col-md-6">
+              <label class="orders-label">Management Fee Amount</label>
+              <div class="item-total-readonly" id="managementFeeAmountDisplay">R 0.00</div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+              <label class="orders-label">Supplier Fee / School Allocation Budget</label>
+              <div class="item-total-readonly fw-semibold" id="supplierFeeDisplay">R 0.00</div>
+            </div>
             <div class="col-lg-6 col-md-6">
               <label class="orders-label" for="supplierName">Supplier Name</label>
               <input id="supplierName" class="orders-input" type="text" placeholder="e.g. Asus Africa Distributors" autocomplete="off" />
@@ -79,23 +94,60 @@
             <i class="bi bi-bar-chart-line text-secondary"></i>
             Financial Reconciliation
           </div>
+          <div class="small text-muted mb-3">Budget allocation (school items must total the Supplier Fee)</div>
+          <div class="row g-4 mb-3">
+            <div class="col-md-4">
+              <label class="orders-label">DOE Order Value</label>
+              <div class="item-total-readonly" id="reconOrderValue">R 0.00</div>
+            </div>
+            <div class="col-md-4">
+              <label class="orders-label">Management Fee %</label>
+              <div class="item-total-readonly" id="reconMgmtPct">0.00%</div>
+            </div>
+            <div class="col-md-4">
+              <label class="orders-label">Management Fee Amount</label>
+              <div class="item-total-readonly" id="reconMgmtAmt">R 0.00</div>
+            </div>
+            <div class="col-md-4">
+              <label class="orders-label">Supplier Fee / Allocation Budget</label>
+              <div class="item-total-readonly fw-semibold" id="reconSupplierFee">R 0.00</div>
+            </div>
+            <div class="col-md-4">
+              <label class="orders-label">Total Allocated to Schools</label>
+              <div class="item-total-readonly" id="reconAllocated">R 0.00</div>
+            </div>
+            <div class="col-md-4">
+              <label class="orders-label">Allocation Variance</label>
+              <div class="item-total-readonly" id="allocationVarianceDisplay">R 0.00</div>
+            </div>
+          </div>
+          <div class="recon-status-row mb-4">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <span class="small text-secondary">Allocation Balance Status:</span>
+              <span id="allocationBalanceBadge" class="pill-unbalanced">⚠ Not Balanced</span>
+            </div>
+          </div>
+          <div class="orders-section-title mb-3" style="font-size:0.95rem">
+            <i class="bi bi-cash-stack text-secondary"></i>
+            Payment Tracking
+          </div>
           <div class="row g-4">
             <div class="col-md-4">
-              <label class="orders-label" for="totalInvoicedToDepartment">Total Invoiced to Department</label>
+              <label class="orders-label" for="totalInvoicedToDepartment">Amount Invoiced to DOE</label>
               <div class="input-r-prefix">
                 <span class="input-r-prefix__sym">R</span>
                 <input id="totalInvoicedToDepartment" class="orders-input" type="number" min="0" step="0.01" value="0" />
               </div>
             </div>
             <div class="col-md-4">
-              <label class="orders-label" for="totalPaidByDepartment">Total Paid by Department</label>
+              <label class="orders-label" for="totalPaidByDepartment">Amount Paid by DOE</label>
               <div class="input-r-prefix">
                 <span class="input-r-prefix__sym">R</span>
                 <input id="totalPaidByDepartment" class="orders-input" type="number" min="0" step="0.01" placeholder="0.00" />
               </div>
             </div>
             <div class="col-md-4">
-              <label class="orders-label" for="totalPaidToSuppliers">Total Paid to Suppliers</label>
+              <label class="orders-label" for="totalPaidToSuppliers">Amount Paid to Supplier</label>
               <div class="input-r-prefix">
                 <span class="input-r-prefix__sym">R</span>
                 <input id="totalPaidToSuppliers" class="orders-input" type="number" min="0" step="0.01" placeholder="0.00" />
@@ -103,14 +155,15 @@
             </div>
           </div>
           <div class="recon-status-row">
-            <div class="d-flex flex-wrap align-items-center gap-2">
-              <span class="small text-secondary">Variance:</span>
-              <span id="varianceDisplay" class="variance-zero">R 0.00</span>
-              <span class="small text-muted">(Invoiced − Paid by Department)</span>
-            </div>
-            <div class="d-flex flex-wrap align-items-center gap-2">
-              <span class="small text-secondary">Balance Status:</span>
-              <span id="reconBalanceBadge" class="pill-balanced">✓ Balanced</span>
+            <div class="d-flex flex-wrap align-items-center gap-3">
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="small text-secondary">Outstanding from DOE:</span>
+                <span id="outstandingDoeDisplay" class="variance-zero">R 0.00</span>
+              </div>
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="small text-secondary">Outstanding to Supplier:</span>
+                <span id="outstandingSupplierDisplay" class="variance-zero">R 0.00</span>
+              </div>
             </div>
           </div>
         </section>
@@ -135,10 +188,13 @@
           <div>
             <span class="small text-secondary">Sum of School Subtotals:</span>
             <span id="schoolsTotal" class="fs-4 fw-bold text-dark ms-2">R 0.00</span>
+            <span class="small text-muted ms-2">(must equal Supplier Fee)</span>
           </div>
           <div class="d-flex align-items-center flex-wrap gap-2">
-            <span class="small text-secondary">Balance Status:</span>
-            <span id="balanceStatus" class="pill-unbalanced">⚠ Unbalanced</span>
+            <span class="small text-secondary">Supplier Fee:</span>
+            <span id="summarySupplierFee" class="fw-semibold">R 0.00</span>
+            <span class="small text-secondary ms-2">Allocation Status:</span>
+            <span id="balanceStatus" class="pill-unbalanced">⚠ Not Balanced</span>
           </div>
         </section>
 
@@ -172,9 +228,10 @@
                   <th>PO</th>
                   <th>Project</th>
                   <th>FY</th>
-                  <th class="text-end">Total</th>
-                  <th class="text-end">School Totals</th>
-                  <th>Status</th>
+                  <th class="text-end">DOE Value</th>
+                  <th class="text-end">Supplier Fee</th>
+                  <th class="text-end">Allocated</th>
+                  <th>Allocation</th>
                 </tr>
               </thead>
               <tbody id="ordersTableBody"></tbody>
@@ -194,6 +251,6 @@
 
   <script src="js/phase0.api.js"></script>
   <script src="js/sidebar.js"></script>
-  <script src="js/orders.js?v=20260512c"></script>
+  <script src="js/orders.js?v=20260623a"></script>
 </body>
 </html>

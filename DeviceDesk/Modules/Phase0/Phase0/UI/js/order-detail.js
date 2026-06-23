@@ -95,12 +95,10 @@
   }
 
   function statusPill(row) {
-    const fin = String(row.financialBalanceStatus || "").toLowerCase() === "balanced";
-    const ob = Number(row.outstandingBalance || 0);
-    if (fin && ob === 0) return `<span class="pill-balanced">✓ Balanced</span>`;
-    if (ob < 0) return `<span class="pill-overpaid">✗ Overpaid</span>`;
-    if (!row.isBalanced) return `<span class="pill-unbalanced">⚠ School totals</span>`;
-    return `<span class="pill-unbalanced">⚠ Unbalanced</span>`;
+    const allocationBalanced =
+      String(row.allocationBalanceStatus || "").toLowerCase() === "balanced" || row.isAllocationBalanced;
+    if (allocationBalanced) return `<span class="pill-balanced">✓ Balanced</span>`;
+    return `<span class="pill-unbalanced">⚠ Not Balanced</span>`;
   }
 
   async function init() {
@@ -119,11 +117,22 @@
       byId("dStatus").outerHTML = statusPill(row);
       byId("dFy").textContent = row.financialYear || "—";
       byId("dTotal").textContent = fmtCurrency(row.totalOrderValue);
-      byId("dSchoolTotals").textContent = fmtCurrency(row.schoolTotals);
+      byId("dMgmtPct").textContent =
+        row.managementFeePercentage != null ? Number(row.managementFeePercentage).toFixed(2) + "%" : "—";
+      byId("dMgmtAmt").textContent = fmtCurrency(row.managementFeeAmount);
+      byId("dSupplierFee").textContent = fmtCurrency(row.supplierFee);
+      byId("dSchoolTotals").textContent = fmtCurrency(row.totalAllocatedToSchools ?? row.schoolTotals);
+      byId("dAllocVariance").textContent = fmtCurrency(row.allocationVariance);
+      const allocStatusEl = byId("dAllocStatus");
+      if (allocStatusEl) {
+        allocStatusEl.textContent = row.allocationBalanceStatus || "—";
+      }
       byId("dInv").textContent = fmtCurrency(row.totalInvoicedToDepartment);
       byId("dPaidDept").textContent = fmtCurrency(row.totalPaidByDepartment);
       byId("dPaidSup").textContent = fmtCurrency(row.totalPaidToSuppliers);
-      byId("dOut").textContent = fmtCurrency(row.outstandingBalance);
+      byId("dOut").textContent = fmtCurrency(row.outstandingFromDoe ?? row.outstandingBalance);
+      const dOutSup = byId("dOutSup");
+      if (dOutSup) dOutSup.textContent = fmtCurrency(row.outstandingToSupplier);
       const c = row.createdAt ? new Date(row.createdAt) : null;
       byId("dCreated").textContent = c && !Number.isNaN(c.getTime()) ? c.toISOString().replace("T", " ").substring(0, 19) + " UTC" : "—";
 
@@ -159,8 +168,19 @@
 
       byId("detailRoot").classList.remove("d-none");
 
+      const allocationBalanced =
+        String(row.allocationBalanceStatus || "").toLowerCase() === "balanced" || row.isAllocationBalanced;
+      const closeOutWarning = byId("dCloseOutWarning");
       const btnReport = byId("btnCloseOutReport");
+      if (closeOutWarning) {
+        closeOutWarning.classList.toggle("d-none", allocationBalanced);
+      }
       if (btnReport) {
+        btnReport.disabled = !allocationBalanced;
+        btnReport.title = allocationBalanced
+          ? "Download Close-Out & Financial Report"
+          : "School allocations must equal the Supplier Fee before close-out";
+
         btnReport.onclick = async () => {
           const errEl = byId("detailError");
           errEl.classList.add("d-none");
@@ -183,7 +203,7 @@
             errEl.textContent = e.message || "Report generation failed.";
             errEl.classList.remove("d-none");
           } finally {
-            btnReport.disabled = false;
+            btnReport.disabled = !allocationBalanced;
           }
         };
       }

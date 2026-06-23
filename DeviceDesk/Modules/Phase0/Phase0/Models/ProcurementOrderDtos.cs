@@ -5,6 +5,7 @@ namespace DeviceDesk.Modules.Phase0.Models
         string ProjectName,
         string FinancialYear,
         decimal TotalOrderValue,
+        decimal ManagementFeePercentage,
         decimal TotalInvoicedToDepartment,
         decimal TotalPaidByDepartment,
         decimal TotalPaidToSuppliers,

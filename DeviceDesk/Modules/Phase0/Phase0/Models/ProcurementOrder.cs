@@ -19,6 +19,12 @@ namespace DeviceDesk.Modules.Phase0.Models
         Outstanding = 1
     }
 
+    public enum AllocationBalanceStatus
+    {
+        Balanced = 0,
+        Unbalanced = 1
+    }
+
     public class ProcurementOrder
     {
         [Key]
@@ -36,8 +42,21 @@ namespace DeviceDesk.Modules.Phase0.Models
         [MaxLength(20)]
         public string FinancialYear { get; set; } = string.Empty;
 
+        /// <summary>DOE order value (full contract amount).</summary>
         [Column(TypeName = "decimal(18,2)")]
         public decimal TotalOrderValue { get; set; }
+
+        /// <summary>Ndabase management fee percentage (e.g. 10 for 10%).</summary>
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal ManagementFeePercentage { get; set; }
+
+        /// <summary>Management fee amount retained by Ndabase.</summary>
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal ManagementFeeAmount { get; set; }
+
+        /// <summary>Budget available for school procurement (order value minus management fee).</summary>
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal SupplierFee { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal TotalInvoicedToDepartment { get; set; }

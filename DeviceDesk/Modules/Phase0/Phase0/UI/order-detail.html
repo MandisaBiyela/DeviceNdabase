@@ -40,15 +40,37 @@
           </div>
 
           <section class="orders-card-xl mb-3">
+            <div class="orders-section-title mb-3">
+              <i class="bi bi-bar-chart-line text-secondary"></i>
+              Budget Allocation
+            </div>
             <div class="row g-3 small">
               <div class="col-md-4"><span class="text-muted">Financial year</span><div class="fw-semibold" id="dFy">—</div></div>
-              <div class="col-md-4"><span class="text-muted">Total order value</span><div class="fw-semibold" id="dTotal">—</div></div>
-              <div class="col-md-4"><span class="text-muted">School totals</span><div class="fw-semibold" id="dSchoolTotals">—</div></div>
-              <div class="col-md-4"><span class="text-muted">Invoiced to department</span><div class="fw-semibold" id="dInv">—</div></div>
-              <div class="col-md-4"><span class="text-muted">Paid by department</span><div class="fw-semibold" id="dPaidDept">—</div></div>
-              <div class="col-md-4"><span class="text-muted">Paid to suppliers</span><div class="fw-semibold" id="dPaidSup">—</div></div>
-              <div class="col-md-4"><span class="text-muted">Outstanding balance</span><div class="fw-semibold" id="dOut">—</div></div>
+              <div class="col-md-4"><span class="text-muted">DOE order value</span><div class="fw-semibold" id="dTotal">—</div></div>
+              <div class="col-md-4"><span class="text-muted">Management fee %</span><div class="fw-semibold" id="dMgmtPct">—</div></div>
+              <div class="col-md-4"><span class="text-muted">Management fee amount</span><div class="fw-semibold" id="dMgmtAmt">—</div></div>
+              <div class="col-md-4"><span class="text-muted">Supplier fee / allocation budget</span><div class="fw-semibold" id="dSupplierFee">—</div></div>
+              <div class="col-md-4"><span class="text-muted">Total allocated to schools</span><div class="fw-semibold" id="dSchoolTotals">—</div></div>
+              <div class="col-md-4"><span class="text-muted">Allocation variance</span><div class="fw-semibold" id="dAllocVariance">—</div></div>
+              <div class="col-md-4"><span class="text-muted">Allocation status</span><div class="fw-semibold" id="dAllocStatus">—</div></div>
               <div class="col-md-4"><span class="text-muted">Created (UTC)</span><div class="fw-semibold" id="dCreated">—</div></div>
+            </div>
+          </section>
+
+          <section class="orders-card-xl mb-3">
+            <div class="orders-section-title mb-3">
+              <i class="bi bi-cash-stack text-secondary"></i>
+              Payment Tracking
+            </div>
+            <div class="row g-3 small">
+              <div class="col-md-4"><span class="text-muted">Invoiced to DOE</span><div class="fw-semibold" id="dInv">—</div></div>
+              <div class="col-md-4"><span class="text-muted">Paid by DOE</span><div class="fw-semibold" id="dPaidDept">—</div></div>
+              <div class="col-md-4"><span class="text-muted">Paid to supplier</span><div class="fw-semibold" id="dPaidSup">—</div></div>
+              <div class="col-md-4"><span class="text-muted">Outstanding from DOE</span><div class="fw-semibold" id="dOut">—</div></div>
+              <div class="col-md-4"><span class="text-muted">Outstanding to supplier</span><div class="fw-semibold" id="dOutSup">—</div></div>
+            </div>
+            <div id="dCloseOutWarning" class="alert alert-warning small mt-3 d-none">
+              School allocations must equal the Supplier Fee before close-out.
             </div>
           </section>
 

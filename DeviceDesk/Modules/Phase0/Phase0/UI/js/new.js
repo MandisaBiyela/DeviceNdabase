@@ -53,6 +53,14 @@
     el.innerHTML = html || '';
   }
 
+  function formatFetchError(e) {
+    const msg = e?.message || 'Unknown error';
+    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+      return 'Cannot reach the server. Make sure DeviceDesk is running on http://localhost:5170, then try again.';
+    }
+    return msg;
+  }
+
   function escapeHtml(str) {
     return String(str ?? '')
       .replaceAll('&', '&amp;')
@@ -263,7 +271,7 @@
 
   importBtn?.addEventListener('click', async () => {
     if (!state.selectedCsv) {
-      setAlert(alertEl, 'error', 'Please select a CSV file first.');
+      setAlert(alertEl, 'error', 'Please select a CSV or Excel file first.');
       return;
     }
     setAlert(alertEl, null, '');
@@ -279,7 +287,7 @@
       );
       setCsvFile(null);
     } catch (e) {
-      setAlert(alertEl, 'error', `Import failed: ${e?.message || 'Unknown error'}`);
+      setAlert(alertEl, 'error', `Import failed: ${formatFetchError(e)}`);
     } finally {
       importBtn.disabled = !state.selectedCsv;
     }
