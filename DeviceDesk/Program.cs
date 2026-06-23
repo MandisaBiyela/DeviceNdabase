@@ -110,6 +110,7 @@ builder.Services.AddScoped<DocumentService>();
 builder.Services.AddScoped<NewStockBatchService>();
 builder.Services.AddScoped<RnrBatchService>();
 builder.Services.AddScoped<OrderValidationService>();
+builder.Services.AddSingleton<ProcurementOrderFinancialService>();
 builder.Services.AddScoped<ProcurementOrderBatchSyncService>();
 builder.Services.AddSingleton<ProcurementOrderExportService>();
 builder.Services.AddSingleton<CloseOutReportDocxService>();

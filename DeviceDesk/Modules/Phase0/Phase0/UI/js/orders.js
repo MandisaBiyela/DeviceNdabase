@@ -6,8 +6,10 @@
   const schoolsTotalEl = byId("schoolsTotal");
   const balanceStatusEl = byId("balanceStatus");
   const orderAlert = byId("orderAlert");
-  const varianceDisplay = byId("varianceDisplay");
-  const reconBalanceBadge = byId("reconBalanceBadge");
+  const allocationVarianceDisplay = byId("allocationVarianceDisplay");
+  const allocationBalanceBadge = byId("allocationBalanceBadge");
+  const outstandingDoeDisplay = byId("outstandingDoeDisplay");
+  const outstandingSupplierDisplay = byId("outstandingSupplierDisplay");
   const ordersSearch = byId("ordersSearch");
 
   let schoolCounter = 0;
@@ -28,6 +30,41 @@
   function toNumber(value) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function roundCurrency(value) {
+    return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+  }
+
+  function computeFees(orderValue, managementFeePercentage) {
+    const pct = roundCurrency(managementFeePercentage);
+    const managementFeeAmount = roundCurrency(orderValue * (pct / 100));
+    const supplierFee = roundCurrency(orderValue - managementFeeAmount);
+    return { managementFeeAmount, supplierFee };
+  }
+
+  function recalcFeeFields() {
+    const orderValue = toNumber(byId("totalOrderValue").value);
+    const feePct = toNumber(byId("managementFeePercentage").value);
+    const { managementFeeAmount, supplierFee } = computeFees(orderValue, feePct);
+
+    const mgmtDisplay = byId("managementFeeAmountDisplay");
+    const supplierDisplay = byId("supplierFeeDisplay");
+    if (mgmtDisplay) mgmtDisplay.textContent = fmtCurrency(managementFeeAmount);
+    if (supplierDisplay) supplierDisplay.textContent = fmtCurrency(supplierFee);
+
+    const reconOrderValue = byId("reconOrderValue");
+    const reconMgmtPct = byId("reconMgmtPct");
+    const reconMgmtAmt = byId("reconMgmtAmt");
+    const reconSupplierFee = byId("reconSupplierFee");
+    const summarySupplierFee = byId("summarySupplierFee");
+    if (reconOrderValue) reconOrderValue.textContent = fmtCurrency(orderValue);
+    if (reconMgmtPct) reconMgmtPct.textContent = feePct.toFixed(2) + "%";
+    if (reconMgmtAmt) reconMgmtAmt.textContent = fmtCurrency(managementFeeAmount);
+    if (reconSupplierFee) reconSupplierFee.textContent = fmtCurrency(supplierFee);
+    if (summarySupplierFee) summarySupplierFee.textContent = fmtCurrency(supplierFee);
+
+    return { orderValue, managementFeeAmount, supplierFee };
   }
 
   function esc(s) {
@@ -162,7 +199,7 @@
             <div class="invalid-feedback-inline d-none school-name-err"></div>
           </div>
           <div class="col-md-4">
-            <label class="orders-label d-none d-md-block">School Subtotal</label>
+            <label class="orders-label d-none d-md-block">School Allocation / Subtotal</label>
             <div class="input-r-prefix">
               <span class="input-r-prefix__sym">R</span>
               <input type="text" class="orders-input school-subtotal" readonly value="0.00" />
@@ -279,39 +316,60 @@
   }
 
   function recalcReconciliation() {
+    const { supplierFee } = recalcFeeFields();
     const invoiced = toNumber(byId("totalInvoicedToDepartment").value);
     const paidDept = toNumber(byId("totalPaidByDepartment").value);
-    const variance = invoiced - paidDept;
-    varianceDisplay.textContent = fmtCurrency(variance);
-    varianceDisplay.className =
-      variance === 0 ? "variance-zero" : variance > 0 ? "variance-positive" : "variance-negative";
+    const paidSupplier = toNumber(byId("totalPaidToSuppliers").value);
+    const outstandingDoe = roundCurrency(invoiced - paidDept);
+    const outstandingSupplier = roundCurrency(supplierFee - paidSupplier);
 
-    if (variance === 0) {
-      reconBalanceBadge.className = "pill-balanced";
-      reconBalanceBadge.textContent = "✓ Balanced";
-    } else if (variance < 0) {
-      reconBalanceBadge.className = "pill-overpaid";
-      reconBalanceBadge.textContent = "✗ Overpaid";
-    } else {
-      reconBalanceBadge.className = "pill-unbalanced";
-      reconBalanceBadge.textContent = "⚠ Unbalanced";
+    if (outstandingDoeDisplay) {
+      outstandingDoeDisplay.textContent = fmtCurrency(outstandingDoe);
+      outstandingDoeDisplay.className =
+        outstandingDoe === 0 ? "variance-zero" : outstandingDoe > 0 ? "variance-positive" : "variance-negative";
+    }
+    if (outstandingSupplierDisplay) {
+      outstandingSupplierDisplay.textContent = fmtCurrency(outstandingSupplier);
+      outstandingSupplierDisplay.className =
+        outstandingSupplier === 0 ? "variance-zero" : outstandingSupplier > 0 ? "variance-positive" : "variance-negative";
     }
   }
 
   function recalcOrderBalance() {
-    const parentTotal = toNumber(byId("totalOrderValue").value);
+    const { supplierFee } = recalcFeeFields();
     const schoolTotals = Array.from(document.querySelectorAll(".school-subtotal")).reduce(
       (acc, input) => acc + toNumber(input.value),
       0
     );
-    const balanced = Number(parentTotal.toFixed(2)) === Number(schoolTotals.toFixed(2));
-    schoolsTotalEl.textContent = fmtCurrency(schoolTotals);
-    if (balanced) {
-      balanceStatusEl.className = "pill-balanced";
-      balanceStatusEl.textContent = "✓ Balanced";
-    } else {
-      balanceStatusEl.className = "pill-unbalanced";
-      balanceStatusEl.textContent = "⚠ Unbalanced";
+    const roundedSchoolTotals = roundCurrency(schoolTotals);
+    const variance = roundCurrency(supplierFee - roundedSchoolTotals);
+    const balanced = variance === 0;
+
+    schoolsTotalEl.textContent = fmtCurrency(roundedSchoolTotals);
+    const reconAllocated = byId("reconAllocated");
+    if (reconAllocated) reconAllocated.textContent = fmtCurrency(roundedSchoolTotals);
+    if (allocationVarianceDisplay) {
+      allocationVarianceDisplay.textContent = fmtCurrency(variance);
+      allocationVarianceDisplay.className =
+        variance === 0 ? "variance-zero" : variance > 0 ? "variance-positive" : "variance-negative";
+    }
+    if (allocationBalanceBadge) {
+      if (balanced) {
+        allocationBalanceBadge.className = "pill-balanced";
+        allocationBalanceBadge.textContent = "✓ Balanced";
+      } else {
+        allocationBalanceBadge.className = "pill-unbalanced";
+        allocationBalanceBadge.textContent = "⚠ Not Balanced";
+      }
+    }
+    if (balanceStatusEl) {
+      if (balanced) {
+        balanceStatusEl.className = "pill-balanced";
+        balanceStatusEl.textContent = "✓ Balanced";
+      } else {
+        balanceStatusEl.className = "pill-unbalanced";
+        balanceStatusEl.textContent = "⚠ Not Balanced";
+      }
     }
   }
 
@@ -343,6 +401,14 @@
       const e = byId("err-projectName");
       e.textContent = "Project Name is required";
       e.classList.remove("d-none");
+    }
+
+    const feePct = toNumber(byId("managementFeePercentage").value);
+    if (feePct < 0 || feePct > 100) {
+      ok = false;
+      const feeEl = byId("managementFeePercentage");
+      feeEl.classList.add("is-invalid");
+      setAlert("warning", "Management fee percentage must be between 0 and 100.");
     }
 
     const cards = schoolsContainer
@@ -446,6 +512,7 @@
       projectName: byId("projectName").value.trim(),
       financialYear: byId("financialYear").value.trim(),
       totalOrderValue: toNumber(byId("totalOrderValue").value),
+      managementFeePercentage: toNumber(byId("managementFeePercentage").value),
       totalInvoicedToDepartment: toNumber(byId("totalInvoicedToDepartment").value),
       totalPaidByDepartment: toNumber(byId("totalPaidByDepartment").value),
       totalPaidToSuppliers: toNumber(byId("totalPaidToSuppliers").value),
@@ -460,13 +527,18 @@
     if (!validateForm()) return;
 
     const payload = collectPayload();
-    const schoolsTotal = payload.schools.reduce((sum, s) => sum + s.schoolSubTotal, 0);
-    if (Number(payload.totalOrderValue.toFixed(2)) !== Number(schoolsTotal.toFixed(2))) {
+    const schoolsTotal = roundCurrency(payload.schools.reduce((sum, s) => sum + s.schoolSubTotal, 0));
+    const { supplierFee } = computeFees(payload.totalOrderValue, payload.managementFeePercentage);
+    const variance = roundCurrency(supplierFee - schoolsTotal);
+
+    if (variance !== 0) {
       setAlert(
         "warning",
-        "Order is not balanced. Total Order Value must equal the sum of school subtotals."
+        "School allocations do not equal the Supplier Fee (R " +
+          supplierFee.toFixed(2) +
+          "). The order will be saved as draft. " +
+          "School allocations must equal the Supplier Fee before close-out."
       );
-      return;
     }
 
     try {
@@ -522,18 +594,12 @@
   }
 
   function workflowBadge(row) {
-    const fin = String(row.financialBalanceStatus || "").toLowerCase() === "balanced";
-    const ob = toNumber(row.outstandingBalance);
-    if (fin && ob === 0) {
+    const allocationBalanced =
+      String(row.allocationBalanceStatus || "").toLowerCase() === "balanced" || row.isAllocationBalanced;
+    if (allocationBalanced) {
       return `<span class="badge-approved">✓ Balanced</span>`;
     }
-    if (ob < 0) {
-      return `<span class="badge-rejected">✗ Overpaid</span>`;
-    }
-    if (!row.isBalanced) {
-      return `<span class="badge-submitted">⚠ School totals</span>`;
-    }
-    return `<span class="badge-submitted">⚠ Unbalanced</span>`;
+    return `<span class="badge-submitted">⚠ Not Balanced</span>`;
   }
 
   function renderOrdersTable(rows) {
@@ -563,7 +629,8 @@
         <td class="small">${esc(row.projectName)}</td>
         <td class="small text-muted">${esc(row.financialYear)}</td>
         <td class="small text-end fw-semibold">${esc(fmtCurrency(row.totalOrderValue))}</td>
-        <td class="small text-end text-secondary">${esc(fmtCurrency(row.schoolTotals))}</td>
+        <td class="small text-end text-secondary">${esc(fmtCurrency(row.supplierFee))}</td>
+        <td class="small text-end text-secondary">${esc(fmtCurrency(row.totalAllocatedToSchools ?? row.schoolTotals))}</td>
         <td>${workflowBadge(row)}</td>
       `;
       tr.addEventListener("click", () => {
@@ -605,6 +672,10 @@
   byId("exportExcelBtn").onclick = () => downloadExport("excel");
   byId("exportPdfBtn").onclick = () => downloadExport("pdf");
   byId("totalOrderValue").oninput = () => {
+    recalcOrderBalance();
+    recalcReconciliation();
+  };
+  byId("managementFeePercentage").oninput = () => {
     recalcOrderBalance();
     recalcReconciliation();
   };

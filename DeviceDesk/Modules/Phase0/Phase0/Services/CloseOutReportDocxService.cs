@@ -15,7 +15,9 @@ namespace DeviceDesk.Modules.Phase0.Services
         private const string LightBlueHex = "EBF3FB";
         private const string Arial = "Arial";
 
-        private static decimal Round2(decimal v) => decimal.Round(v, 2, MidpointRounding.AwayFromZero);
+        private readonly ProcurementOrderFinancialService _financials = new();
+
+        private static decimal Round2(decimal v) => ProcurementOrderFinancialService.RoundCurrency(v);
 
         /// <summary>Returns attachment file name (sanitized).</summary>
         public static string BuildFileName(string poNumber, string financialYear)
@@ -42,28 +44,16 @@ namespace DeviceDesk.Modules.Phase0.Services
 
             if (errors.Count > 0)
                 throw new ValidationException(errors);
-
-            var sumSchools = Round2(order.Schools!.Sum(s => s.SchoolSubTotal));
-            var poTotal = Round2(order.TotalOrderValue);
-            if (sumSchools != poTotal)
-            {
-                throw new BusinessRuleException(
-                    $"Warning: School sub-totals (R {sumSchools:N2}) do not match PO total (R {poTotal:N2}).");
-            }
         }
 
         public byte[] BuildDocument(ProcurementOrder order, DateTime reportDateUtc)
         {
             ValidateOrThrow(order);
 
-            var financialMissing =
-                order.TotalOrderValue > 0m &&
-                order.TotalInvoicedToDepartment == 0m &&
-                order.TotalPaidByDepartment == 0m &&
-                order.TotalPaidToSuppliers == 0m;
-
-            var outstanding = Round2(order.TotalInvoicedToDepartment - order.TotalPaidByDepartment);
-            var balanceStatus = outstanding == 0m ? "BALANCED" : "OUTSTANDING";
+            var summary = _financials.Summarize(order);
+            var allocationStatus = summary.AllocationBalanceStatus == AllocationBalanceStatus.Balanced
+                ? "BALANCED"
+                : "NOT BALANCED";
 
             using var ms = new MemoryStream();
             using (var doc = WordprocessingDocument.Create(ms, WordprocessingDocumentType.Document, true))
@@ -85,19 +75,12 @@ namespace DeviceDesk.Modules.Phase0.Services
                 body.AppendChild(Para($"{order.FinancialYear} MST/ICT PROCUREMENT AND DISTRIBUTION CYCLE", bold: true, navy: true, fontHalfPoints: 22, spaceAfter: 360));
 
                 body.AppendChild(Para("ORDER INFORMATION", bold: true, navy: true, spaceBefore: 120, spaceAfter: 120));
-                body.AppendChild(OrderInfoTable(order, reportDateUtc));
+                body.AppendChild(OrderInfoTable(order, summary, reportDateUtc));
 
-                body.AppendChild(Para("SECTION 2 – PROJECT OVERVIEW", bold: true, navy: true, spaceBefore: 360, spaceAfter: 120));
-                body.AppendChild(Para(
-                    $"This project was executed under {order.ProjectName} for the {order.FinancialYear} academic year, with materials distributed to the schools listed below.",
-                    spaceAfter: 120));
+                body.AppendChild(Para("SECTION 2 – SCHOOL ALLOCATION SUMMARY", bold: true, navy: true, spaceBefore: 360, spaceAfter: 120));
+                body.AppendChild(SchoolAllocationSummaryTable(order));
 
-                foreach (var school in order.Schools.OrderBy(s => s.SchoolName))
-                {
-                    body.AppendChild(BulletParagraph(school.SchoolName));
-                }
-
-                body.AppendChild(Para("SECTION 3 – SCHOOL ORDER BREAKDOWN", bold: true, navy: true, spaceBefore: 360, spaceAfter: 120));
+                body.AppendChild(Para("SECTION 3 – ITEM BREAKDOWN PER SCHOOL", bold: true, navy: true, spaceBefore: 360, spaceAfter: 120));
 
                 var schoolIndex = 1;
                 foreach (var school in order.Schools.OrderBy(s => s.SchoolName))
@@ -107,7 +90,11 @@ namespace DeviceDesk.Modules.Phase0.Services
                     schoolIndex++;
                 }
 
-                body.AppendChild(Para($"TOTAL ORDER VALUE (All Schools Combined): R {order.TotalOrderValue:N2}", bold: true, spaceBefore: 120, spaceAfter: 120));
+                body.AppendChild(Para(
+                    $"TOTAL ALLOCATED TO SCHOOLS: R {summary.TotalAllocatedToSchools:N2}",
+                    bold: true,
+                    spaceBefore: 120,
+                    spaceAfter: 120));
 
                 body.AppendChild(Para("SECTION 4 – DELIVERY STATUS", bold: true, navy: true, spaceBefore: 360, spaceAfter: 120));
                 body.AppendChild(Para(
@@ -115,36 +102,44 @@ namespace DeviceDesk.Modules.Phase0.Services
                     spaceAfter: 120));
                 body.AppendChild(DeliverySummaryTable(order));
 
-                body.AppendChild(Para("SECTION 5 – FINANCIAL STATUS", bold: true, navy: true, spaceBefore: 360, spaceAfter: 120));
+                body.AppendChild(Para("SECTION 5 – FINANCIAL RECONCILIATION", bold: true, navy: true, spaceBefore: 360, spaceAfter: 120));
+                body.AppendChild(AllocationFinancialTable(summary, allocationStatus));
+
+                body.AppendChild(Para("SECTION 6 – PAYMENT TRACKING", bold: true, navy: true, spaceBefore: 360, spaceAfter: 120));
+                var financialMissing =
+                    order.TotalOrderValue > 0m &&
+                    order.TotalInvoicedToDepartment == 0m &&
+                    order.TotalPaidByDepartment == 0m &&
+                    order.TotalPaidToSuppliers == 0m;
                 if (financialMissing)
                 {
                     body.AppendChild(Para(
-                        "Note: Financial data has not been recorded for this order (all invoice and payment amounts are zero).",
+                        "Note: Payment data has not been recorded for this order (all invoice and payment amounts are zero).",
                         italic: true,
                         spaceAfter: 120));
                 }
 
-                body.AppendChild(FinancialTable(order, outstanding, balanceStatus));
+                body.AppendChild(PaymentTrackingTable(order, summary));
 
-                body.AppendChild(Para("SECTION 6 – TIMELINE REVIEW", bold: true, navy: true, spaceBefore: 360, spaceAfter: 120));
+                body.AppendChild(Para("SECTION 7 – TIMELINE REVIEW", bold: true, navy: true, spaceBefore: 360, spaceAfter: 120));
                 var timeline = string.IsNullOrWhiteSpace(order.TimelineNotes)
                     ? "The project was delivered within the specified timeframe."
                     : order.TimelineNotes.Trim();
                 body.AppendChild(Para(timeline, spaceAfter: 120));
 
-                body.AppendChild(Para("SECTION 7 – SCOPE CHANGES", bold: true, navy: true, spaceBefore: 240, spaceAfter: 120));
+                body.AppendChild(Para("SECTION 8 – SCOPE CHANGES", bold: true, navy: true, spaceBefore: 240, spaceAfter: 120));
                 var scope = string.IsNullOrWhiteSpace(order.ScopeNotes)
                     ? "There were no changes to the scope."
                     : order.ScopeNotes.Trim();
                 body.AppendChild(Para(scope, spaceAfter: 120));
 
-                body.AppendChild(Para("SECTION 8 – BACKUP DOCUMENTATION", bold: true, navy: true, spaceBefore: 240, spaceAfter: 120));
+                body.AppendChild(Para("SECTION 9 – BACKUP DOCUMENTATION", bold: true, navy: true, spaceBefore: 240, spaceAfter: 120));
                 body.AppendChild(BulletParagraph("POD copies submitted in hard copy and soft copy"));
                 body.AppendChild(BulletParagraph("Purchase Order (PO) documentation"));
                 body.AppendChild(BulletParagraph("Supplier invoices and payment confirmations"));
                 body.AppendChild(BulletParagraph("School readiness assessments and QC documentation"));
 
-                body.AppendChild(Para("SECTION 9 – CONCLUSION", bold: true, navy: true, spaceBefore: 240, spaceAfter: 120));
+                body.AppendChild(Para("SECTION 10 – CONCLUSION", bold: true, navy: true, spaceBefore: 240, spaceAfter: 120));
                 body.AppendChild(Para(
                     "We are of the view that if the partnership between KZN DoE, Ndabase Printing Solutions and all main stakeholders continues to blossom, we can only improve and innovate upon the way we procure and distribute LTSM to schools, ensuring that our clients — the learners and teachers — are resourced with the correct materials to unleash the potential that only Education can provide.",
                     spaceAfter: 240));
@@ -211,18 +206,46 @@ namespace DeviceDesk.Modules.Phase0.Services
             yield return Para("", fontHalfPoints: 8, spaceAfter: 0);
         }
 
-        private static Table OrderInfoTable(ProcurementOrder order, DateTime reportDateUtc)
+        private static Table OrderInfoTable(
+            ProcurementOrder order,
+            ProcurementOrderFinancialSummary summary,
+            DateTime reportDateUtc)
         {
             var rows = new (string, string)[]
             {
                 ("PO Number:", order.PoNumber),
                 ("Project Name:", order.ProjectName),
                 ("Financial Year:", order.FinancialYear),
-                ("Total Order Value:", $"R {order.TotalOrderValue:N2}"),
+                ("Supplier:", string.IsNullOrWhiteSpace(order.SupplierName) ? "—" : order.SupplierName),
+                ("DOE Order Value:", $"R {summary.OrderValue:N2}"),
+                ("Management Fee %:", $"{summary.ManagementFeePercentage:N2}%"),
+                ("Management Fee Amount:", $"R {summary.ManagementFeeAmount:N2}"),
+                ("Supplier Fee / Allocation Budget:", $"R {summary.SupplierFee:N2}"),
                 ("Compiled By:", "Ndabase Printing Solutions"),
                 ("Report Date:", reportDateUtc.ToString("yyyy-MM-dd"))
             };
             return KeyValueTable(rows, shadeRows: true);
+        }
+
+        private static Table SchoolAllocationSummaryTable(ProcurementOrder order)
+        {
+            var headers = new[] { "School Name", "Total Allocated", "Items / Devices", "Delivery Status" };
+            var rows = order.Schools.OrderBy(s => s.SchoolName).Select(school =>
+            {
+                var itemCount = school.Items.Sum(i => i.QtyOrdered);
+                var statuses = school.Items.Select(i => i.DeliveryStatus).Distinct().ToList();
+                var deliveryLabel = statuses.Count == 1
+                    ? statuses[0].ToString()
+                    : string.Join(", ", statuses.Select(x => x.ToString()));
+                return new[]
+                {
+                    school.SchoolName,
+                    $"R {school.SchoolSubTotal:N2}",
+                    itemCount.ToString(),
+                    deliveryLabel
+                };
+            });
+            return DataTable(headers, rows);
         }
 
         private static Table KeyValueTable((string label, string value)[] rows, bool shadeRows)
@@ -271,10 +294,12 @@ namespace DeviceDesk.Modules.Phase0.Services
 
         private static Table SchoolItemsTable(ProcurementOrderSchool school)
         {
-            var headers = new[] { "Item Description", "Unit Price (R)", "Qty Ordered", "Total Price (R)", "Delivery Status" };
+            var headers = new[] { "Description", "Brand", "Model", "Unit Price (R)", "Qty", "Total (R)", "Delivery Status" };
             var t = DataTable(headers, school.Items.OrderBy(i => i.Description).Select(i => new[]
             {
                 i.Description,
+                i.Brand ?? "—",
+                i.Model ?? "—",
                 i.UnitPrice.ToString("N2"),
                 i.QtyOrdered.ToString(),
                 i.TotalPrice.ToString("N2"),
@@ -283,9 +308,11 @@ namespace DeviceDesk.Modules.Phase0.Services
 
             t.AppendChild(new TableRow(
                 new TableCell(CellWidthAndShade("3600", true), Para("School Sub-Total:", bold: true)),
-                new TableCell(CellWidthAndShade("1200", true), Para($"R {school.SchoolSubTotal:N2}", bold: true)),
+                new TableCell(CellWidthAndShade("1200", true), Para("")),
                 new TableCell(CellWidthAndShade("1000", true), Para("")),
                 new TableCell(CellWidthAndShade("1400", true), Para("")),
+                new TableCell(CellWidthAndShade("1000", true), Para("")),
+                new TableCell(CellWidthAndShade("1400", true), Para($"R {school.SchoolSubTotal:N2}", bold: true)),
                 new TableCell(CellWidthAndShade("1600", true), Para(""))));
 
             return t;
@@ -390,16 +417,30 @@ namespace DeviceDesk.Modules.Phase0.Services
             return DataTable(headers, rows);
         }
 
-        private static Table FinancialTable(ProcurementOrder order, decimal outstandingBalance, string balanceStatus)
+        private static Table AllocationFinancialTable(ProcurementOrderFinancialSummary summary, string allocationStatus)
         {
             var rows = new (string, string)[]
             {
-                ("Total Order Value (PO)", $"R {order.TotalOrderValue:N2}"),
-                ("Total Invoiced to Department", $"R {order.TotalInvoicedToDepartment:N2}"),
-                ("Total Paid by Department", $"R {order.TotalPaidByDepartment:N2}"),
-                ("Total Paid to Suppliers", $"R {order.TotalPaidToSuppliers:N2}"),
-                ("Outstanding Balance", $"R {outstandingBalance:N2}"),
-                ("Financial Year Balance Status", balanceStatus)
+                ("DOE Order Value", $"R {summary.OrderValue:N2}"),
+                ("Management Fee %", $"{summary.ManagementFeePercentage:N2}%"),
+                ("Management Fee Amount", $"R {summary.ManagementFeeAmount:N2}"),
+                ("Supplier Fee / Allocation Budget", $"R {summary.SupplierFee:N2}"),
+                ("Total Allocated to Schools", $"R {summary.TotalAllocatedToSchools:N2}"),
+                ("Allocation Variance", $"R {summary.AllocationVariance:N2}"),
+                ("Allocation Balance Status", allocationStatus)
+            };
+            return KeyValueTable(rows, shadeRows: true);
+        }
+
+        private static Table PaymentTrackingTable(ProcurementOrder order, ProcurementOrderFinancialSummary summary)
+        {
+            var rows = new (string, string)[]
+            {
+                ("Amount Invoiced to DOE", $"R {order.TotalInvoicedToDepartment:N2}"),
+                ("Amount Received from DOE", $"R {order.TotalPaidByDepartment:N2}"),
+                ("Amount Paid to Supplier", $"R {order.TotalPaidToSuppliers:N2}"),
+                ("Outstanding from DOE", $"R {summary.OutstandingFromDoe:N2}"),
+                ("Outstanding to Supplier", $"R {summary.OutstandingToSupplier:N2}")
             };
             return KeyValueTable(rows, shadeRows: true);
         }

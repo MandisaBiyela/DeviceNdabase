@@ -9,6 +9,8 @@ namespace DeviceDesk.Modules.Phase0.Services
 {
     public class ProcurementOrderExportService
     {
+        private readonly ProcurementOrderFinancialService _financials = new();
+
         static ProcurementOrderExportService()
         {
             QuestPDF.Settings.License = LicenseType.Community;
@@ -21,32 +23,41 @@ namespace DeviceDesk.Modules.Phase0.Services
             summary.Cell(1, 1).Value = "PO Number";
             summary.Cell(1, 2).Value = "Project";
             summary.Cell(1, 3).Value = "Financial year";
-            summary.Cell(1, 4).Value = "Total order value";
-            summary.Cell(1, 5).Value = "School totals";
-            summary.Cell(1, 6).Value = "Total invoiced to dept";
-            summary.Cell(1, 7).Value = "Total paid by dept";
-            summary.Cell(1, 8).Value = "Total paid to suppliers";
-            summary.Cell(1, 9).Value = "Outstanding balance";
-            summary.Cell(1, 10).Value = "Balance status";
-            summary.Cell(1, 11).Value = "Created (UTC)";
-            summary.Range(1, 1, 1, 11).Style.Font.Bold = true;
+            summary.Cell(1, 4).Value = "DOE order value";
+            summary.Cell(1, 5).Value = "Management fee %";
+            summary.Cell(1, 6).Value = "Management fee amount";
+            summary.Cell(1, 7).Value = "Supplier fee";
+            summary.Cell(1, 8).Value = "Total allocated to schools";
+            summary.Cell(1, 9).Value = "Allocation variance";
+            summary.Cell(1, 10).Value = "Allocation status";
+            summary.Cell(1, 11).Value = "Total invoiced to dept";
+            summary.Cell(1, 12).Value = "Total paid by dept";
+            summary.Cell(1, 13).Value = "Total paid to suppliers";
+            summary.Cell(1, 14).Value = "Outstanding from DOE";
+            summary.Cell(1, 15).Value = "Outstanding to supplier";
+            summary.Cell(1, 16).Value = "Created (UTC)";
+            summary.Range(1, 1, 1, 16).Style.Font.Bold = true;
 
             var row = 2;
             foreach (var o in orders)
             {
-                var schoolTotals = o.Schools.Sum(s => s.SchoolSubTotal);
-                var outstanding = o.TotalInvoicedToDepartment - o.TotalPaidByDepartment;
+                var fin = _financials.Summarize(o);
                 summary.Cell(row, 1).Value = o.PoNumber;
                 summary.Cell(row, 2).Value = o.ProjectName;
                 summary.Cell(row, 3).Value = o.FinancialYear;
                 summary.Cell(row, 4).Value = o.TotalOrderValue;
-                summary.Cell(row, 5).Value = schoolTotals;
-                summary.Cell(row, 6).Value = o.TotalInvoicedToDepartment;
-                summary.Cell(row, 7).Value = o.TotalPaidByDepartment;
-                summary.Cell(row, 8).Value = o.TotalPaidToSuppliers;
-                summary.Cell(row, 9).Value = outstanding;
-                summary.Cell(row, 10).Value = GetBalanceStatus(o);
-                summary.Cell(row, 11).Value = o.CreatedAt.UtcDateTime;
+                summary.Cell(row, 5).Value = o.ManagementFeePercentage;
+                summary.Cell(row, 6).Value = fin.ManagementFeeAmount;
+                summary.Cell(row, 7).Value = fin.SupplierFee;
+                summary.Cell(row, 8).Value = fin.TotalAllocatedToSchools;
+                summary.Cell(row, 9).Value = fin.AllocationVariance;
+                summary.Cell(row, 10).Value = fin.AllocationBalanceStatus.ToString();
+                summary.Cell(row, 11).Value = o.TotalInvoicedToDepartment;
+                summary.Cell(row, 12).Value = o.TotalPaidByDepartment;
+                summary.Cell(row, 13).Value = o.TotalPaidToSuppliers;
+                summary.Cell(row, 14).Value = fin.OutstandingFromDoe;
+                summary.Cell(row, 15).Value = fin.OutstandingToSupplier;
+                summary.Cell(row, 16).Value = o.CreatedAt.UtcDateTime;
                 row++;
             }
 
@@ -58,11 +69,13 @@ namespace DeviceDesk.Modules.Phase0.Services
             lines.Cell(1, 3).Value = "Financial year";
             lines.Cell(1, 4).Value = "School";
             lines.Cell(1, 5).Value = "Description";
-            lines.Cell(1, 6).Value = "Unit price";
-            lines.Cell(1, 7).Value = "Qty";
-            lines.Cell(1, 8).Value = "Line total";
-            lines.Cell(1, 9).Value = "Delivery status";
-            lines.Range(1, 1, 1, 9).Style.Font.Bold = true;
+            lines.Cell(1, 6).Value = "Brand";
+            lines.Cell(1, 7).Value = "Model";
+            lines.Cell(1, 8).Value = "Unit price";
+            lines.Cell(1, 9).Value = "Qty";
+            lines.Cell(1, 10).Value = "Line total";
+            lines.Cell(1, 11).Value = "Delivery status";
+            lines.Range(1, 1, 1, 11).Style.Font.Bold = true;
 
             var lr = 2;
             foreach (var o in orders)
@@ -76,10 +89,12 @@ namespace DeviceDesk.Modules.Phase0.Services
                         lines.Cell(lr, 3).Value = o.FinancialYear;
                         lines.Cell(lr, 4).Value = school.SchoolName;
                         lines.Cell(lr, 5).Value = item.Description;
-                        lines.Cell(lr, 6).Value = item.UnitPrice;
-                        lines.Cell(lr, 7).Value = item.QtyOrdered;
-                        lines.Cell(lr, 8).Value = item.TotalPrice;
-                        lines.Cell(lr, 9).Value = item.DeliveryStatus.ToString();
+                        lines.Cell(lr, 6).Value = item.Brand;
+                        lines.Cell(lr, 7).Value = item.Model;
+                        lines.Cell(lr, 8).Value = item.UnitPrice;
+                        lines.Cell(lr, 9).Value = item.QtyOrdered;
+                        lines.Cell(lr, 10).Value = item.TotalPrice;
+                        lines.Cell(lr, 11).Value = item.DeliveryStatus.ToString();
                         lr++;
                     }
                 }
@@ -109,6 +124,8 @@ namespace DeviceDesk.Modules.Phase0.Services
 
                 foreach (var o in orders)
                 {
+                    var fin = _financials.Summarize(o);
+
                     document.Page(page =>
                     {
                         page.Size(PageSizes.A4);
@@ -127,20 +144,21 @@ namespace DeviceDesk.Modules.Phase0.Services
 
                         page.Content().PaddingTop(16).Column(col =>
                         {
-                            var schoolTotals = o.Schools.Sum(s => s.SchoolSubTotal);
-                            var outstanding = o.TotalInvoicedToDepartment - o.TotalPaidByDepartment;
-
                             col.Item().Background(Colors.Grey.Lighten4).Padding(10).Column(info =>
                             {
                                 info.Item().Text("Financial summary").Bold().FontSize(11);
-                                info.Item().Row(r => { r.ConstantItem(160).Text("Financial year:").SemiBold(); r.RelativeItem().Text(o.FinancialYear); });
-                                info.Item().Row(r => { r.ConstantItem(160).Text("Total order value:").SemiBold(); r.RelativeItem().Text($"R {o.TotalOrderValue:N2}"); });
-                                info.Item().Row(r => { r.ConstantItem(160).Text("Sum of school subtotals:").SemiBold(); r.RelativeItem().Text($"R {schoolTotals:N2}"); });
-                                info.Item().Row(r => { r.ConstantItem(160).Text("Invoiced to department:").SemiBold(); r.RelativeItem().Text($"R {o.TotalInvoicedToDepartment:N2}"); });
-                                info.Item().Row(r => { r.ConstantItem(160).Text("Paid by department:").SemiBold(); r.RelativeItem().Text($"R {o.TotalPaidByDepartment:N2}"); });
-                                info.Item().Row(r => { r.ConstantItem(160).Text("Paid to suppliers:").SemiBold(); r.RelativeItem().Text($"R {o.TotalPaidToSuppliers:N2}"); });
-                                info.Item().Row(r => { r.ConstantItem(160).Text("Outstanding balance:").SemiBold(); r.RelativeItem().Text($"R {outstanding:N2}"); });
-                                info.Item().Row(r => { r.ConstantItem(160).Text("Balance status:").SemiBold(); r.RelativeItem().Text(GetBalanceStatus(o)); });
+                                info.Item().Row(r => { r.ConstantItem(180).Text("Financial year:").SemiBold(); r.RelativeItem().Text(o.FinancialYear); });
+                                info.Item().Row(r => { r.ConstantItem(180).Text("DOE order value:").SemiBold(); r.RelativeItem().Text($"R {o.TotalOrderValue:N2}"); });
+                                info.Item().Row(r => { r.ConstantItem(180).Text("Management fee:").SemiBold(); r.RelativeItem().Text($"{o.ManagementFeePercentage:N2}% (R {fin.ManagementFeeAmount:N2})"); });
+                                info.Item().Row(r => { r.ConstantItem(180).Text("Supplier fee:").SemiBold(); r.RelativeItem().Text($"R {fin.SupplierFee:N2}"); });
+                                info.Item().Row(r => { r.ConstantItem(180).Text("Allocated to schools:").SemiBold(); r.RelativeItem().Text($"R {fin.TotalAllocatedToSchools:N2}"); });
+                                info.Item().Row(r => { r.ConstantItem(180).Text("Allocation variance:").SemiBold(); r.RelativeItem().Text($"R {fin.AllocationVariance:N2}"); });
+                                info.Item().Row(r => { r.ConstantItem(180).Text("Allocation status:").SemiBold(); r.RelativeItem().Text(fin.AllocationBalanceStatus.ToString()); });
+                                info.Item().Row(r => { r.ConstantItem(180).Text("Invoiced to DOE:").SemiBold(); r.RelativeItem().Text($"R {o.TotalInvoicedToDepartment:N2}"); });
+                                info.Item().Row(r => { r.ConstantItem(180).Text("Paid by DOE:").SemiBold(); r.RelativeItem().Text($"R {o.TotalPaidByDepartment:N2}"); });
+                                info.Item().Row(r => { r.ConstantItem(180).Text("Paid to supplier:").SemiBold(); r.RelativeItem().Text($"R {o.TotalPaidToSuppliers:N2}"); });
+                                info.Item().Row(r => { r.ConstantItem(180).Text("Outstanding from DOE:").SemiBold(); r.RelativeItem().Text($"R {fin.OutstandingFromDoe:N2}"); });
+                                info.Item().Row(r => { r.ConstantItem(180).Text("Outstanding to supplier:").SemiBold(); r.RelativeItem().Text($"R {fin.OutstandingToSupplier:N2}"); });
                             });
 
                             foreach (var school in o.Schools)
@@ -189,15 +207,6 @@ namespace DeviceDesk.Modules.Phase0.Services
                     });
                 }
             }).GeneratePdf();
-        }
-
-        private static string GetBalanceStatus(ProcurementOrder o)
-        {
-            var schoolsTotal = o.Schools.Sum(s => s.SchoolSubTotal);
-            var outstandingBalance = o.TotalInvoicedToDepartment - o.TotalPaidByDepartment;
-            return schoolsTotal == o.TotalOrderValue && outstandingBalance == 0m
-                ? FinancialBalanceStatus.Balanced.ToString()
-                : FinancialBalanceStatus.Outstanding.ToString();
         }
     }
 }

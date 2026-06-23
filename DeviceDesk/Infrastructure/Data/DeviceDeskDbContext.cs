@@ -250,6 +250,9 @@ namespace DeviceDesk.Infrastructure.Data
                 e.Property(x => x.SupplierName).HasMaxLength(200);
                 e.Property(x => x.ExpectedDeliveryDate).HasColumnType("datetimeoffset(7)");
                 e.Property(x => x.TotalOrderValue).HasColumnType("decimal(18,2)");
+                e.Property(x => x.ManagementFeePercentage).HasColumnType("decimal(5,2)");
+                e.Property(x => x.ManagementFeeAmount).HasColumnType("decimal(18,2)");
+                e.Property(x => x.SupplierFee).HasColumnType("decimal(18,2)");
                 e.Property(x => x.TotalInvoicedToDepartment).HasColumnType("decimal(18,2)");
                 e.Property(x => x.TotalPaidByDepartment).HasColumnType("decimal(18,2)");
                 e.Property(x => x.TotalPaidToSuppliers).HasColumnType("decimal(18,2)");

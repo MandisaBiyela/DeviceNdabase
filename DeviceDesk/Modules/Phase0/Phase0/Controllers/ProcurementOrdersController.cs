@@ -16,6 +16,7 @@ namespace DeviceDesk.Modules.Phase0.Controllers
     {
         private readonly DeviceDeskDbContext _db;
         private readonly OrderValidationService _validation;
+        private readonly ProcurementOrderFinancialService _financials;
         private readonly ProcurementOrderExportService _export;
         private readonly CloseOutReportDocxService _closeOutReport;
         private readonly ProcurementOrderBatchSyncService _batchSync;
@@ -23,12 +24,14 @@ namespace DeviceDesk.Modules.Phase0.Controllers
         public ProcurementOrdersController(
             DeviceDeskDbContext db,
             OrderValidationService validation,
+            ProcurementOrderFinancialService financials,
             ProcurementOrderExportService export,
             CloseOutReportDocxService closeOutReport,
             ProcurementOrderBatchSyncService batchSync)
         {
             _db = db;
             _validation = validation;
+            _financials = financials;
             _export = export;
             _closeOutReport = closeOutReport;
             _batchSync = batchSync;
@@ -51,6 +54,7 @@ namespace DeviceDesk.Modules.Phase0.Controllers
                 ProjectName = request.ProjectName.Trim(),
                 FinancialYear = request.FinancialYear.Trim(),
                 TotalOrderValue = request.TotalOrderValue,
+                ManagementFeePercentage = request.ManagementFeePercentage,
                 TotalInvoicedToDepartment = request.TotalInvoicedToDepartment,
                 TotalPaidByDepartment = request.TotalPaidByDepartment,
                 TotalPaidToSuppliers = request.TotalPaidToSuppliers,
@@ -75,6 +79,8 @@ namespace DeviceDesk.Modules.Phase0.Controllers
                     }).ToList()
                 }).ToList()
             };
+
+            _financials.ApplyStoredFees(order);
 
             _db.ProcurementOrders.Add(order);
             await _db.SaveChangesAsync(ct);
@@ -148,6 +154,8 @@ namespace DeviceDesk.Modules.Phase0.Controllers
             if (order == null)
                 throw new NotFoundException("ProcurementOrder", id);
 
+            _validation.ValidateForCloseOut(order);
+
             var bytes = _closeOutReport.BuildDocument(order, DateTime.UtcNow.Date);
             var fileName = CloseOutReportDocxService.BuildFileName(order.PoNumber, order.FinancialYear);
             return File(bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", fileName);
@@ -168,11 +176,13 @@ namespace DeviceDesk.Modules.Phase0.Controllers
             return Ok(ToOrderDto(order));
         }
 
-        private static object ToOrderDto(ProcurementOrder order)
+        private object ToOrderDto(ProcurementOrder order)
         {
-            var schoolsTotal = order.Schools.Sum(s => s.SchoolSubTotal);
-            var outstandingBalance = order.TotalInvoicedToDepartment - order.TotalPaidByDepartment;
-            var status = schoolsTotal == order.TotalOrderValue && outstandingBalance == 0m
+            var summary = _financials.Summarize(order);
+            var outstandingBalance = summary.OutstandingFromDoe;
+            var paymentBalanced = outstandingBalance == 0m;
+            var allocationBalanced = summary.AllocationBalanceStatus == AllocationBalanceStatus.Balanced;
+            var status = allocationBalanced && paymentBalanced
                 ? FinancialBalanceStatus.Balanced
                 : FinancialBalanceStatus.Outstanding;
 
@@ -186,15 +196,25 @@ namespace DeviceDesk.Modules.Phase0.Controllers
                 expectedDeliveryDate = order.ExpectedDeliveryDate,
                 newStockBatchId = order.NewStockBatchId,
                 totalOrderValue = order.TotalOrderValue,
+                orderValue = order.TotalOrderValue,
+                managementFeePercentage = order.ManagementFeePercentage,
+                managementFeeAmount = summary.ManagementFeeAmount,
+                supplierFee = summary.SupplierFee,
+                totalAllocatedToSchools = summary.TotalAllocatedToSchools,
+                allocationVariance = summary.AllocationVariance,
+                allocationBalanceStatus = summary.AllocationBalanceStatus.ToString(),
                 totalInvoicedToDepartment = order.TotalInvoicedToDepartment,
                 totalPaidByDepartment = order.TotalPaidByDepartment,
                 totalPaidToSuppliers = order.TotalPaidToSuppliers,
                 outstandingBalance,
+                outstandingFromDoe = summary.OutstandingFromDoe,
+                outstandingToSupplier = summary.OutstandingToSupplier,
                 financialBalanceStatus = status.ToString(),
                 createdAt = order.CreatedAt,
                 updatedAt = order.UpdatedAt,
-                isBalanced = schoolsTotal == order.TotalOrderValue,
-                schoolTotals = schoolsTotal,
+                isBalanced = allocationBalanced,
+                isAllocationBalanced = allocationBalanced,
+                schoolTotals = summary.TotalAllocatedToSchools,
                 timelineNotes = order.TimelineNotes,
                 scopeNotes = order.ScopeNotes,
                 schools = order.Schools.Select(s => new

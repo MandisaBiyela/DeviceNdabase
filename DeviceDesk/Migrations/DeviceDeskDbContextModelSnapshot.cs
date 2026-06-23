@@ -1081,6 +1081,15 @@ namespace DeviceDesk.netcore.Migrations
                     b.Property<string>("TimelineNotes")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<decimal>("ManagementFeeAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ManagementFeePercentage")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("SupplierFee")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("TotalInvoicedToDepartment")
                         .HasColumnType("decimal(18,2)");
 
